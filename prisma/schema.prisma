@@ -1,0 +1,112 @@
+// Prisma schema for RSS Reader
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 用户模型
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  feeds         Feed[]
+  readArticles  ReadArticle[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// NextAuth Account模型
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth Session模型
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// NextAuth VerificationToken模型
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// RSS订阅源模型
+model Feed {
+  id          String    @id @default(cuid())
+  url         String
+  title       String
+  description String?
+  link        String?
+  imageUrl    String?
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articles    Article[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, url])
+}
+
+// RSS文章模型
+model Article {
+  id          String        @id @default(cuid())
+  feedId      String
+  feed        Feed          @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  title       String
+  link        String
+  content     String?
+  contentSnippet String?
+  pubDate     DateTime?
+  author      String?
+  guid        String
+  readBy      ReadArticle[]
+  createdAt   DateTime      @default(now())
+
+  @@unique([feedId, guid])
+}
+
+// 已读文章记录
+model ReadArticle {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  readAt    DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+

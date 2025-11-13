@@ -1,0 +1,8 @@
+node_modules
+.env
+.env.*
+*.db
+*.db-journal
+.next
+prisma/migrations
+
