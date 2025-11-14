@@ -18,6 +18,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -44,22 +47,50 @@ export default function DashboardPage() {
     }
   }
 
-  const loadArticles = async (feedId?: string, unread?: boolean) => {
+  const loadArticles = async (feedId?: string, unread?: boolean, reset = true) => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread) params.append("unreadOnly", "true")
+      params.append("limit", "20")
       
       const res = await fetch(`/api/articles?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
-        setArticles(data)
+        setArticles(reset ? data.articles : [...articles, ...data.articles])
+        setNextCursor(data.nextCursor)
+        setHasMore(data.hasNextPage)
       }
     } catch (error) {
       console.error("加载文章失败:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMoreArticles = async () => {
+    if (!nextCursor || isLoadingMore) return
+    
+    try {
+      setIsLoadingMore(true)
+      const params = new URLSearchParams()
+      if (selectedFeed) params.append("feedId", selectedFeed)
+      if (unreadOnly) params.append("unreadOnly", "true")
+      params.append("limit", "20")
+      params.append("cursor", nextCursor)
+      
+      const res = await fetch(`/api/articles?${params.toString()}`)
+      if (res.ok) {
+        const data = await res.json()
+        setArticles([...articles, ...data.articles])
+        setNextCursor(data.nextCursor)
+        setHasMore(data.hasNextPage)
+      }
+    } catch (error) {
+      console.error("加载更多文章失败:", error)
+    } finally {
+      setIsLoadingMore(false)
     }
   }
 
@@ -132,11 +163,27 @@ export default function DashboardPage() {
       })
 
       if (res.ok) {
-        setArticles((prev) =>
-          prev.map((a) =>
+        // 更新文章状态和对应 feed 的未读计数
+        setArticles((prevArticles) => {
+          const updatedArticles = prevArticles.map((a) =>
             a.id === articleId ? { ...a, readBy: [{ articleId }] } : a
           )
-        )
+          
+          // 找到被标记为已读的文章，获取其 feedId
+          const article = prevArticles.find((a) => a.id === articleId)
+          if (article && article.readBy.length === 0) {
+            // 更新对应 feed 的未读计数
+            setFeeds((prevFeeds) =>
+              prevFeeds.map((feed) =>
+                feed.id === article.feed.id && feed.unreadCount > 0
+                  ? { ...feed, unreadCount: feed.unreadCount - 1 }
+                  : feed
+              )
+            )
+          }
+          
+          return updatedArticles
+        })
       }
     } catch (error) {
       console.error("标记已读失败:", error)
@@ -147,6 +194,46 @@ export default function DashboardPage() {
     const newUnreadOnly = !unreadOnly
     setUnreadOnly(newUnreadOnly)
     loadArticles(selectedFeed || undefined, newUnreadOnly)
+  }
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const params = new URLSearchParams()
+      if (selectedFeed) params.append("feedId", selectedFeed)
+
+      const res = await fetch(`/api/articles/read-all?${params.toString()}`, {
+        method: "POST",
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        
+        // 更新本地文章状态
+        setArticles((prev) =>
+          prev.map((a) => ({
+            ...a,
+            readBy: a.readBy.length === 0 ? [{ articleId: a.id }] : a.readBy,
+          }))
+        )
+        
+        // 更新 feeds 的未读计数
+        if (selectedFeed) {
+          // 如果选择了特定 feed，只更新该 feed
+          setFeeds((prev) =>
+            prev.map((feed) =>
+              feed.id === selectedFeed
+                ? { ...feed, unreadCount: 0 }
+                : feed
+            )
+          )
+        } else {
+          // 如果选择了全部，需要重新加载 feeds 以获取准确的未读计数
+          await loadFeeds()
+        }
+      }
+    } catch (error) {
+      console.error("全部标记已读失败:", error)
+    }
   }
 
   if (status === "loading") {
@@ -172,12 +259,17 @@ export default function DashboardPage() {
         onRefresh={handleRefresh}
         unreadOnly={unreadOnly}
         onToggleUnreadOnly={toggleUnreadOnly}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
       <main className="flex-1 overflow-hidden">
         <ArticleList
           articles={articles}
           loading={loading}
+          hasMore={hasMore}
           onMarkAsRead={handleMarkAsRead}
+          onLoadMore={loadMoreArticles}
+          onMarkAllAsRead={handleMarkAllAsRead}
         />
       </main>
       {showAddFeed && (

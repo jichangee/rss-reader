@@ -2,8 +2,8 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { ExternalLink, Loader2, BookOpen } from "lucide-react"
-import { useState } from "react"
+import { ExternalLink, Loader2, BookOpen, CheckCheck } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
 import ArticleDrawer from "./ArticleDrawer"
 
 interface Article {
@@ -24,16 +24,46 @@ interface Article {
 interface ArticleListProps {
   articles: Article[]
   loading: boolean
+  hasMore: boolean
   onMarkAsRead: (articleId: string) => void
+  onLoadMore: () => void
+  onMarkAllAsRead: () => void
 }
 
 export default function ArticleList({
   articles,
   loading,
+  hasMore,
   onMarkAsRead,
+  onLoadMore,
+  onMarkAllAsRead,
 }: ArticleListProps) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const observerTarget = useRef<HTMLDivElement>(null)
+
+  // 无限滚动逻辑
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMore, loading, onLoadMore])
 
   const handleArticleClick = (article: Article) => {
     // 打开抽屉
@@ -80,6 +110,8 @@ export default function ArticleList({
       </div>
     )
   }
+
+  const unreadCount = articles.filter(a => a.readBy.length === 0).length
 
   return (
     <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -155,6 +187,33 @@ export default function ArticleList({
             )
           })}
         </div>
+
+        {/* 滚动加载触发器 */}
+        {hasMore && (
+          <div ref={observerTarget} className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          </div>
+        )}
+
+        {/* 没有更多内容时显示全部已读按钮 */}
+        {!hasMore && articles.length > 0 && unreadCount > 0 && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={onMarkAllAsRead}
+              className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            >
+              <CheckCheck className="h-5 w-5" />
+              <span>全部已读</span>
+            </button>
+          </div>
+        )}
+
+        {/* 全部已读提示 */}
+        {!hasMore && articles.length > 0 && unreadCount === 0 && (
+          <div className="flex justify-center py-8 text-gray-500 dark:text-gray-400">
+            <p className="text-sm">已全部阅读完毕</p>
+          </div>
+        )}
       </div>
       
       {/* 文章详情抽屉 */}

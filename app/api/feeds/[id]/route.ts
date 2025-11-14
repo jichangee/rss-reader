@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 // 删除订阅
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -23,8 +23,10 @@ export async function DELETE(
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
+    const { id } = await params
+
     const feed = await prisma.feed.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!feed) {
@@ -36,7 +38,7 @@ export async function DELETE(
     }
 
     await prisma.feed.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ success: true })

@@ -137,7 +137,7 @@ export default function Sidebar({
           >
             <span className="font-medium">全部文章</span>
             <span className="text-xs">
-              {feeds.reduce((sum, feed) => sum + (feed.articles?.length || 0), 0)}
+              {feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
             </span>
           </button>
 
@@ -180,7 +180,7 @@ export default function Sidebar({
                       </span>
                     </div>
                     <span className="ml-2 text-xs text-gray-500">
-                      {feed.articles?.length || 0}
+                      {feed.unreadCount || 0}
                     </span>
                   </button>
                   <button

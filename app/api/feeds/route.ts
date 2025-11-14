@@ -33,7 +33,28 @@ export async function GET() {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
-    return NextResponse.json(user.feeds)
+    // 为每个 feed 计算未读文章数
+    const feedsWithUnreadCount = await Promise.all(
+      user.feeds.map(async (feed) => {
+        const unreadCount = await prisma.article.count({
+          where: {
+            feedId: feed.id,
+            readBy: {
+              none: {
+                userId: user.id,
+              },
+            },
+          },
+        })
+
+        return {
+          ...feed,
+          unreadCount,
+        }
+      })
+    )
+
+    return NextResponse.json(feedsWithUnreadCount)
   } catch (error) {
     console.error("获取订阅失败:", error)
     return NextResponse.json({ error: "获取订阅失败" }, { status: 500 })
@@ -127,7 +148,22 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(feedWithArticles)
+    // 计算未读文章数
+    const unreadCount = await prisma.article.count({
+      where: {
+        feedId: newFeed.id,
+        readBy: {
+          none: {
+            userId: user.id,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      ...feedWithArticles,
+      unreadCount,
+    })
   } catch (error) {
     console.error("添加订阅失败:", error)
     return NextResponse.json({ error: "添加订阅失败" }, { status: 500 })

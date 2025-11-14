@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma"
 // 标记文章为已读
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -23,8 +23,10 @@ export async function POST(
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
+    const { id } = await params
+
     const article = await prisma.article.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!article) {
@@ -36,7 +38,7 @@ export async function POST(
       where: {
         userId_articleId: {
           userId: user.id,
-          articleId: params.id,
+          articleId: id,
         },
       },
     })
@@ -48,7 +50,7 @@ export async function POST(
     await prisma.readArticle.create({
       data: {
         userId: user.id,
-        articleId: params.id,
+        articleId: id,
       },
     })
 
@@ -62,7 +64,7 @@ export async function POST(
 // 取消已读标记
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -79,10 +81,12 @@ export async function DELETE(
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
+    const { id } = await params
+
     await prisma.readArticle.deleteMany({
       where: {
         userId: user.id,
-        articleId: params.id,
+        articleId: id,
       },
     })
 

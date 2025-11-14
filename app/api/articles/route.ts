@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
-// 获取所有文章
+// 获取所有文章（支持分页）
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -15,6 +15,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const feedId = searchParams.get("feedId")
     const unreadOnly = searchParams.get("unreadOnly") === "true"
+    const cursor = searchParams.get("cursor")
+    const limit = parseInt(searchParams.get("limit") || "20", 10)
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -48,10 +50,22 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { pubDate: "desc" },
-      take: 50,
+      take: limit + 1, // 多取一个用来判断是否有下一页
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1, // 跳过 cursor 本身
+      }),
     })
 
-    return NextResponse.json(articles)
+    const hasNextPage = articles.length > limit
+    const returnArticles = hasNextPage ? articles.slice(0, limit) : articles
+    const nextCursor = hasNextPage ? returnArticles[returnArticles.length - 1].id : null
+
+    return NextResponse.json({
+      articles: returnArticles,
+      nextCursor,
+      hasNextPage,
+    })
   } catch (error) {
     console.error("获取文章失败:", error)
     return NextResponse.json({ error: "获取文章失败" }, { status: 500 })
