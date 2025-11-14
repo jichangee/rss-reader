@@ -1,38 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Loader2 } from "lucide-react"
 
-interface AddFeedModalProps {
-  onClose: () => void
-  onAdd: (url: string, enableTranslation: boolean) => Promise<{ success: boolean; error?: string }>
+interface Feed {
+  id: string
+  title: string
+  url: string
+  enableTranslation?: boolean
 }
 
-export default function AddFeedModal({ onClose, onAdd }: AddFeedModalProps) {
-  const [url, setUrl] = useState("")
-  const [enableTranslation, setEnableTranslation] = useState(false)
+interface EditFeedModalProps {
+  feed: Feed
+  onClose: () => void
+  onUpdate: (feedId: string, enableTranslation: boolean) => Promise<{ success: boolean; error?: string }>
+}
+
+export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModalProps) {
+  const [enableTranslation, setEnableTranslation] = useState(Boolean(feed?.enableTranslation ?? false))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    setEnableTranslation(Boolean(feed?.enableTranslation ?? false))
+  }, [feed])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!url.trim()) {
-      setError("请输入RSS链接")
-      return
-    }
-
     setLoading(true)
     try {
-      const result = await onAdd(url.trim(), enableTranslation)
+      const result = await onUpdate(feed.id, enableTranslation)
       if (result.success) {
         onClose()
       } else {
-        setError(result.error || "添加失败")
+        setError(result.error || "更新失败")
       }
     } catch (err) {
-      setError("添加失败，请重试")
+      setError("更新失败，请重试")
     } finally {
       setLoading(false)
     }
@@ -43,7 +49,7 @@ export default function AddFeedModal({ onClose, onAdd }: AddFeedModalProps) {
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            添加 RSS 订阅
+            编辑订阅
           </h2>
           <button
             onClick={onClose}
@@ -55,26 +61,27 @@ export default function AddFeedModal({ onClose, onAdd }: AddFeedModalProps) {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label
-              htmlFor="rss-url"
-              className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              订阅名称
+            </label>
+            <input
+              type="text"
+              value={feed?.title ?? ""}
+              disabled
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               RSS 链接
             </label>
             <input
-              id="rss-url"
               type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              disabled={loading}
+              value={feed?.url ?? ""}
+              disabled
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"
             />
-            {error && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                {error}
-              </p>
-            )}
           </div>
 
           <div className="mb-4">
@@ -95,16 +102,11 @@ export default function AddFeedModal({ onClose, onAdd }: AddFeedModalProps) {
             </p>
           </div>
 
-          <div className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
-            <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-              常见 RSS 示例：
-            </h3>
-            <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-              <li>• https://hnrss.org/frontpage (Hacker News)</li>
-              <li>• https://www.reddit.com/r/programming/.rss</li>
-              <li>• https://feeds.bbci.co.uk/news/rss.xml (BBC News)</li>
-            </ul>
-          </div>
+          {error && (
+            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              {error}
+            </div>
+          )}
 
           <div className="flex space-x-3">
             <button
@@ -123,10 +125,10 @@ export default function AddFeedModal({ onClose, onAdd }: AddFeedModalProps) {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  添加中...
+                  保存中...
                 </>
               ) : (
-                "添加订阅"
+                "保存"
               )}
             </button>
           </div>

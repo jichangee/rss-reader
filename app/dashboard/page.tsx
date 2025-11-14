@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
+import EditFeedModal from "@/app/components/EditFeedModal"
 import { Loader2, Menu } from "lucide-react"
 
 export default function DashboardPage() {
@@ -15,8 +16,16 @@ export default function DashboardPage() {
   const [articles, setArticles] = useState<any[]>([])
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
   const [showAddFeed, setShowAddFeed] = useState(false)
+  const [editingFeed, setEditingFeed] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
-  const [unreadOnly, setUnreadOnly] = useState(false)
+  const [unreadOnly, setUnreadOnly] = useState(() => {
+    // 从 localStorage 读取保存的"仅未读"设置
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("unreadOnly")
+      return saved === "true"
+    }
+    return false
+  })
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
@@ -31,7 +40,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (status === "authenticated") {
       loadFeeds()
-      loadArticles()
+      // 使用保存的 unreadOnly 设置加载文章
+      loadArticles(undefined, unreadOnly)
     }
   }, [status])
 
@@ -99,12 +109,12 @@ export default function DashboardPage() {
     loadArticles(feedId || undefined, unreadOnly)
   }
 
-  const handleAddFeed = async (url: string) => {
+  const handleAddFeed = async (url: string, enableTranslation: boolean) => {
     try {
       const res = await fetch("/api/feeds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, enableTranslation }),
       })
 
       if (res.ok) {
@@ -118,6 +128,28 @@ export default function DashboardPage() {
       }
     } catch (error) {
       return { success: false, error: "添加失败" }
+    }
+  }
+
+  const handleEditFeed = async (feedId: string, enableTranslation: boolean) => {
+    try {
+      const res = await fetch(`/api/feeds/${feedId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enableTranslation }),
+      })
+
+      if (res.ok) {
+        await loadFeeds()
+        await loadArticles(selectedFeed || undefined, unreadOnly)
+        setEditingFeed(null)
+        return { success: true }
+      } else {
+        const error = await res.json()
+        return { success: false, error: error.error || "更新失败" }
+      }
+    } catch (error) {
+      return { success: false, error: "更新失败" }
     }
   }
 
@@ -163,27 +195,39 @@ export default function DashboardPage() {
       })
 
       if (res.ok) {
-        // 更新文章状态和对应 feed 的未读计数
-        setArticles((prevArticles) => {
-          const updatedArticles = prevArticles.map((a) =>
+        const data = await res.json()
+        
+        // 如果文章已经标记为已读，直接返回
+        if (data.alreadyRead) {
+          return
+        }
+        
+        // 从当前 articles 状态中找到文章
+        const article = articles.find((a) => a.id === articleId)
+        
+        // 如果文章不存在或已经是已读状态，不更新
+        if (!article || article.readBy.length > 0) {
+          return
+        }
+        
+        // 保存 feedId
+        const targetFeedId = article.feed.id
+        
+        // 更新文章状态
+        setArticles((prevArticles) =>
+          prevArticles.map((a) =>
             a.id === articleId ? { ...a, readBy: [{ articleId }] } : a
           )
-          
-          // 找到被标记为已读的文章，获取其 feedId
-          const article = prevArticles.find((a) => a.id === articleId)
-          if (article && article.readBy.length === 0) {
-            // 更新对应 feed 的未读计数
-            setFeeds((prevFeeds) =>
-              prevFeeds.map((feed) =>
-                feed.id === article.feed.id && feed.unreadCount > 0
-                  ? { ...feed, unreadCount: feed.unreadCount - 1 }
-                  : feed
-              )
-            )
-          }
-          
-          return updatedArticles
-        })
+        )
+        
+        // 更新对应 feed 的未读计数（只更新一次）
+        setFeeds((prevFeeds) =>
+          prevFeeds.map((feed) =>
+            feed.id === targetFeedId && feed.unreadCount > 0
+              ? { ...feed, unreadCount: feed.unreadCount - 1 }
+              : feed
+          )
+        )
       }
     } catch (error) {
       console.error("标记已读失败:", error)
@@ -193,6 +237,10 @@ export default function DashboardPage() {
   const toggleUnreadOnly = () => {
     const newUnreadOnly = !unreadOnly
     setUnreadOnly(newUnreadOnly)
+    // 保存到 localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("unreadOnly", String(newUnreadOnly))
+    }
     loadArticles(selectedFeed || undefined, newUnreadOnly)
   }
 
@@ -255,6 +303,7 @@ export default function DashboardPage() {
         selectedFeed={selectedFeed}
         onSelectFeed={handleFeedSelect}
         onAddFeed={() => setShowAddFeed(true)}
+        onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
         onRefresh={handleRefresh}
         unreadOnly={unreadOnly}
@@ -276,6 +325,13 @@ export default function DashboardPage() {
         <AddFeedModal
           onClose={() => setShowAddFeed(false)}
           onAdd={handleAddFeed}
+        />
+      )}
+      {editingFeed && (
+        <EditFeedModal
+          feed={editingFeed}
+          onClose={() => setEditingFeed(null)}
+          onUpdate={handleEditFeed}
         />
       )}
     </div>

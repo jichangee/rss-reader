@@ -6,8 +6,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  url      = env("RSS_DATABASE_URL")
+  directUrl = env("RSS_DIRECT_URL")
 }
 
 // 用户模型
@@ -17,6 +17,7 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  targetLanguage String?  @default("zh") // 翻译目标语言，默认中文
   accounts      Account[]
   sessions      Session[]
   feeds         Feed[]
@@ -65,17 +66,18 @@ model VerificationToken {
 
 // RSS订阅源模型
 model Feed {
-  id          String    @id @default(cuid())
-  url         String
-  title       String
-  description String?
-  link        String?
-  imageUrl    String?
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  articles    Article[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  url               String
+  title             String
+  description       String?
+  link              String?
+  imageUrl          String?
+  enableTranslation Boolean   @default(false) // 是否启用翻译
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articles          Article[]
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([userId, url])
 }

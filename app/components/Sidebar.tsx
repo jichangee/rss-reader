@@ -1,14 +1,16 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X } from "lucide-react"
+import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2 } from "lucide-react"
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 interface SidebarProps {
   feeds: any[]
   selectedFeed: string | null
   onSelectFeed: (feedId: string | null) => void
   onAddFeed: () => void
+  onEditFeed: (feed: any) => void
   onDeleteFeed: (feedId: string) => void
   onRefresh: () => void
   unreadOnly: boolean
@@ -22,6 +24,7 @@ export default function Sidebar({
   selectedFeed,
   onSelectFeed,
   onAddFeed,
+  onEditFeed,
   onDeleteFeed,
   onRefresh,
   unreadOnly,
@@ -30,6 +33,7 @@ export default function Sidebar({
   onClose,
 }: SidebarProps) {
   const { data: session } = useSession()
+  const router = useRouter()
 
   // 防止移动端侧边栏打开时背景滚动
   useEffect(() => {
@@ -183,12 +187,28 @@ export default function Sidebar({
                       {feed.unreadCount || 0}
                     </span>
                   </button>
-                  <button
-                    onClick={() => onDeleteFeed(feed.id)}
-                    className="mr-2 opacity-0 transition-opacity group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
-                  </button>
+                  <div className="mr-2 flex items-center space-x-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEditFeed(feed)
+                      }}
+                      className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-indigo-600 dark:hover:bg-gray-600"
+                      title="编辑订阅"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteFeed(feed.id)
+                      }}
+                      className="rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+                      title="删除订阅"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -202,7 +222,14 @@ export default function Sidebar({
       </div>
 
       {/* 底部 */}
-      <div className="border-t border-gray-200 p-4 dark:border-gray-700">
+      <div className="border-t border-gray-200 p-4 dark:border-gray-700 space-y-2">
+        <button
+          onClick={() => router.push("/settings")}
+          className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+        >
+          <Settings className="h-4 w-4" />
+          <span>设置</span>
+        </button>
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
           className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"

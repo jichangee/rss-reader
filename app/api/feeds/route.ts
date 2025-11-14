@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    const { url } = await request.json()
+    const { url, enableTranslation = false } = await request.json()
 
     if (!url) {
       return NextResponse.json({ error: "RSS链接不能为空" }, { status: 400 })
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
         description: feed.description,
         link: feed.link,
         imageUrl: feed.image?.url,
+        enableTranslation: enableTranslation === true,
         userId: user.id,
       },
     })
