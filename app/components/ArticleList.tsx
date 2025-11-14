@@ -3,11 +3,14 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { ExternalLink, Loader2, BookOpen } from "lucide-react"
+import { useState } from "react"
+import ArticleDrawer from "./ArticleDrawer"
 
 interface Article {
   id: string
   title: string
   link: string
+  content?: string
   contentSnippet?: string
   pubDate?: string
   author?: string
@@ -29,11 +32,35 @@ export default function ArticleList({
   loading,
   onMarkAsRead,
 }: ArticleListProps) {
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+
   const handleArticleClick = (article: Article) => {
+    // 打开抽屉
+    setSelectedArticle(article)
+    setIsDrawerOpen(true)
+    
+    // 如果是未读文章，标记为已读
     if (article.readBy.length === 0) {
       onMarkAsRead(article.id)
     }
+  }
+
+  const handleExternalLinkClick = (article: Article, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    // 如果是未读文章，标记为已读
+    if (article.readBy.length === 0) {
+      onMarkAsRead(article.id)
+    }
+    
     window.open(article.link, "_blank")
+  }
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false)
+    // 延迟清空选中的文章，等待动画完成
+    setTimeout(() => setSelectedArticle(null), 300)
   }
 
   if (loading) {
@@ -117,7 +144,7 @@ export default function ArticleList({
                     </div>
                   </div>
                   <button
-                    onClick={() => handleArticleClick(article)}
+                    onClick={(e) => handleExternalLinkClick(article, e)}
                     className="ml-4 flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                     title="在新标签页中打开"
                   >
@@ -129,6 +156,13 @@ export default function ArticleList({
           })}
         </div>
       </div>
+      
+      {/* 文章详情抽屉 */}
+      <ArticleDrawer
+        article={selectedArticle}
+        isOpen={isDrawerOpen}
+        onClose={handleCloseDrawer}
+      />
     </div>
   )
 }

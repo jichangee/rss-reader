@@ -1,7 +1,8 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter } from "lucide-react"
+import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X } from "lucide-react"
+import { useEffect } from "react"
 
 interface SidebarProps {
   feeds: any[]
@@ -12,6 +13,8 @@ interface SidebarProps {
   onRefresh: () => void
   unreadOnly: boolean
   onToggleUnreadOnly: () => void
+  isOpen: boolean
+  onClose: () => void
 }
 
 export default function Sidebar({
@@ -23,27 +26,70 @@ export default function Sidebar({
   onRefresh,
   unreadOnly,
   onToggleUnreadOnly,
+  isOpen,
+  onClose,
 }: SidebarProps) {
   const { data: session } = useSession()
 
+  // 防止移动端侧边栏打开时背景滚动
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = "unset"
+    }
+    return () => {
+      document.body.style.overflow = "unset"
+    }
+  }, [isOpen])
+
+  const handleFeedSelect = (feedId: string | null) => {
+    onSelectFeed(feedId)
+    // 在移动端选择订阅后关闭侧边栏
+    if (window.innerWidth < 768) {
+      onClose()
+    }
+  }
+
   return (
-    <div className="flex w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+    <>
+      {/* 移动端遮罩层 */}
+      <div
+        className={`fixed inset-0 z-30 bg-black transition-opacity duration-300 md:hidden ${
+          isOpen ? "opacity-50" : "opacity-0 pointer-events-none"
+        }`}
+        onClick={onClose}
+      />
+
+      {/* 侧边栏 */}
+      <div
+        className={`fixed md:static inset-y-0 left-0 z-40 flex w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
       {/* 头部 */}
       <div className="border-b border-gray-200 p-4 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 flex-shrink-0">
               <Rss className="h-6 w-6 text-white" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h1 className="font-semibold text-gray-900 dark:text-white">
                 RSS 阅读器
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                 {session?.user?.name || session?.user?.email}
               </p>
             </div>
           </div>
+          {/* 移动端关闭按钮 */}
+          <button
+            onClick={onClose}
+            className="ml-2 md:hidden rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
@@ -82,7 +128,7 @@ export default function Sidebar({
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
           <button
-            onClick={() => onSelectFeed(null)}
+            onClick={() => handleFeedSelect(null)}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               selectedFeed === null
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
@@ -110,7 +156,7 @@ export default function Sidebar({
                   }`}
                 >
                   <button
-                    onClick={() => onSelectFeed(feed.id)}
+                    onClick={() => handleFeedSelect(feed.id)}
                     className="flex flex-1 items-center justify-between px-3 py-2 text-left"
                   >
                     <div className="flex items-center space-x-2 overflow-hidden">
@@ -165,7 +211,8 @@ export default function Sidebar({
           <span>退出登录</span>
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 

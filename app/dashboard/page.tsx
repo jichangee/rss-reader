@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
-import { Loader2 } from "lucide-react"
+import { Loader2, Menu } from "lucide-react"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [showAddFeed, setShowAddFeed] = useState(false)
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
