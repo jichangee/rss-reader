@@ -1,7 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2 } from "lucide-react"
+import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2 } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -17,6 +17,7 @@ interface SidebarProps {
   onToggleUnreadOnly: () => void
   isOpen: boolean
   onClose: () => void
+  isRefreshing?: boolean
 }
 
 export default function Sidebar({
@@ -31,6 +32,7 @@ export default function Sidebar({
   onToggleUnreadOnly,
   isOpen,
   onClose,
+  isRefreshing = false,
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -109,10 +111,15 @@ export default function Sidebar({
           </button>
           <button
             onClick={onRefresh}
-            className="flex items-center justify-center space-x-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+            disabled={isRefreshing}
+            className="flex items-center justify-center space-x-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="h-4 w-4" />
-            <span>刷新</span>
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            <span>{isRefreshing ? "刷新中..." : "刷新"}</span>
           </button>
         </div>
         <button

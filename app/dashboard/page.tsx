@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
@@ -20,16 +20,24 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(() => {
     // 从 localStorage 读取保存的"仅未读"设置
+    // 如果首次进入（没有保存的值），默认开启仅未读功能
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("unreadOnly")
+      if (saved === null) {
+        // 首次进入，默认开启并保存
+        localStorage.setItem("unreadOnly", "true")
+        return true
+      }
       return saved === "true"
     }
-    return false
+    return true // 服务端渲染时默认开启
   })
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const hasInitialRefreshRef = useRef(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -42,8 +50,32 @@ export default function DashboardPage() {
       loadFeeds()
       // 使用保存的 unreadOnly 设置加载文章
       loadArticles(undefined, unreadOnly)
+      
+      // 首次进入时自动刷新数据
+      if (!hasInitialRefreshRef.current) {
+        hasInitialRefreshRef.current = true
+        // 内联刷新逻辑，避免依赖项问题
+        const performInitialRefresh = async () => {
+          try {
+            setIsRefreshing(true)
+            const res = await fetch("/api/feeds/refresh", {
+              method: "POST",
+            })
+
+            if (res.ok) {
+              await loadFeeds()
+              await loadArticles(undefined, unreadOnly)
+            }
+          } catch (error) {
+            console.error("刷新失败:", error)
+          } finally {
+            setIsRefreshing(false)
+          }
+        }
+        performInitialRefresh()
+      }
     }
-  }, [status])
+  }, [status, unreadOnly])
 
   const loadFeeds = async () => {
     try {
@@ -175,6 +207,7 @@ export default function DashboardPage() {
 
   const handleRefresh = async () => {
     try {
+      setIsRefreshing(true)
       const res = await fetch("/api/feeds/refresh", {
         method: "POST",
       })
@@ -185,6 +218,8 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("刷新失败:", error)
+    } finally {
+      setIsRefreshing(false)
     }
   }
 
@@ -310,6 +345,7 @@ export default function DashboardPage() {
         onToggleUnreadOnly={toggleUnreadOnly}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        isRefreshing={isRefreshing}
       />
       <main className="flex-1 overflow-hidden">
         <ArticleList
