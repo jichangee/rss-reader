@@ -13,15 +13,19 @@ interface Feed {
 interface EditFeedModalProps {
   feed: Feed
   onClose: () => void
-  onUpdate: (feedId: string, enableTranslation: boolean) => Promise<{ success: boolean; error?: string }>
+  onUpdate: (feedId: string, data: { title?: string; url?: string; enableTranslation?: boolean }) => Promise<{ success: boolean; error?: string }>
 }
 
 export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModalProps) {
+  const [title, setTitle] = useState(feed?.title ?? "")
+  const [url, setUrl] = useState(feed?.url ?? "")
   const [enableTranslation, setEnableTranslation] = useState(Boolean(feed?.enableTranslation ?? false))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
+    setTitle(feed?.title ?? "")
+    setUrl(feed?.url ?? "")
     setEnableTranslation(Boolean(feed?.enableTranslation ?? false))
   }, [feed])
 
@@ -29,9 +33,24 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
     e.preventDefault()
     setError("")
 
+    // 验证输入
+    if (!title.trim()) {
+      setError("订阅名称不能为空")
+      return
+    }
+
+    if (!url.trim()) {
+      setError("RSS链接不能为空")
+      return
+    }
+
     setLoading(true)
     try {
-      const result = await onUpdate(feed.id, enableTranslation)
+      const result = await onUpdate(feed.id, {
+        title: title.trim(),
+        url: url.trim(),
+        enableTranslation,
+      })
       if (result.success) {
         onClose()
       } else {
@@ -66,9 +85,11 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </label>
             <input
               type="text"
-              value={feed?.title ?? ""}
-              disabled
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="输入订阅名称"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              disabled={loading}
             />
           </div>
 
@@ -78,10 +99,15 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </label>
             <input
               type="url"
-              value={feed?.url ?? ""}
-              disabled
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 bg-gray-50 text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-400"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com/feed.xml"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              disabled={loading}
             />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              修改RSS链接将验证新链接的有效性
+            </p>
           </div>
 
           <div className="mb-4">

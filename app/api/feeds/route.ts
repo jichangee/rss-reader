@@ -2,9 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import Parser from "rss-parser"
-
-const parser = new Parser()
+import { parseRSSWithTimeout } from "@/lib/rss-parser"
 
 // 获取用户的所有订阅
 export async function GET() {
@@ -76,13 +74,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "RSS链接不能为空" }, { status: 400 })
     }
 
-    // 解析RSS feed
+    // 解析RSS feed (10秒超时)
     let feed
     try {
-      feed = await parser.parseURL(url)
+      feed = await parseRSSWithTimeout(url, 10000)
     } catch (error) {
       console.error("解析RSS失败:", error)
-      return NextResponse.json({ error: "无效的RSS链接" }, { status: 400 })
+      const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
+        ? "RSS解析超时，请稍后重试" 
+        : "无效的RSS链接"
+      return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
     const user = await prisma.user.findUnique({

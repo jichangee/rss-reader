@@ -2,9 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import Parser from "rss-parser"
-
-const parser = new Parser()
+import { parseRSSWithTimeout } from "@/lib/rss-parser"
 
 // 刷新所有订阅
 export async function POST() {
@@ -29,7 +27,7 @@ export async function POST() {
 
     for (const feed of user.feeds) {
       try {
-        const parsedFeed = await parser.parseURL(feed.url)
+        const parsedFeed = await parseRSSWithTimeout(feed.url, 10000)
         
         // 更新feed信息
         await prisma.feed.update({

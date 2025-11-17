@@ -163,12 +163,15 @@ export default function DashboardPage() {
     }
   }
 
-  const handleEditFeed = async (feedId: string, enableTranslation: boolean) => {
+  const handleEditFeed = async (
+    feedId: string,
+    data: { title?: string; url?: string; enableTranslation?: boolean }
+  ) => {
     try {
       const res = await fetch(`/api/feeds/${feedId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enableTranslation }),
+        body: JSON.stringify(data),
       })
 
       if (res.ok) {
