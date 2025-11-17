@@ -123,7 +123,7 @@ export async function POST(request: Request) {
 
     // 保存文章
     if (feed.items && feed.items.length > 0) {
-      const articles = feed.items.slice(0, 20).map((item) => ({
+      const articles = feed.items.slice(0, 20).map((item: any) => ({
         feedId: newFeed.id,
         title: item.title || "无标题",
         link: item.link || "",

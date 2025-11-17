@@ -42,7 +42,7 @@ export async function POST() {
 
         // 添加新文章
         if (parsedFeed.items && parsedFeed.items.length > 0) {
-          const articles = parsedFeed.items.slice(0, 20).map((item) => ({
+          const articles = parsedFeed.items.slice(0, 20).map((item: any) => ({
             feedId: feed.id,
             title: item.title || "无标题",
             link: item.link || "",

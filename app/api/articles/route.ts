@@ -21,7 +21,11 @@ export async function GET(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { feeds: true },
+      select: {
+        id: true,
+        targetLanguage: true,
+        feeds: true,
+      },
     })
 
     if (!user) {
