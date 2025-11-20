@@ -3,7 +3,8 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { X, ExternalLink, Calendar, User } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import YouTubeAudioPlayer from "./YouTubeAudioPlayer"
 
 interface Article {
   id: string
@@ -49,6 +50,23 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       document.body.style.overflow = "unset"
     }
   }, [isOpen])
+
+  // 提取文章内容中的YouTube链接
+  const youtubeLinks = useMemo(() => {
+    if (!article) return []
+    
+    const content = article.content || article.contentSnippet || ""
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
+    const links: string[] = []
+    let match
+
+    while ((match = youtubeRegex.exec(content)) !== null) {
+      links.push(match[0])
+    }
+
+    // 去重
+    return Array.from(new Set(links))
+  }, [article])
 
   if (!article) return null
 
@@ -131,6 +149,20 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
                 </div>
               )}
             </div>
+
+            {/* YouTube音频播放器 */}
+            {youtubeLinks.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  检测到YouTube视频 ({youtubeLinks.length})
+                </h3>
+                <div className="space-y-3">
+                  {youtubeLinks.map((link, index) => (
+                    <YouTubeAudioPlayer key={`${link}-${index}`} videoUrl={link} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 文章内容 */}
             <div className="prose prose-sm sm:prose dark:prose-invert max-w-none">
