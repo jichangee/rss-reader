@@ -8,7 +8,6 @@ import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
 import PlaylistDrawer from "@/app/components/PlaylistDrawer"
-import GlobalPlayer from "@/app/components/GlobalPlayer"
 import { Loader2, Menu } from "lucide-react"
 
 function DashboardContent() {
@@ -495,7 +494,6 @@ function DashboardContent() {
         isOpen={showPlaylist}
         onClose={() => setShowPlaylist(false)}
       />
-      <GlobalPlayer />
     </div>
   )
 }

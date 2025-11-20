@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react"
-import { useGlobalPlayer } from "./GlobalPlayerContext"
 
 // 声明YouTube Player API类型
 declare global {
@@ -15,13 +14,11 @@ declare global {
 interface YouTubeAudioPlayerProps {
   videoUrl: string
   articleId?: string // 可选的文章ID，用于关联播放记录
-  isGlobalPlayer?: boolean // 是否为全局播放器
   shouldAutoPlay?: boolean // 是否自动播放
   initialTime?: number // 初始播放时间（秒）
 }
 
-export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer = false, shouldAutoPlay = false, initialTime }: YouTubeAudioPlayerProps) {
-  const { playerState, activatePlayer } = useGlobalPlayer()
+export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay = false, initialTime }: YouTubeAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -356,11 +353,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer
             }
           }, 500)
         }
-
-        // 如果不是全局播放器，激活全局播放器
-        if (!isGlobalPlayer && videoId) {
-          activatePlayer(videoUrl, videoId, articleId)
-        }
       }
     } catch (err) {
       console.error("播放控制失败:", err)
@@ -448,32 +440,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer
 
   if (!videoId) {
     return null
-  }
-
-  // 如果全局播放器正在播放同一个视频，且当前不是全局播放器实例，则显示提示
-  const isGlobalPlayingSameVideo = !isGlobalPlayer && 
-    playerState.isActive &&
-    playerState.videoId === videoId &&
-    playerState.videoUrl === videoUrl
-
-  if (isGlobalPlayingSameVideo) {
-    return (
-      <div className="my-4 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-4 shadow-sm">
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0 rounded-full bg-indigo-600 p-2 text-white">
-            <Play className="h-4 w-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
-              正在底部播放器中播放
-            </p>
-            <p className="text-xs text-indigo-600 dark:text-indigo-300 mt-1">
-              音频已在后台继续播放，关闭弹窗也不会停止
-            </p>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
