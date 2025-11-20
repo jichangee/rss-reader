@@ -235,7 +235,11 @@ export default function PlaylistDrawer({ isOpen, onClose }: PlaylistDrawerProps)
                     {/* 展开的播放器 */}
                     {selectedItem?.id === item.id && (
                       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                        <YouTubeAudioPlayer videoUrl={item.videoUrl} />
+                        <YouTubeAudioPlayer 
+                          videoUrl={item.videoUrl}
+                          initialTime={item.currentTime}
+                          shouldAutoPlay={true}
+                        />
                         <button
                           onClick={() => setSelectedItem(null)}
                           className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

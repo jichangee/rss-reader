@@ -17,9 +17,10 @@ interface YouTubeAudioPlayerProps {
   articleId?: string // 可选的文章ID，用于关联播放记录
   isGlobalPlayer?: boolean // 是否为全局播放器
   shouldAutoPlay?: boolean // 是否自动播放
+  initialTime?: number // 初始播放时间（秒）
 }
 
-export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer = false, shouldAutoPlay = false }: YouTubeAudioPlayerProps) {
+export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer = false, shouldAutoPlay = false, initialTime }: YouTubeAudioPlayerProps) {
   const { playerState, activatePlayer } = useGlobalPlayer()
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -29,7 +30,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer
   const [volume, setVolume] = useState(100)
   const [isMuted, setIsMuted] = useState(false)
   const [playerReady, setPlayerReady] = useState(false)
-  const [savedProgress, setSavedProgress] = useState<number | null>(null)
+  const [savedProgress, setSavedProgress] = useState<number | null>(initialTime !== undefined ? initialTime : null)
   const playerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -53,9 +54,9 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer
 
   const videoId = extractVideoId(videoUrl)
 
-  // 加载之前的播放进度
+  // 加载之前的播放进度（仅当没有提供 initialTime 时）
   useEffect(() => {
-    if (!videoId) return
+    if (!videoId || initialTime !== undefined) return
 
     const loadProgress = async () => {
       try {
@@ -73,7 +74,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer
     }
 
     loadProgress()
-  }, [videoId])
+  }, [videoId, initialTime])
 
   // 保存播放进度到服务器
   const saveProgress = async (time: number, dur: number) => {
