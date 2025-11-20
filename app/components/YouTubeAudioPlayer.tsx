@@ -471,11 +471,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 YouTube音频
               </span>
-              {savedProgress && savedProgress > 0 && !isPlaying && currentTime === savedProgress && (
-                <span className="text-xs text-indigo-600 dark:text-indigo-400">
-                  (已恢复进度)
-                </span>
-              )}
             </div>
             {duration > 0 && (
               <span className="text-xs text-gray-600 dark:text-gray-300">
