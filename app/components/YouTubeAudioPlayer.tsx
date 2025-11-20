@@ -32,11 +32,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
   const containerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const saveProgressTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const videoTitleRef = useRef<string>("YouTube音频")
-  const videoThumbnailRef = useRef<string>("")
-  const wasPlayingBeforeHideRef = useRef<boolean>(false)
-  const autoResumeTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const isUserPausedRef = useRef<boolean>(false)
+  const lastMediaPositionUpdateRef = useRef<number>(0)
 
   // 提取YouTube视频ID
   const extractVideoId = (url: string): string | null => {
@@ -108,6 +104,110 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }
 
+  const isMediaSessionSupported = () => typeof navigator !== "undefined" && "mediaSession" in navigator
+
+  const updateMediaSessionMetadata = () => {
+    if (!isMediaSessionSupported() || !playerRef.current) return
+
+    try {
+      const videoData = playerRef.current.getVideoData?.()
+      const title = videoData?.title || "YouTube 音频"
+      const artist = videoData?.author || "YouTube"
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album: "RSS Reader",
+        artwork: videoId
+          ? [
+              { src: `https://img.youtube.com/vi/${videoId}/default.jpg`, sizes: "120x90", type: "image/jpeg" },
+              { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, sizes: "320x180", type: "image/jpeg" },
+              { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, sizes: "480x360", type: "image/jpeg" },
+            ]
+          : undefined,
+      })
+    } catch (err) {
+      console.warn("设置 Media Session 元数据失败:", err)
+    }
+  }
+
+  const updateMediaSessionPlaybackState = (playing: boolean) => {
+    if (!isMediaSessionSupported()) return
+    try {
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused"
+    } catch (err) {
+      console.warn("更新 Media Session 播放状态失败:", err)
+    }
+  }
+
+  const updateMediaSessionPosition = (position: number, dur: number) => {
+    if (
+      !isMediaSessionSupported() ||
+      typeof navigator.mediaSession.setPositionState !== "function" ||
+      !isFinite(dur) ||
+      dur <= 0
+    ) {
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastMediaPositionUpdateRef.current < 500) return
+    lastMediaPositionUpdateRef.current = now
+
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: dur,
+        position,
+        playbackRate: playerRef.current?.getPlaybackRate?.() || 1,
+      })
+    } catch (err) {
+      console.warn("更新 Media Session 进度失败:", err)
+    }
+  }
+
+  const registerMediaSessionHandlers = () => {
+    if (!isMediaSessionSupported()) return
+
+    try {
+      navigator.mediaSession.setActionHandler("play", () => {
+        if (playerRef.current?.playVideo) {
+          playerRef.current.playVideo()
+        }
+      })
+      navigator.mediaSession.setActionHandler("pause", () => {
+        if (playerRef.current?.pauseVideo) {
+          playerRef.current.pauseVideo()
+        }
+      })
+      navigator.mediaSession.setActionHandler("previoustrack", () => {
+        if (playerRef.current?.seekTo) {
+          playerRef.current.seekTo(0, true)
+        }
+      })
+      navigator.mediaSession.setActionHandler("nexttrack", () => {
+        if (playerRef.current?.getDuration && playerRef.current?.seekTo) {
+          const dur = playerRef.current.getDuration()
+          playerRef.current.seekTo(Math.max(dur - 5, 0), true)
+        }
+      })
+      navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+        if (playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
+          const current = playerRef.current.getCurrentTime()
+          playerRef.current.seekTo(Math.max(current - (details.seekOffset || 10), 0), true)
+        }
+      })
+      navigator.mediaSession.setActionHandler("seekforward", (details) => {
+        if (playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
+          const current = playerRef.current.getCurrentTime()
+          const dur = playerRef.current.getDuration?.() || duration
+          playerRef.current.seekTo(Math.min(current + (details.seekOffset || 10), dur), true)
+        }
+      })
+    } catch (err) {
+      console.warn("注册 Media Session 控件失败:", err)
+    }
+  }
+
   // 定期保存播放进度
   useEffect(() => {
     if (isPlaying && playerReady) {
@@ -126,138 +226,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       }
     }
   }, [isPlaying, playerReady, duration])
-
-  // 监听页面可见性变化，防止锁屏时暂停
-  useEffect(() => {
-    if (!playerReady) return
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // 页面隐藏时，记录当前播放状态
-        wasPlayingBeforeHideRef.current = isPlaying && !isUserPausedRef.current
-        // 确保 Media Session 已设置，以便锁屏时显示控制
-        if (isPlaying && playerRef.current && !isUserPausedRef.current) {
-          setupMediaSession()
-          
-          // 启动自动恢复定时器，持续检查并恢复播放
-          if (autoResumeTimerRef.current) {
-            clearInterval(autoResumeTimerRef.current)
-          }
-          
-          autoResumeTimerRef.current = setInterval(() => {
-            if (document.hidden && playerRef.current && !isUserPausedRef.current && wasPlayingBeforeHideRef.current) {
-              try {
-                const state = playerRef.current.getPlayerState?.()
-                // 如果播放器被暂停了，尝试恢复
-                if (state === 2) {
-                  playerRef.current.playVideo()
-                }
-              } catch (e) {
-                // 静默失败，避免过多日志
-              }
-            } else {
-              // 如果页面可见或用户暂停了，清除定时器
-              if (autoResumeTimerRef.current) {
-                clearInterval(autoResumeTimerRef.current)
-                autoResumeTimerRef.current = null
-              }
-            }
-          }, 1000) // 每秒检查一次
-        }
-      } else {
-        // 页面重新可见时，清除自动恢复定时器
-        if (autoResumeTimerRef.current) {
-          clearInterval(autoResumeTimerRef.current)
-          autoResumeTimerRef.current = null
-        }
-        
-        // 如果之前正在播放，尝试恢复播放
-        if (wasPlayingBeforeHideRef.current && playerRef.current && !isUserPausedRef.current) {
-          setTimeout(() => {
-            try {
-              if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
-                const state = playerRef.current.getPlayerState()
-                // 状态 2 表示暂停
-                if (state === 2) {
-                  playerRef.current.playVideo()
-                }
-              }
-            } catch (e) {
-              console.error("恢复播放失败:", e)
-            }
-          }, 300)
-        }
-      }
-    }
-
-    // 监听页面可见性变化
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-
-    // 监听页面进入后台前的事件（iOS Safari）
-    const handlePageHide = () => {
-      // 确保 Media Session 已设置
-      if (playerReady && playerRef.current && isPlaying && !isUserPausedRef.current) {
-        setupMediaSession()
-        wasPlayingBeforeHideRef.current = true
-        
-        // 启动自动恢复定时器
-        if (autoResumeTimerRef.current) {
-          clearInterval(autoResumeTimerRef.current)
-        }
-        
-        autoResumeTimerRef.current = setInterval(() => {
-          if (playerRef.current && !isUserPausedRef.current && wasPlayingBeforeHideRef.current) {
-            try {
-              const state = playerRef.current.getPlayerState?.()
-              if (state === 2) {
-                playerRef.current.playVideo()
-              }
-            } catch (e) {
-              // 静默失败
-            }
-          }
-        }, 1000)
-      }
-    }
-
-    // 监听页面恢复事件（iOS Safari）
-    const handlePageShow = () => {
-      // 清除自动恢复定时器
-      if (autoResumeTimerRef.current) {
-        clearInterval(autoResumeTimerRef.current)
-        autoResumeTimerRef.current = null
-      }
-      
-      // 页面恢复时，如果之前正在播放，尝试恢复
-      if (wasPlayingBeforeHideRef.current && playerRef.current && !isUserPausedRef.current) {
-        setTimeout(() => {
-          try {
-            if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
-              const state = playerRef.current.getPlayerState()
-              if (state === 2) {
-                playerRef.current.playVideo()
-              }
-            }
-          } catch (e) {
-            console.error("恢复播放失败:", e)
-          }
-        }, 300)
-      }
-    }
-
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('pageshow', handlePageShow)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('pagehide', handlePageHide)
-      window.removeEventListener('pageshow', handlePageShow)
-      if (autoResumeTimerRef.current) {
-        clearInterval(autoResumeTimerRef.current)
-        autoResumeTimerRef.current = null
-      }
-    }
-  }, [playerReady, isPlaying])
 
   // 加载YouTube IFrame API
   useEffect(() => {
@@ -285,19 +253,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
 
     return () => {
-      // 清理 Media Session
-      if ('mediaSession' in navigator) {
-        try {
-          navigator.mediaSession.metadata = null
-          navigator.mediaSession.setActionHandler('play', null)
-          navigator.mediaSession.setActionHandler('pause', null)
-          navigator.mediaSession.setActionHandler('seekbackward', null)
-          navigator.mediaSession.setActionHandler('seekforward', null)
-        } catch (e) {
-          console.error("清理 Media Session 失败:", e)
-        }
-      }
-      
       // 清理播放器
       if (playerRef.current) {
         try {
@@ -331,10 +286,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       if (saveProgressTimerRef.current) {
         clearInterval(saveProgressTimerRef.current)
         saveProgressTimerRef.current = null
-      }
-      if (autoResumeTimerRef.current) {
-        clearInterval(autoResumeTimerRef.current)
-        autoResumeTimerRef.current = null
       }
     }
   }, [videoId])
@@ -408,79 +359,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }
 
-  // 设置 Media Session API（用于锁屏控制）
-  const setupMediaSession = () => {
-    if (!('mediaSession' in navigator)) return
-
-    const videoData = playerRef.current?.getVideoData()
-    const title = videoData?.title || videoTitleRef.current
-    videoTitleRef.current = title
-    videoThumbnailRef.current = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
-
-    try {
-      navigator.mediaSession.metadata = new (window as any).MediaMetadata({
-        title: title,
-        artist: 'YouTube',
-        artwork: [
-          { src: videoThumbnailRef.current, sizes: '320x180', type: 'image/jpeg' },
-          { src: videoThumbnailRef.current, sizes: '640x360', type: 'image/jpeg' },
-        ],
-      })
-
-      // 设置播放/暂停操作
-      navigator.mediaSession.setActionHandler('play', () => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          isUserPausedRef.current = false
-          wasPlayingBeforeHideRef.current = true
-          playerRef.current.playVideo()
-        }
-      })
-
-      navigator.mediaSession.setActionHandler('pause', () => {
-        if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
-          isUserPausedRef.current = true
-          wasPlayingBeforeHideRef.current = false
-          playerRef.current.pauseVideo()
-        }
-      })
-
-      // 设置前进/后退操作（可选）
-      navigator.mediaSession.setActionHandler('seekbackward', () => {
-        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-          const currentTime = playerRef.current.getCurrentTime()
-          const newTime = Math.max(0, currentTime - 10)
-          if (typeof playerRef.current.seekTo === 'function') {
-            playerRef.current.seekTo(newTime, true)
-          }
-        }
-      })
-
-      navigator.mediaSession.setActionHandler('seekforward', () => {
-        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-          const currentDur = duration || (playerRef.current.getDuration?.() || 0)
-          const currentTime = playerRef.current.getCurrentTime()
-          const newTime = Math.min(currentDur, currentTime + 10)
-          if (typeof playerRef.current.seekTo === 'function') {
-            playerRef.current.seekTo(newTime, true)
-          }
-        }
-      })
-    } catch (e) {
-      console.error("设置 Media Session 失败:", e)
-    }
-  }
-
-  // 更新 Media Session 播放状态
-  const updateMediaSessionPlaybackState = (playing: boolean) => {
-    if (!('mediaSession' in navigator)) return
-    
-    try {
-      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
-    } catch (e) {
-      console.error("更新 Media Session 状态失败:", e)
-    }
-  }
-
   // 播放器就绪
   const onPlayerReady = (event: any) => {
     setPlayerReady(true)
@@ -488,18 +366,14 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     const dur = event.target.getDuration()
     setDuration(dur)
     event.target.setVolume(volume)
-    
-    // 获取视频信息并设置 Media Session
-    const videoData = event.target.getVideoData()
-    if (videoData?.title) {
-      videoTitleRef.current = videoData.title
-    }
-    setupMediaSession()
+    updateMediaSessionMetadata()
+    registerMediaSessionHandlers()
     
     // 如果有保存的进度，恢复到该位置
     if (savedProgress && savedProgress > 0 && savedProgress < dur - 10) {
       event.target.seekTo(savedProgress, true)
       setCurrentTime(savedProgress)
+      updateMediaSessionPosition(savedProgress, dur)
     }
     
     // 如果需要自动播放，立即开始播放
@@ -507,6 +381,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       setTimeout(() => {
         if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
           playerRef.current.playVideo()
+          updateMediaSessionPlaybackState(true)
         }
       }, 300)
     }
@@ -514,7 +389,9 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     // 开始更新进度
     intervalRef.current = setInterval(() => {
       if (playerRef.current && playerRef.current.getCurrentTime) {
-        setCurrentTime(playerRef.current.getCurrentTime())
+        const time = playerRef.current.getCurrentTime()
+        setCurrentTime(time)
+        updateMediaSessionPosition(time, playerRef.current.getDuration?.() || dur || duration)
       }
     }, 100)
   }
@@ -525,12 +402,6 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     if (event.data === 1) {
       setIsPlaying(true)
       updateMediaSessionPlaybackState(true)
-      isUserPausedRef.current = false
-      // 清除自动恢复定时器
-      if (autoResumeTimerRef.current) {
-        clearInterval(autoResumeTimerRef.current)
-        autoResumeTimerRef.current = null
-      }
     } else if (event.data === 2) {
       setIsPlaying(false)
       updateMediaSessionPlaybackState(false)
@@ -539,28 +410,10 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
         const time = playerRef.current.getCurrentTime()
         saveProgress(time, duration)
       }
-      
-      // 如果页面隐藏且不是用户主动暂停，尝试恢复播放
-      if (document.hidden && !isUserPausedRef.current && wasPlayingBeforeHideRef.current) {
-        // 延迟一下再恢复，避免立即触发
-        setTimeout(() => {
-          if (playerRef.current && document.hidden && !isUserPausedRef.current) {
-            try {
-              const state = playerRef.current.getPlayerState?.()
-              if (state === 2) { // 暂停状态
-                playerRef.current.playVideo()
-              }
-            } catch (e) {
-              console.error("自动恢复播放失败:", e)
-            }
-          }
-        }, 500)
-      }
     } else if (event.data === 0) {
       setIsPlaying(false)
-      updateMediaSessionPlaybackState(false)
       setCurrentTime(0)
-      isUserPausedRef.current = false
+      updateMediaSessionPlaybackState(false)
       // 播放完成时保存进度为0（重置）
       if (duration > 0) {
         saveProgress(0, duration)
@@ -598,22 +451,10 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       if (isPlaying) {
         playerRef.current.pauseVideo()
         updateMediaSessionPlaybackState(false)
-        wasPlayingBeforeHideRef.current = false // 用户主动暂停
-        isUserPausedRef.current = true // 标记为用户主动暂停
-        // 清除自动恢复定时器
-        if (autoResumeTimerRef.current) {
-          clearInterval(autoResumeTimerRef.current)
-          autoResumeTimerRef.current = null
-        }
       } else {
         // 开始播放
         playerRef.current.playVideo()
         updateMediaSessionPlaybackState(true)
-        wasPlayingBeforeHideRef.current = true // 用户主动播放
-        isUserPausedRef.current = false // 清除用户暂停标志
-        
-        // 确保 Media Session 已设置
-        setupMediaSession()
 
         // 开始播放后，添加到播放列表（即使 duration 还没准备好）
         if (videoId) {
@@ -646,6 +487,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       const newTime = parseFloat(e.target.value)
       setCurrentTime(newTime)
       playerRef.current.seekTo(newTime, true)
+      updateMediaSessionPosition(newTime, playerRef.current.getDuration?.() || duration)
     } catch (err) {
       console.error("进度调整失败:", err)
     }
@@ -804,8 +646,21 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
         </div>
       )}
 
-      {/* 隐藏的YouTube播放器容器 */}
-      <div ref={containerRef} style={{ display: 'none' }} />
+      {/* 隐藏的YouTube播放器容器（不能 display:none，否则移动端会被后台暂停） */}
+      <div
+        ref={containerRef}
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          width: "1px",
+          height: "1px",
+          opacity: 0,
+          pointerEvents: "none",
+          overflow: "hidden",
+          bottom: 0,
+          right: 0,
+        }}
+      />
     </div>
   )
 }
