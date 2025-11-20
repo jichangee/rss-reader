@@ -24,3 +24,39 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 防止文本溢出屏幕 */
+.article-content,
+.prose {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 确保链接和长单词也能正确换行 */
+.article-content a,
+.prose a {
+  word-break: break-all;
+}
+
+/* 确保图片不超出容器 */
+.article-content img,
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 确保代码块可以水平滚动而不是溢出 */
+.article-content pre,
+.prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* 确保表格在移动端可以水平滚动 */
+.article-content table,
+.prose table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}

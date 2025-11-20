@@ -454,17 +454,29 @@ function DashboardContent() {
         isRefreshing={isRefreshing}
         onOpenPlaylist={() => setShowPlaylist(true)}
       />
-      <main className="flex-1 overflow-hidden pb-28">
-        <ArticleList
-          articles={articles}
-          loading={loading}
-          hasMore={hasMore}
-          onMarkAsRead={handleMarkAsRead}
-          onMarkAsReadBatch={handleMarkAsReadBatch}
-          onLoadMore={loadMoreArticles}
-          onMarkAllAsRead={handleMarkAllAsRead}
-          markReadOnScroll={markReadOnScroll}
-        />
+      <main className="flex-1 overflow-hidden flex flex-col">
+        {/* 移动端顶部菜单栏 */}
+        <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          >
+            <Menu className="h-6 w-6" />
+            <span className="font-medium">菜单</span>
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <ArticleList
+            articles={articles}
+            loading={loading}
+            hasMore={hasMore}
+            onMarkAsRead={handleMarkAsRead}
+            onMarkAsReadBatch={handleMarkAsReadBatch}
+            onLoadMore={loadMoreArticles}
+            onMarkAllAsRead={handleMarkAllAsRead}
+            markReadOnScroll={markReadOnScroll}
+          />
+        </div>
       </main>
       {showAddFeed && (
         <AddFeedModal

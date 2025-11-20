@@ -124,22 +124,22 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           </div>
 
           {/* 内容区域 */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 overflow-x-hidden">
             {/* 文章标题 */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 leading-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 leading-tight break-words">
               {article.title}
             </h1>
 
             {/* 元数据 */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
               {article.author && (
-                <div className="flex items-center space-x-1">
-                  <User className="h-4 w-4" />
-                  <span>{article.author}</span>
+                <div className="flex items-center space-x-1 break-words min-w-0">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="break-words">{article.author}</span>
                 </div>
               )}
               {article.pubDate && (
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center space-x-1 flex-shrink-0">
                   <Calendar className="h-4 w-4" />
                   <span>
                     {format(new Date(article.pubDate), "yyyy年MM月dd日 HH:mm", {
@@ -165,14 +165,14 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
             )}
 
             {/* 文章内容 */}
-            <div className="prose prose-sm sm:prose dark:prose-invert max-w-none">
+            <div className="prose prose-sm sm:prose dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
               {article.content ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: article.content }}
-                  className="article-content text-gray-800 dark:text-gray-200 leading-relaxed"
+                  className="article-content text-gray-800 dark:text-gray-200 leading-relaxed break-words [&_*]:break-words [&_a]:break-all [&_pre]:overflow-x-auto [&_code]:break-words [&_img]:max-w-full [&_img]:h-auto"
                 />
               ) : article.contentSnippet ? (
-                <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed break-words">
                   {article.contentSnippet}
                 </p>
               ) : (

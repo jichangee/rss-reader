@@ -208,45 +208,45 @@ export default function ArticleList({
                   isRead ? "opacity-60" : ""
                 }`}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center space-x-2">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-2 flex items-center space-x-2 flex-wrap">
                       {article.feed.imageUrl ? (
                         <img
                           src={article.feed.imageUrl}
                           alt=""
-                          className="h-4 w-4 rounded"
+                          className="h-4 w-4 rounded flex-shrink-0"
                         />
                       ) : null}
-                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 break-words">
                         {article.feed.title}
                       </span>
                       {!isRead && (
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300">
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex-shrink-0">
                           新
                         </span>
                       )}
                     </div>
                     <h3
-                      className="mb-2 cursor-pointer text-xl font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
+                      className="mb-2 cursor-pointer text-xl font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400 break-words"
                       onClick={() => handleArticleClick(article)}
                     >
                       {article.title}
                     </h3>
                     {article.contentSnippet && (
-                      <p className="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400">
+                      <p className="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400 break-words">
                         {article.contentSnippet}
                       </p>
                     )}
-                    <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-gray-400">
                       {article.author && (
-                        <span className="flex items-center">
-                          <span className="mr-1">作者:</span>
-                          {article.author}
+                        <span className="flex items-center break-words">
+                          <span className="mr-1 flex-shrink-0">作者:</span>
+                          <span className="break-words">{article.author}</span>
                         </span>
                       )}
                       {article.pubDate && (
-                        <span>
+                        <span className="flex-shrink-0">
                           {format(new Date(article.pubDate), "yyyy年MM月dd日 HH:mm", {
                             locale: zhCN,
                           })}
@@ -256,7 +256,7 @@ export default function ArticleList({
                   </div>
                   <button
                     onClick={(e) => handleExternalLinkClick(article, e)}
-                    className="ml-4 flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                    className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                     title="在新标签页中打开"
                   >
                     <ExternalLink className="h-5 w-5" />
