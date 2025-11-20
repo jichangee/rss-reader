@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react"
+import { useGlobalPlayer } from "./GlobalPlayerContext"
 
 // 声明YouTube Player API类型
 declare global {
@@ -13,9 +14,13 @@ declare global {
 
 interface YouTubeAudioPlayerProps {
   videoUrl: string
+  articleId?: string // 可选的文章ID，用于关联播放记录
+  isGlobalPlayer?: boolean // 是否为全局播放器
+  shouldAutoPlay?: boolean // 是否自动播放
 }
 
-export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps) {
+export default function YouTubeAudioPlayer({ videoUrl, articleId, isGlobalPlayer = false, shouldAutoPlay = false }: YouTubeAudioPlayerProps) {
+  const { playerState, activatePlayer } = useGlobalPlayer()
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,9 +29,11 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   const [volume, setVolume] = useState(100)
   const [isMuted, setIsMuted] = useState(false)
   const [playerReady, setPlayerReady] = useState(false)
+  const [savedProgress, setSavedProgress] = useState<number | null>(null)
   const playerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const saveProgressTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   // 提取YouTube视频ID
   const extractVideoId = (url: string): string | null => {
@@ -45,6 +52,77 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   }
 
   const videoId = extractVideoId(videoUrl)
+
+  // 加载之前的播放进度
+  useEffect(() => {
+    if (!videoId) return
+
+    const loadProgress = async () => {
+      try {
+        const response = await fetch("/api/playlist")
+        if (response.ok) {
+          const data = await response.json()
+          const item = data.playlistItems?.find((item: any) => item.videoId === videoId)
+          if (item && item.currentTime > 0) {
+            setSavedProgress(item.currentTime)
+          }
+        }
+      } catch (err) {
+        console.error("加载播放进度失败:", err)
+      }
+    }
+
+    loadProgress()
+  }, [videoId])
+
+  // 保存播放进度到服务器
+  const saveProgress = async (time: number, dur: number) => {
+    if (!videoId || !playerRef.current) return
+
+    try {
+      // 获取视频信息
+      const videoData = playerRef.current.getVideoData()
+      const title = videoData?.title || "未知标题"
+      const thumbnail = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+
+      await fetch("/api/playlist", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoId,
+          videoUrl,
+          title,
+          thumbnail,
+          duration: dur,
+          currentTime: time,
+          articleId,
+        }),
+      })
+    } catch (err) {
+      console.error("保存播放进度失败:", err)
+    }
+  }
+
+  // 定期保存播放进度
+  useEffect(() => {
+    if (isPlaying && playerReady) {
+      // 每10秒保存一次进度
+      saveProgressTimerRef.current = setInterval(() => {
+        if (playerRef.current && duration > 0) {
+          const time = playerRef.current.getCurrentTime()
+          saveProgress(time, duration)
+        }
+      }, 10000)
+
+      return () => {
+        if (saveProgressTimerRef.current) {
+          clearInterval(saveProgressTimerRef.current)
+        }
+      }
+    }
+  }, [isPlaying, playerReady, duration])
 
   // 加载YouTube IFrame API
   useEffect(() => {
@@ -75,13 +153,36 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
       // 清理播放器
       if (playerRef.current) {
         try {
-          playerRef.current.destroy()
+          // 组件卸载时保存最后的进度
+          if (duration > 0 && typeof playerRef.current.getCurrentTime === 'function') {
+            const time = playerRef.current.getCurrentTime()
+            saveProgress(time, duration)
+          }
+          if (typeof playerRef.current.destroy === 'function') {
+            playerRef.current.destroy()
+          }
         } catch (e) {
-          // 忽略销毁错误
+          console.error("清理播放器失败:", e)
+        }
+        playerRef.current = null
+      }
+      
+      // 清空容器
+      if (containerRef.current) {
+        try {
+          containerRef.current.innerHTML = ''
+        } catch (e) {
+          console.error("清空容器失败:", e)
         }
       }
+      
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      if (saveProgressTimerRef.current) {
+        clearInterval(saveProgressTimerRef.current)
+        saveProgressTimerRef.current = null
       }
     }
   }, [videoId])
@@ -90,8 +191,44 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   const initializePlayer = () => {
     if (!containerRef.current || !videoId) return
 
+    // 先销毁旧的播放器实例（如果存在）
+    if (playerRef.current) {
+      try {
+        if (typeof playerRef.current.destroy === 'function') {
+          playerRef.current.destroy()
+        }
+      } catch (e) {
+        console.error("销毁旧播放器失败:", e)
+      }
+      playerRef.current = null
+    }
+
+    // 清空容器并重新创建一个干净的 div
+    if (containerRef.current) {
+      try {
+        containerRef.current.innerHTML = ''
+        // 创建一个新的 div 作为播放器容器
+        const playerDiv = document.createElement('div')
+        playerDiv.id = `yt-player-${videoId}-${Date.now()}`
+        containerRef.current.appendChild(playerDiv)
+      } catch (e) {
+        console.error("清理容器失败:", e)
+      }
+    }
+
+    // 重置状态
+    setPlayerReady(false)
+    setIsPlaying(false)
+    setError(null)
+
     try {
-      playerRef.current = new window.YT.Player(containerRef.current, {
+      // 使用新创建的 div 初始化播放器
+      const playerDiv = containerRef.current?.firstChild as HTMLElement
+      if (!playerDiv) {
+        throw new Error("播放器容器创建失败")
+      }
+
+      playerRef.current = new window.YT.Player(playerDiv, {
         height: '0',
         width: '0',
         videoId: videoId,
@@ -123,8 +260,24 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   const onPlayerReady = (event: any) => {
     setPlayerReady(true)
     setIsLoading(false)
-    setDuration(event.target.getDuration())
+    const dur = event.target.getDuration()
+    setDuration(dur)
     event.target.setVolume(volume)
+    
+    // 如果有保存的进度，恢复到该位置
+    if (savedProgress && savedProgress > 0 && savedProgress < dur - 10) {
+      event.target.seekTo(savedProgress, true)
+      setCurrentTime(savedProgress)
+    }
+    
+    // 如果需要自动播放，立即开始播放
+    if (shouldAutoPlay) {
+      setTimeout(() => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo()
+        }
+      }, 300)
+    }
     
     // 开始更新进度
     intervalRef.current = setInterval(() => {
@@ -141,9 +294,18 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
       setIsPlaying(true)
     } else if (event.data === 2) {
       setIsPlaying(false)
+      // 暂停时保存进度
+      if (playerRef.current && duration > 0) {
+        const time = playerRef.current.getCurrentTime()
+        saveProgress(time, duration)
+      }
     } else if (event.data === 0) {
       setIsPlaying(false)
       setCurrentTime(0)
+      // 播放完成时保存进度为0（重置）
+      if (duration > 0) {
+        saveProgress(0, duration)
+      }
     }
   }
 
@@ -162,13 +324,46 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   }
 
   // 播放/暂停
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!playerRef.current || !playerReady) return
 
-    if (isPlaying) {
-      playerRef.current.pauseVideo()
-    } else {
-      playerRef.current.playVideo()
+    // 确保播放器方法存在
+    if (typeof playerRef.current.playVideo !== 'function' || 
+        typeof playerRef.current.pauseVideo !== 'function') {
+      console.error("播放器未正确初始化")
+      setError("播放器未就绪，请稍后重试")
+      return
+    }
+
+    try {
+      if (isPlaying) {
+        playerRef.current.pauseVideo()
+      } else {
+        // 开始播放
+        playerRef.current.playVideo()
+
+        // 开始播放后，添加到播放列表（即使 duration 还没准备好）
+        if (videoId) {
+          // 等待一下确保获取到 duration
+          setTimeout(async () => {
+            if (playerRef.current && typeof playerRef.current.getDuration === 'function') {
+              const dur = playerRef.current.getDuration()
+              const time = playerRef.current.getCurrentTime?.() || 0
+              if (dur > 0) {
+                await saveProgress(time, dur)
+              }
+            }
+          }, 500)
+        }
+
+        // 如果不是全局播放器，激活全局播放器
+        if (!isGlobalPlayer && videoId) {
+          activatePlayer(videoUrl, videoId, articleId)
+        }
+      }
+    } catch (err) {
+      console.error("播放控制失败:", err)
+      setError("播放失败，请刷新页面重试")
     }
   }
 
@@ -176,25 +371,43 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!playerRef.current || !playerReady) return
     
-    const newTime = parseFloat(e.target.value)
-    setCurrentTime(newTime)
-    playerRef.current.seekTo(newTime, true)
+    // 确保方法存在
+    if (typeof playerRef.current.seekTo !== 'function') return
+    
+    try {
+      const newTime = parseFloat(e.target.value)
+      setCurrentTime(newTime)
+      playerRef.current.seekTo(newTime, true)
+    } catch (err) {
+      console.error("进度调整失败:", err)
+    }
   }
 
   // 音量控制
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!playerRef.current || !playerReady) return
     
-    const newVolume = parseFloat(e.target.value)
-    setVolume(newVolume)
-    playerRef.current.setVolume(newVolume)
+    // 确保方法存在
+    if (typeof playerRef.current.setVolume !== 'function') return
     
-    if (newVolume === 0) {
-      setIsMuted(true)
-      playerRef.current.mute()
-    } else {
-      setIsMuted(false)
-      playerRef.current.unMute()
+    try {
+      const newVolume = parseFloat(e.target.value)
+      setVolume(newVolume)
+      playerRef.current.setVolume(newVolume)
+      
+      if (newVolume === 0) {
+        setIsMuted(true)
+        if (typeof playerRef.current.mute === 'function') {
+          playerRef.current.mute()
+        }
+      } else {
+        setIsMuted(false)
+        if (typeof playerRef.current.unMute === 'function') {
+          playerRef.current.unMute()
+        }
+      }
+    } catch (err) {
+      console.error("音量调整失败:", err)
     }
   }
 
@@ -202,15 +415,25 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
   const toggleMute = () => {
     if (!playerRef.current || !playerReady) return
     
-    if (isMuted) {
-      const newVolume = volume === 0 ? 50 : volume
-      setVolume(newVolume)
-      playerRef.current.unMute()
-      playerRef.current.setVolume(newVolume)
-      setIsMuted(false)
-    } else {
-      playerRef.current.mute()
-      setIsMuted(true)
+    // 确保方法存在
+    if (typeof playerRef.current.mute !== 'function' || 
+        typeof playerRef.current.unMute !== 'function') return
+    
+    try {
+      if (isMuted) {
+        const newVolume = volume === 0 ? 50 : volume
+        setVolume(newVolume)
+        playerRef.current.unMute()
+        if (typeof playerRef.current.setVolume === 'function') {
+          playerRef.current.setVolume(newVolume)
+        }
+        setIsMuted(false)
+      } else {
+        playerRef.current.mute()
+        setIsMuted(true)
+      }
+    } catch (err) {
+      console.error("静音切换失败:", err)
     }
   }
 
@@ -224,6 +447,32 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
 
   if (!videoId) {
     return null
+  }
+
+  // 如果全局播放器正在播放同一个视频，且当前不是全局播放器实例，则显示提示
+  const isGlobalPlayingSameVideo = !isGlobalPlayer && 
+    playerState.isActive &&
+    playerState.videoId === videoId &&
+    playerState.videoUrl === videoUrl
+
+  if (isGlobalPlayingSameVideo) {
+    return (
+      <div className="my-4 rounded-lg border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 p-4 shadow-sm">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0 rounded-full bg-indigo-600 p-2 text-white">
+            <Play className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-100">
+              正在底部播放器中播放
+            </p>
+            <p className="text-xs text-indigo-600 dark:text-indigo-300 mt-1">
+              音频已在后台继续播放，关闭弹窗也不会停止
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -255,6 +504,11 @@ export default function YouTubeAudioPlayer({ videoUrl }: YouTubeAudioPlayerProps
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 YouTube音频
               </span>
+              {savedProgress && savedProgress > 0 && !isPlaying && currentTime === savedProgress && (
+                <span className="text-xs text-indigo-600 dark:text-indigo-400">
+                  (已恢复进度)
+                </span>
+              )}
             </div>
             {duration > 0 && (
               <span className="text-xs text-gray-600 dark:text-gray-300">

@@ -1,7 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2 } from "lucide-react"
+import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Music } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -18,6 +18,7 @@ interface SidebarProps {
   isOpen: boolean
   onClose: () => void
   isRefreshing?: boolean
+  onOpenPlaylist?: () => void
 }
 
 export default function Sidebar({
@@ -33,6 +34,7 @@ export default function Sidebar({
   isOpen,
   onClose,
   isRefreshing = false,
+  onOpenPlaylist,
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -230,6 +232,15 @@ export default function Sidebar({
 
       {/* 底部 */}
       <div className="border-t border-gray-200 p-4 dark:border-gray-700 space-y-2">
+        {onOpenPlaylist && (
+          <button
+            onClick={onOpenPlaylist}
+            className="flex w-full items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm"
+          >
+            <Music className="h-4 w-4" />
+            <span>播放列表</span>
+          </button>
+        )}
         <button
           onClick={() => router.push("/settings")}
           className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"

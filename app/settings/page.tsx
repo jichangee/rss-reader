@@ -47,6 +47,7 @@ export default function SettingsPage() {
   const router = useRouter()
   const [targetLanguage, setTargetLanguage] = useState("zh")
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
+  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -72,6 +73,7 @@ export default function SettingsPage() {
         const data = await res.json()
         setTargetLanguage(data.targetLanguage || "zh")
         setMarkReadOnScroll(data.markReadOnScroll || false)
+        setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
     } catch (error) {
       console.error("加载设置失败:", error)
@@ -90,7 +92,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetLanguage, markReadOnScroll }),
+        body: JSON.stringify({ targetLanguage, markReadOnScroll, autoRefreshOnLoad }),
       })
 
       if (res.ok) {
@@ -140,12 +142,21 @@ export default function SettingsPage() {
             <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
               阅读设置
             </h2>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">当文章滚动出屏幕时自动标记为已读</p>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">当文章滚动出屏幕时自动标记为已读</p>
+                </div>
+                <Switch checked={markReadOnScroll} onChange={setMarkReadOnScroll} disabled={saving} />
               </div>
-              <Switch checked={markReadOnScroll} onChange={setMarkReadOnScroll} disabled={saving} />
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white">首次自动刷新</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">首次进入页面时自动刷新订阅内容</p>
+                </div>
+                <Switch checked={autoRefreshOnLoad} onChange={setAutoRefreshOnLoad} disabled={saving} />
+              </div>
             </div>
           </div>
 

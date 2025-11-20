@@ -2,21 +2,26 @@
 
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
+import PlaylistDrawer from "@/app/components/PlaylistDrawer"
+import GlobalPlayer from "@/app/components/GlobalPlayer"
 import { Loader2, Menu } from "lucide-react"
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [feeds, setFeeds] = useState<any[]>([])
   const [articles, setArticles] = useState<any[]>([])
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [showAddFeed, setShowAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
+  const [showPlaylist, setShowPlaylist] = useState(false)
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(() => {
     // 从 localStorage 读取保存的"仅未读"设置
@@ -38,7 +43,19 @@ export default function DashboardPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
-  const hasInitialRefreshRef = useRef(false)
+  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
+  const hasInitialLoadRef = useRef(false)
+
+  // 从 URL 读取选中的订阅
+  useEffect(() => {
+    if (!isInitialized) {
+      const feedId = searchParams.get("feed")
+      if (feedId) {
+        setSelectedFeed(feedId)
+      }
+      setIsInitialized(true)
+    }
+  }, [searchParams, isInitialized])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -46,18 +63,26 @@ export default function DashboardPage() {
     }
   }, [status, router])
 
+  // 初始化：加载设置
   useEffect(() => {
     if (status === "authenticated") {
-      loadSettings()
-      loadFeeds()
-      // 使用保存的 unreadOnly 设置加载文章
-      loadArticles(undefined, unreadOnly)
+      const initializeDashboard = async () => {
+        // 先加载设置
+        await loadSettings()
+      }
+      initializeDashboard()
+    }
+  }, [status])
+
+  // 首次加载：加载订阅和文章，并根据设置决定是否自动刷新
+  useEffect(() => {
+    if (status === "authenticated" && autoRefreshOnLoad !== null && isInitialized && !hasInitialLoadRef.current) {
+      hasInitialLoadRef.current = true
       
-      // 首次进入时自动刷新数据
-      if (!hasInitialRefreshRef.current) {
-        hasInitialRefreshRef.current = true
-        // 内联刷新逻辑，避免依赖项问题
-        const performInitialRefresh = async () => {
+      const performInitialLoad = async () => {
+        // 根据设置决定是否自动刷新
+        if (autoRefreshOnLoad) {
+          // 如果开启自动刷新，先刷新再加载
           try {
             setIsRefreshing(true)
             const res = await fetch("/api/feeds/refresh", {
@@ -66,18 +91,26 @@ export default function DashboardPage() {
 
             if (res.ok) {
               await loadFeeds()
-              await loadArticles(undefined, unreadOnly)
+              await loadArticles(selectedFeed || undefined, unreadOnly)
             }
           } catch (error) {
             console.error("刷新失败:", error)
+            // 即使刷新失败，也尝试加载现有数据
+            await loadFeeds()
+            await loadArticles(selectedFeed || undefined, unreadOnly)
           } finally {
             setIsRefreshing(false)
           }
+        } else {
+          // 如果关闭自动刷新，直接加载现有数据
+          await loadFeeds()
+          await loadArticles(selectedFeed || undefined, unreadOnly)
         }
-        performInitialRefresh()
       }
+      
+      performInitialLoad()
     }
-  }, [status, unreadOnly])
+  }, [status, autoRefreshOnLoad, isInitialized])
 
   const loadFeeds = async () => {
     try {
@@ -97,6 +130,7 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json()
         setMarkReadOnScroll(data.markReadOnScroll || false)
+        setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
     } catch (error) {
       console.error("加载设置失败:", error)
@@ -153,6 +187,13 @@ export default function DashboardPage() {
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
     loadArticles(feedId || undefined, unreadOnly)
+    
+    // 更新 URL
+    if (feedId) {
+      router.push(`/dashboard?feed=${feedId}`)
+    } else {
+      router.push("/dashboard")
+    }
   }
 
   const handleAddFeed = async (url: string, enableTranslation: boolean) => {
@@ -411,8 +452,9 @@ export default function DashboardPage() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         isRefreshing={isRefreshing}
+        onOpenPlaylist={() => setShowPlaylist(true)}
       />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden pb-28">
         <ArticleList
           articles={articles}
           loading={loading}
@@ -437,6 +479,11 @@ export default function DashboardPage() {
           onUpdate={handleEditFeed}
         />
       )}
+      <PlaylistDrawer
+        isOpen={showPlaylist}
+        onClose={() => setShowPlaylist(false)}
+      />
+      <GlobalPlayer />
     </div>
   )
 }

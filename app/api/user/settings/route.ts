@@ -17,6 +17,7 @@ export async function GET() {
       select: {
         targetLanguage: true,
         markReadOnScroll: true,
+        autoRefreshOnLoad: true,
       },
     })
 
@@ -27,6 +28,7 @@ export async function GET() {
     return NextResponse.json({
       targetLanguage: user.targetLanguage || "zh",
       markReadOnScroll: user.markReadOnScroll || false,
+      autoRefreshOnLoad: user.autoRefreshOnLoad ?? true,
     })
   } catch (error) {
     console.error("获取用户设置失败:", error)
@@ -43,7 +45,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    const { targetLanguage, markReadOnScroll } = await request.json()
+    const { targetLanguage, markReadOnScroll, autoRefreshOnLoad } = await request.json()
 
     if (!targetLanguage) {
       return NextResponse.json({ error: "目标语言不能为空" }, { status: 400 })
@@ -54,16 +56,19 @@ export async function PUT(request: Request) {
       data: {
         targetLanguage,
         markReadOnScroll,
+        autoRefreshOnLoad,
       },
       select: {
         targetLanguage: true,
         markReadOnScroll: true,
+        autoRefreshOnLoad: true,
       },
     })
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage,
       markReadOnScroll: user.markReadOnScroll,
+      autoRefreshOnLoad: user.autoRefreshOnLoad,
     })
   } catch (error) {
     console.error("更新用户设置失败:", error)
