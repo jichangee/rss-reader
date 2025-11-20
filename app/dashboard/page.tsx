@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
@@ -11,7 +11,7 @@ import PlaylistDrawer from "@/app/components/PlaylistDrawer"
 import GlobalPlayer from "@/app/components/GlobalPlayer"
 import { Loader2, Menu } from "lucide-react"
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -485,6 +485,20 @@ export default function DashboardPage() {
       />
       <GlobalPlayer />
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   )
 }
 
