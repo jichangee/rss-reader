@@ -20,10 +20,33 @@ const LANGUAGES = [
   { code: "hi", name: "हिन्दी" },
 ]
 
+function Switch({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`${
+        checked ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+      } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50`}
+    >
+      <span
+        aria-hidden="true"
+        className={`${
+          checked ? 'translate-x-5' : 'translate-x-0'
+        } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+      />
+    </button>
+  )
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [targetLanguage, setTargetLanguage] = useState("zh")
+  const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -48,6 +71,7 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json()
         setTargetLanguage(data.targetLanguage || "zh")
+        setMarkReadOnScroll(data.markReadOnScroll || false)
       }
     } catch (error) {
       console.error("加载设置失败:", error)
@@ -66,7 +90,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetLanguage }),
+        body: JSON.stringify({ targetLanguage, markReadOnScroll }),
       })
 
       if (res.ok) {
@@ -111,43 +135,60 @@ export default function SettingsPage() {
           </h1>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-          <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-            翻译设置
-          </h2>
-          <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-            设置默认的翻译目标语言。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
-          </p>
-
-          <div className="mb-6">
-            <label
-              htmlFor="target-language"
-              className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              目标语言
-            </label>
-            <select
-              id="target-language"
-              value={targetLanguage}
-              onChange={(e) => setTargetLanguage(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            >
-              {LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.name}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-6">
+          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
+              阅读设置
+            </h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">当文章滚动出屏幕时自动标记为已读</p>
+              </div>
+              <Switch checked={markReadOnScroll} onChange={setMarkReadOnScroll} disabled={saving} />
+            </div>
           </div>
 
+          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
+              翻译设置
+            </h2>
+            <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+              设置默认的翻译目标语言。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
+            </p>
+
+            <div className="mb-6">
+              <label
+                htmlFor="target-language"
+                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >
+                目标语言
+              </label>
+              <select
+                id="target-language"
+                value={targetLanguage}
+                onChange={(e) => setTargetLanguage(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <div className="mr-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
+            <div className="mr-4 rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
               设置已保存
             </div>
           )}
@@ -174,4 +215,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-

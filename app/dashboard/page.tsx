@@ -37,6 +37,7 @@ export default function DashboardPage() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const hasInitialRefreshRef = useRef(false)
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === "authenticated") {
+      loadSettings()
       loadFeeds()
       // 使用保存的 unreadOnly 设置加载文章
       loadArticles(undefined, unreadOnly)
@@ -86,6 +88,18 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error("加载订阅失败:", error)
+    }
+  }
+
+  const loadSettings = async () => {
+    try {
+      const res = await fetch("/api/user/settings")
+      if (res.ok) {
+        const data = await res.json()
+        setMarkReadOnScroll(data.markReadOnScroll || false)
+      }
+    } catch (error) {
+      console.error("加载设置失败:", error)
     }
   }
 
@@ -272,6 +286,54 @@ export default function DashboardPage() {
     }
   }
 
+  const handleMarkAsReadBatch = async (articleIds: string[]) => {
+    if (articleIds.length === 0) return
+
+    try {
+      const res = await fetch("/api/articles/read-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ articleIds }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        
+        // 获取所有被标记的文章（包括新标记的和已经标记的）
+        const markedArticles = articles.filter((a) => articleIds.includes(a.id))
+        
+        // 统计每个 feed 的未读数减少量
+        const feedUnreadDelta = new Map<string, number>()
+        markedArticles.forEach((article) => {
+          // 只统计未读文章
+          if (article.readBy.length === 0) {
+            const feedId = article.feed.id
+            feedUnreadDelta.set(feedId, (feedUnreadDelta.get(feedId) || 0) + 1)
+          }
+        })
+        
+        // 更新文章状态
+        setArticles((prevArticles) =>
+          prevArticles.map((a) =>
+            articleIds.includes(a.id) ? { ...a, readBy: [{ articleId: a.id }] } : a
+          )
+        )
+        
+        // 更新 feeds 的未读计数
+        setFeeds((prevFeeds) =>
+          prevFeeds.map((feed) => {
+            const delta = feedUnreadDelta.get(feed.id) || 0
+            return delta > 0 && feed.unreadCount > 0
+              ? { ...feed, unreadCount: Math.max(0, feed.unreadCount - delta) }
+              : feed
+          })
+        )
+      }
+    } catch (error) {
+      console.error("批量标记已读失败:", error)
+    }
+  }
+
   const toggleUnreadOnly = () => {
     const newUnreadOnly = !unreadOnly
     setUnreadOnly(newUnreadOnly)
@@ -356,8 +418,10 @@ export default function DashboardPage() {
           loading={loading}
           hasMore={hasMore}
           onMarkAsRead={handleMarkAsRead}
+          onMarkAsReadBatch={handleMarkAsReadBatch}
           onLoadMore={loadMoreArticles}
           onMarkAllAsRead={handleMarkAllAsRead}
+          markReadOnScroll={markReadOnScroll}
         />
       </main>
       {showAddFeed && (

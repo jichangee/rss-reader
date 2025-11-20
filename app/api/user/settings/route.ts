@@ -16,6 +16,7 @@ export async function GET() {
       where: { email: session.user.email },
       select: {
         targetLanguage: true,
+        markReadOnScroll: true,
       },
     })
 
@@ -25,6 +26,7 @@ export async function GET() {
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage || "zh",
+      markReadOnScroll: user.markReadOnScroll || false,
     })
   } catch (error) {
     console.error("获取用户设置失败:", error)
@@ -41,7 +43,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    const { targetLanguage } = await request.json()
+    const { targetLanguage, markReadOnScroll } = await request.json()
 
     if (!targetLanguage) {
       return NextResponse.json({ error: "目标语言不能为空" }, { status: 400 })
@@ -51,14 +53,17 @@ export async function PUT(request: Request) {
       where: { email: session.user.email },
       data: {
         targetLanguage,
+        markReadOnScroll,
       },
       select: {
         targetLanguage: true,
+        markReadOnScroll: true,
       },
     })
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage,
+      markReadOnScroll: user.markReadOnScroll,
     })
   } catch (error) {
     console.error("更新用户设置失败:", error)

@@ -3,7 +3,7 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { ExternalLink, Loader2, BookOpen, CheckCheck } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import ArticleDrawer from "./ArticleDrawer"
 
 interface Article {
@@ -26,8 +26,10 @@ interface ArticleListProps {
   loading: boolean
   hasMore: boolean
   onMarkAsRead: (articleId: string) => void
+  onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
   onMarkAllAsRead: () => void
+  markReadOnScroll?: boolean
 }
 
 export default function ArticleList({
@@ -35,12 +37,50 @@ export default function ArticleList({
   loading,
   hasMore,
   onMarkAsRead,
+  onMarkAsReadBatch,
   onLoadMore,
   onMarkAllAsRead,
+  markReadOnScroll = false,
 }: ArticleListProps) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
+  const pendingReadIds = useRef<Set<string>>(new Set())
+  const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // 批量提交已读文章
+  const submitBatchRead = useCallback(() => {
+    if (pendingReadIds.current.size > 0) {
+      const idsToSubmit = Array.from(pendingReadIds.current)
+      pendingReadIds.current.clear()
+      onMarkAsReadBatch(idsToSubmit)
+    }
+  }, [onMarkAsReadBatch])
+
+  // 添加文章到待标记队列
+  const addToPendingRead = useCallback((articleId: string) => {
+    pendingReadIds.current.add(articleId)
+    
+    // 清除旧的定时器
+    if (batchSubmitTimer.current) {
+      clearTimeout(batchSubmitTimer.current)
+    }
+    
+    // 设置新的定时器，2秒后批量提交
+    batchSubmitTimer.current = setTimeout(() => {
+      submitBatchRead()
+    }, 2000)
+  }, [submitBatchRead])
+
+  // 组件卸载时清理定时器并提交剩余的已读标记
+  useEffect(() => {
+    return () => {
+      if (batchSubmitTimer.current) {
+        clearTimeout(batchSubmitTimer.current)
+      }
+      submitBatchRead()
+    }
+  }, [submitBatchRead])
 
   // 无限滚动逻辑
   useEffect(() => {
@@ -64,6 +104,44 @@ export default function ArticleList({
       }
     }
   }, [hasMore, loading, onLoadMore])
+
+  // 滚动标记已读逻辑
+  useEffect(() => {
+    if (!markReadOnScroll) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          // 当文章滚动出视口上方时（isIntersecting 变为 false，且 boundingClientRect.top < 0）
+          if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+            const articleId = entry.target.getAttribute("data-id")
+            if (articleId) {
+              // 添加到批量提交队列
+              addToPendingRead(articleId)
+              // 停止观察已处理的文章
+              observer.unobserve(entry.target)
+            }
+          }
+        })
+      },
+      {
+        threshold: 0,
+      }
+    )
+
+    // 只观察未读文章
+    const unreadArticles = articles.filter(a => a.readBy.length === 0)
+    unreadArticles.forEach((article) => {
+      const element = document.querySelector(`article[data-id="${article.id}"]`)
+      if (element) {
+        observer.observe(element)
+      }
+    })
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [articles, markReadOnScroll, addToPendingRead])
 
   const handleArticleClick = (article: Article) => {
     // 打开抽屉
@@ -125,6 +203,7 @@ export default function ArticleList({
             return (
               <article
                 key={article.id}
+                data-id={article.id}
                 className={`rounded-lg border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:bg-gray-800 dark:border-gray-700 ${
                   isRead ? "opacity-60" : ""
                 }`}
