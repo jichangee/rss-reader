@@ -32,6 +32,9 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
   const containerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const saveProgressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const videoTitleRef = useRef<string>("YouTube音频")
+  const videoThumbnailRef = useRef<string>("")
+  const wasPlayingBeforeHideRef = useRef<boolean>(false)
 
   // 提取YouTube视频ID
   const extractVideoId = (url: string): string | null => {
@@ -122,6 +125,80 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }, [isPlaying, playerReady, duration])
 
+  // 监听页面可见性变化，防止锁屏时暂停
+  useEffect(() => {
+    if (!playerReady) return
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // 页面隐藏时，记录当前播放状态
+        wasPlayingBeforeHideRef.current = isPlaying
+        // 确保 Media Session 已设置，以便锁屏时显示控制
+        if (isPlaying && playerRef.current) {
+          setupMediaSession()
+        }
+      } else {
+        // 页面重新可见时，如果之前正在播放，尝试恢复播放
+        // 延迟一下，确保播放器已准备好
+        if (wasPlayingBeforeHideRef.current && playerRef.current) {
+          setTimeout(() => {
+            try {
+              // 检查播放器状态，如果被暂停了，尝试恢复
+              if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
+                const state = playerRef.current.getPlayerState()
+                // 状态 2 表示暂停
+                if (state === 2 && wasPlayingBeforeHideRef.current) {
+                  playerRef.current.playVideo()
+                }
+              }
+            } catch (e) {
+              console.error("恢复播放失败:", e)
+            }
+          }, 300)
+        }
+      }
+    }
+
+    // 监听页面可见性变化
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // 监听页面进入后台前的事件（iOS Safari）
+    const handlePageHide = () => {
+      // 确保 Media Session 已设置
+      if (playerReady && playerRef.current && isPlaying) {
+        setupMediaSession()
+      }
+    }
+
+    // 监听页面恢复事件（iOS Safari）
+    const handlePageShow = () => {
+      // 页面恢复时，如果之前正在播放，尝试恢复
+      if (wasPlayingBeforeHideRef.current && playerRef.current) {
+        setTimeout(() => {
+          try {
+            if (playerRef.current && typeof playerRef.current.getPlayerState === 'function') {
+              const state = playerRef.current.getPlayerState()
+              if (state === 2 && wasPlayingBeforeHideRef.current) {
+                playerRef.current.playVideo()
+              }
+            }
+          } catch (e) {
+            console.error("恢复播放失败:", e)
+          }
+        }, 300)
+      }
+    }
+
+    window.addEventListener('pagehide', handlePageHide)
+    window.addEventListener('pageshow', handlePageShow)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('pageshow', handlePageShow)
+    }
+  }, [playerReady, isPlaying])
+
   // 加载YouTube IFrame API
   useEffect(() => {
     if (!videoId) {
@@ -148,6 +225,19 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
 
     return () => {
+      // 清理 Media Session
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = null
+          navigator.mediaSession.setActionHandler('play', null)
+          navigator.mediaSession.setActionHandler('pause', null)
+          navigator.mediaSession.setActionHandler('seekbackward', null)
+          navigator.mediaSession.setActionHandler('seekforward', null)
+        } catch (e) {
+          console.error("清理 Media Session 失败:", e)
+        }
+      }
+      
       // 清理播放器
       if (playerRef.current) {
         try {
@@ -254,6 +344,75 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }
 
+  // 设置 Media Session API（用于锁屏控制）
+  const setupMediaSession = () => {
+    if (!('mediaSession' in navigator)) return
+
+    const videoData = playerRef.current?.getVideoData()
+    const title = videoData?.title || videoTitleRef.current
+    videoTitleRef.current = title
+    videoThumbnailRef.current = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`
+
+    try {
+      navigator.mediaSession.metadata = new (window as any).MediaMetadata({
+        title: title,
+        artist: 'YouTube',
+        artwork: [
+          { src: videoThumbnailRef.current, sizes: '320x180', type: 'image/jpeg' },
+          { src: videoThumbnailRef.current, sizes: '640x360', type: 'image/jpeg' },
+        ],
+      })
+
+      // 设置播放/暂停操作
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
+          playerRef.current.playVideo()
+        }
+      })
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (playerRef.current && typeof playerRef.current.pauseVideo === 'function') {
+          playerRef.current.pauseVideo()
+        }
+      })
+
+      // 设置前进/后退操作（可选）
+      navigator.mediaSession.setActionHandler('seekbackward', () => {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          const currentTime = playerRef.current.getCurrentTime()
+          const newTime = Math.max(0, currentTime - 10)
+          if (typeof playerRef.current.seekTo === 'function') {
+            playerRef.current.seekTo(newTime, true)
+          }
+        }
+      })
+
+      navigator.mediaSession.setActionHandler('seekforward', () => {
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
+          const currentDur = duration || (playerRef.current.getDuration?.() || 0)
+          const currentTime = playerRef.current.getCurrentTime()
+          const newTime = Math.min(currentDur, currentTime + 10)
+          if (typeof playerRef.current.seekTo === 'function') {
+            playerRef.current.seekTo(newTime, true)
+          }
+        }
+      })
+    } catch (e) {
+      console.error("设置 Media Session 失败:", e)
+    }
+  }
+
+  // 更新 Media Session 播放状态
+  const updateMediaSessionPlaybackState = (playing: boolean) => {
+    if (!('mediaSession' in navigator)) return
+    
+    try {
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused'
+    } catch (e) {
+      console.error("更新 Media Session 状态失败:", e)
+    }
+  }
+
   // 播放器就绪
   const onPlayerReady = (event: any) => {
     setPlayerReady(true)
@@ -261,6 +420,13 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     const dur = event.target.getDuration()
     setDuration(dur)
     event.target.setVolume(volume)
+    
+    // 获取视频信息并设置 Media Session
+    const videoData = event.target.getVideoData()
+    if (videoData?.title) {
+      videoTitleRef.current = videoData.title
+    }
+    setupMediaSession()
     
     // 如果有保存的进度，恢复到该位置
     if (savedProgress && savedProgress > 0 && savedProgress < dur - 10) {
@@ -290,8 +456,10 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     // -1: 未开始, 0: 结束, 1: 播放中, 2: 暂停, 3: 缓冲中, 5: 视频已插入
     if (event.data === 1) {
       setIsPlaying(true)
+      updateMediaSessionPlaybackState(true)
     } else if (event.data === 2) {
       setIsPlaying(false)
+      updateMediaSessionPlaybackState(false)
       // 暂停时保存进度
       if (playerRef.current && duration > 0) {
         const time = playerRef.current.getCurrentTime()
@@ -299,6 +467,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       }
     } else if (event.data === 0) {
       setIsPlaying(false)
+      updateMediaSessionPlaybackState(false)
       setCurrentTime(0)
       // 播放完成时保存进度为0（重置）
       if (duration > 0) {
@@ -336,9 +505,16 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     try {
       if (isPlaying) {
         playerRef.current.pauseVideo()
+        updateMediaSessionPlaybackState(false)
+        wasPlayingBeforeHideRef.current = false // 用户主动暂停
       } else {
         // 开始播放
         playerRef.current.playVideo()
+        updateMediaSessionPlaybackState(true)
+        wasPlayingBeforeHideRef.current = true // 用户主动播放
+        
+        // 确保 Media Session 已设置
+        setupMediaSession()
 
         // 开始播放后，添加到播放列表（即使 duration 还没准备好）
         if (videoId) {
