@@ -23,10 +23,19 @@ export async function POST(req: Request) {
     
     const articlesToMark = await prisma.article.findMany({
       where: {
-        pubDate: {
-          lt: cutoffDate,
-        },
-        // 过滤掉用户已经订阅的 feed 之外的文章（可选，但更严谨）
+        AND: [
+          {
+            pubDate: {
+              not: null, // 必须有发布日期
+            }
+          },
+          {
+            pubDate: {
+              lt: cutoffDate, // 发布日期早于截止日期
+            }
+          }
+        ],
+        // 只处理用户订阅的 feed 中的文章
         feed: {
           userId: session.user.id
         },
@@ -38,13 +47,17 @@ export async function POST(req: Request) {
         }
       },
       select: {
-        id: true
+        id: true,
+        pubDate: true // 用于调试
       }
     })
 
     if (articlesToMark.length === 0) {
       return NextResponse.json({ count: 0, message: "没有需要标记的文章" })
     }
+
+    // 记录日志以便调试
+    console.log(`[READ_OLDER] 找到 ${articlesToMark.length} 篇文章需要标记，截止日期: ${cutoffDate.toISOString()}`)
 
     // 2. 批量插入已读记录
     // Prisma 的 createMany 不支持 SQLite (如果项目用SQLite)，但这里是 PostgreSQL (从 schema 看)
@@ -57,6 +70,8 @@ export async function POST(req: Request) {
       })),
       skipDuplicates: true // 防止并发请求导致的唯一键冲突
     })
+
+    console.log(`[READ_OLDER] 成功标记 ${result.count} 篇文章为已读`)
 
     return NextResponse.json({ 
       count: result.count,
