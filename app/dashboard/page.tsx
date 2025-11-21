@@ -424,7 +424,7 @@ function DashboardContent() {
     }
   }
 
-  const handleMarkOlderAsRead = async (range: '24h' | 'week') => {
+  const handleMarkOlderAsRead = async (range: '24h' | 'week'): Promise<{ success: boolean; count?: number; message?: string }> => {
     try {
       let days: number | undefined
       let cutoffDate: Date | undefined
@@ -454,20 +454,29 @@ function DashboardContent() {
 
       if (res.ok) {
         const data = await res.json()
-        if (data.count > 0) {
-           // 简单的做法是重新加载，或者全量刷新
-           // 因为很难知道哪些具体文章被更新了（除非 API 返回 IDs，但可能很多）
-           // 这里我们选择刷新当前列表
-           await loadArticles(selectedFeed || undefined, unreadOnly)
-           await loadFeeds() // 更新侧边栏计数
-           alert(`已将 ${data.count} 篇旧文章标记为已读`)
-        } else {
-           alert("没有符合条件的旧文章")
+        // 简单的做法是重新加载，或者全量刷新
+        // 因为很难知道哪些具体文章被更新了（除非 API 返回 IDs，但可能很多）
+        // 这里我们选择刷新当前列表
+        await loadArticles(selectedFeed || undefined, unreadOnly)
+        await loadFeeds() // 更新侧边栏计数
+        
+        return {
+          success: true,
+          count: data.count || 0,
+          message: data.count > 0 ? `已将 ${data.count} 篇旧文章标记为已读` : "没有符合条件的旧文章"
+        }
+      } else {
+        return {
+          success: false,
+          message: "操作失败，请重试"
         }
       }
     } catch (error) {
       console.error("清理旧文章失败:", error)
-      alert("操作失败，请重试")
+      return {
+        success: false,
+        message: "操作失败，请重试"
+      }
     }
   }
 

@@ -5,6 +5,7 @@ import { zhCN } from "date-fns/locale"
 import { ExternalLink, Loader2, BookOpen, CheckCheck, Clock } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import ArticleDrawer from "./ArticleDrawer"
+import { ToastContainer, useToast } from "./Toast"
 
 interface Article {
   id: string
@@ -29,7 +30,7 @@ interface ArticleListProps {
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
   onMarkAllAsRead: () => void
-  onMarkOlderAsRead?: (range: '24h' | 'week') => void // 新增 prop，接受时间范围参数
+  onMarkOlderAsRead?: (range: '24h' | 'week') => Promise<{ success: boolean; count?: number; message?: string }> // 返回 Promise，包含操作结果
   markReadOnScroll?: boolean
 }
 
@@ -47,10 +48,12 @@ export default function ArticleList({
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [showCleanupMenu, setShowCleanupMenu] = useState(false)
+  const [isCleaningUp, setIsCleaningUp] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { toasts, success, error, info, removeToast } = useToast()
 
   // 批量提交已读文章
   const submitBatchRead = useCallback(() => {
@@ -191,11 +194,30 @@ export default function ArticleList({
     }
   }, [showCleanupMenu])
 
-  const handleCleanupClick = (range: '24h' | 'week') => {
+  const handleCleanupClick = async (range: '24h' | 'week') => {
     setShowCleanupMenu(false)
-    const rangeText = range === '24h' ? '24小时前' : '本周之前'
-    if (confirm(`确定要将${rangeText}的所有未读文章标记为已读吗？`)) {
-      onMarkOlderAsRead?.(range)
+    
+    // 使用轻提示确认，而不是阻塞的 confirm
+    // 直接执行清理操作，通过 loading 状态和结果提示来反馈
+    setIsCleaningUp(true)
+    try {
+      const result = await onMarkOlderAsRead?.(range)
+      if (result) {
+        if (result.success) {
+          if (result.count && result.count > 0) {
+            success(`已将 ${result.count} 篇旧文章标记为已读`)
+          } else {
+            info("没有符合条件的旧文章")
+          }
+        } else {
+          error(result.message || "操作失败，请重试")
+        }
+      }
+    } catch (error) {
+      console.error("清理旧文章失败:", error)
+      error("操作失败，请重试")
+    } finally {
+      setIsCleaningUp(false)
     }
   }
 
@@ -230,26 +252,35 @@ export default function ArticleList({
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowCleanupMenu(!showCleanupMenu)}
-                className="flex items-center space-x-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
+                disabled={isCleaningUp}
+                className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
                 title="清理旧文章"
               >
-                <Clock className="h-4 w-4" />
-                <span className="hidden sm:inline">清理旧文章</span>
+                {isCleaningUp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Clock className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isCleaningUp ? "清理中..." : "清理旧文章"}
+                </span>
               </button>
               
               {showCleanupMenu && (
-                <div className="absolute right-0 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-800 dark:ring-gray-700 z-50">
+                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-xl dark:bg-gray-800 dark:shadow-gray-900/30 z-50">
                   <div className="py-1" role="menu">
                     <button
                       onClick={() => handleCleanupClick('24h')}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      disabled={isCleaningUp}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300 dark:hover:bg-gray-700/50 transition-colors"
                       role="menuitem"
                     >
                       24小时之前
                     </button>
                     <button
                       onClick={() => handleCleanupClick('week')}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      disabled={isCleaningUp}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300 dark:hover:bg-gray-700/50 transition-colors"
                       role="menuitem"
                     >
                       本周之前
@@ -260,15 +291,15 @@ export default function ArticleList({
             </div>
           )}
         </div>
-        <div className="space-y-4">
+        <div className="space-y-5">
           {articles.map((article) => {
             const isRead = article.readBy.length > 0
             return (
               <article
                 key={article.id}
                 data-id={article.id}
-                className={`rounded-lg border bg-white p-6 shadow-sm transition-all hover:shadow-md dark:bg-gray-800 dark:border-gray-700 ${
-                  isRead ? "opacity-60" : ""
+                className={`rounded-xl bg-white p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:bg-gray-800 dark:shadow-gray-900/20 ${
+                  isRead ? "opacity-60 shadow-sm hover:shadow-md" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -364,6 +395,9 @@ export default function ArticleList({
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
       />
+      
+      {/* Toast 提示 */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   )
 }
