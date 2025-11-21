@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { ExternalLink, Loader2, BookOpen, CheckCheck } from "lucide-react"
+import { ExternalLink, Loader2, BookOpen, CheckCheck, Clock } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import ArticleDrawer from "./ArticleDrawer"
 
@@ -29,6 +29,7 @@ interface ArticleListProps {
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
   onMarkAllAsRead: () => void
+  onMarkOlderAsRead?: () => void // 新增 prop
   markReadOnScroll?: boolean
 }
 
@@ -40,6 +41,7 @@ export default function ArticleList({
   onMarkAsReadBatch,
   onLoadMore,
   onMarkAllAsRead,
+  onMarkOlderAsRead, // 解构
   markReadOnScroll = false,
 }: ArticleListProps) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
@@ -194,9 +196,25 @@ export default function ArticleList({
   return (
     <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-4xl p-6">
-        <h2 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
-          最新文章
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            最新文章
+          </h2>
+          {onMarkOlderAsRead && (
+            <button
+              onClick={() => {
+                if (confirm('确定要将24小时前的所有未读文章标记为已读吗？')) {
+                  onMarkOlderAsRead()
+                }
+              }}
+              className="flex items-center space-x-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
+              title="将一天前的文章标记为已读"
+            >
+              <Clock className="h-4 w-4" />
+              <span className="hidden sm:inline">清理旧文章</span>
+            </button>
+          )}
+        </div>
         <div className="space-y-4">
           {articles.map((article) => {
             const isRead = article.readBy.length > 0

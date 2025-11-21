@@ -424,6 +424,33 @@ function DashboardContent() {
     }
   }
 
+  const handleMarkOlderAsRead = async () => {
+    try {
+      const res = await fetch("/api/articles/read-older", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 1 }), // 默认一天前
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.count > 0) {
+           // 简单的做法是重新加载，或者全量刷新
+           // 因为很难知道哪些具体文章被更新了（除非 API 返回 IDs，但可能很多）
+           // 这里我们选择刷新当前列表
+           await loadArticles(selectedFeed || undefined, unreadOnly)
+           await loadFeeds() // 更新侧边栏计数
+           alert(`已将 ${data.count} 篇旧文章标记为已读`)
+        } else {
+           alert("没有符合条件的旧文章")
+        }
+      }
+    } catch (error) {
+      console.error("清理旧文章失败:", error)
+      alert("操作失败，请重试")
+    }
+  }
+
   if (status === "loading") {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -473,6 +500,7 @@ function DashboardContent() {
             onMarkAsReadBatch={handleMarkAsReadBatch}
             onLoadMore={loadMoreArticles}
             onMarkAllAsRead={handleMarkAllAsRead}
+            onMarkOlderAsRead={handleMarkOlderAsRead}
             markReadOnScroll={markReadOnScroll}
           />
         </div>
