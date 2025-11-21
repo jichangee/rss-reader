@@ -213,8 +213,8 @@ export default function ArticleList({
           error(result.message || "操作失败，请重试")
         }
       }
-    } catch (error) {
-      console.error("清理旧文章失败:", error)
+    } catch (err) {
+      console.error("清理旧文章失败:", err)
       error("操作失败，请重试")
     } finally {
       setIsCleaningUp(false)
