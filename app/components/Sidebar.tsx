@@ -162,7 +162,7 @@ export default function Sidebar({
               {feeds.map((feed) => (
                 <div
                   key={feed.id}
-                  className={`group flex items-center rounded-lg transition-colors ${
+                  className={`group relative flex items-center rounded-lg transition-colors ${
                     selectedFeed === feed.id
                       ? "bg-indigo-100 dark:bg-indigo-900"
                       : "hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -170,20 +170,20 @@ export default function Sidebar({
                 >
                   <button
                     onClick={() => handleFeedSelect(feed.id)}
-                    className="flex flex-1 items-center justify-between px-3 py-2 text-left"
+                    className="flex flex-1 items-center justify-between px-3 py-2 text-left min-w-0"
                   >
-                    <div className="flex items-center space-x-2 overflow-hidden">
+                    <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden pr-12">
                       {feed.imageUrl ? (
                         <img
                           src={feed.imageUrl}
                           alt=""
-                          className="h-5 w-5 rounded"
+                          className="h-5 w-5 rounded flex-shrink-0"
                         />
                       ) : (
-                        <Rss className="h-5 w-5 text-gray-400" />
+                        <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
                       )}
                       <span
-                        className={`truncate text-sm ${
+                        className={`truncate text-sm min-w-0 ${
                           selectedFeed === feed.id
                             ? "font-medium text-indigo-700 dark:text-indigo-300"
                             : "text-gray-700 dark:text-gray-300"
@@ -192,11 +192,11 @@ export default function Sidebar({
                         {feed.title}
                       </span>
                     </div>
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
                       {feed.unreadCount || 0}
                     </span>
                   </button>
-                  <div className="mr-2 flex items-center space-x-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto bg-white/90 dark:bg-gray-800/90 rounded backdrop-blur-sm px-1 py-0.5">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

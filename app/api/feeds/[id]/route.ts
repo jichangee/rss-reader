@@ -92,41 +92,48 @@ export async function PUT(
       updateData.title = title.trim()
     }
 
-    // 如果提供了新的URL，先验证它是否有效
-    if (url !== undefined && url !== feed.url) {
+    // 如果提供了新的URL，先检查是否与原来的URL不同
+    if (url !== undefined) {
       const newUrl = url.trim()
-      if (!newUrl) {
-        return NextResponse.json({ error: "RSS链接不能为空" }, { status: 400 })
-      }
-
-      // 验证新的URL是否可以解析
-      try {
-        const parsedFeed = await parseRSSWithTimeout(newUrl, 10000)
-        updateData.url = newUrl
-        // 如果URL改变了，可以选择同时更新从RSS获取的元数据
-        if (!title) {
-          updateData.title = parsedFeed.title || feed.title
+      
+      // 如果URL没有改变（忽略首尾空格），跳过RSS解析验证
+      if (newUrl === feed.url) {
+        // URL未改变，不需要重新获取订阅，直接跳过
+      } else {
+        // URL改变了，需要验证新URL的有效性
+        if (!newUrl) {
+          return NextResponse.json({ error: "RSS链接不能为空" }, { status: 400 })
         }
-      } catch (error) {
-        console.error("验证新RSS链接失败:", error)
-        const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
-          ? "RSS解析超时，请稍后重试" 
-          : "无效的RSS链接"
-        return NextResponse.json({ error: errorMessage }, { status: 400 })
-      }
 
-      // 检查新URL是否已被该用户订阅
-      const existingFeed = await prisma.feed.findUnique({
-        where: {
-          userId_url: {
-            userId: user.id,
-            url: newUrl,
+        // 验证新的URL是否可以解析
+        try {
+          const parsedFeed = await parseRSSWithTimeout(newUrl, 10000)
+          updateData.url = newUrl
+          // 如果URL改变了，可以选择同时更新从RSS获取的元数据
+          if (!title) {
+            updateData.title = parsedFeed.title || feed.title
+          }
+        } catch (error) {
+          console.error("验证新RSS链接失败:", error)
+          const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
+            ? "RSS解析超时，请稍后重试" 
+            : "无效的RSS链接"
+          return NextResponse.json({ error: errorMessage }, { status: 400 })
+        }
+
+        // 检查新URL是否已被该用户订阅
+        const existingFeed = await prisma.feed.findUnique({
+          where: {
+            userId_url: {
+              userId: user.id,
+              url: newUrl,
+            },
           },
-        },
-      })
+        })
 
-      if (existingFeed && existingFeed.id !== id) {
-        return NextResponse.json({ error: "该RSS链接已被订阅" }, { status: 400 })
+        if (existingFeed && existingFeed.id !== id) {
+          return NextResponse.json({ error: "该RSS链接已被订阅" }, { status: 400 })
+        }
       }
     }
 

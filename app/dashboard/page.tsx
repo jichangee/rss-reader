@@ -128,7 +128,7 @@ function DashboardContent() {
       const res = await fetch("/api/user/settings")
       if (res.ok) {
         const data = await res.json()
-        setMarkReadOnScroll(data.markReadOnScroll || false)
+        setMarkReadOnScroll(data.markReadOnScroll ?? false)
         setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
     } catch (error) {
@@ -424,12 +424,32 @@ function DashboardContent() {
     }
   }
 
-  const handleMarkOlderAsRead = async () => {
+  const handleMarkOlderAsRead = async (range: '24h' | 'week') => {
     try {
+      let days: number | undefined
+      let cutoffDate: Date | undefined
+
+      if (range === '24h') {
+        // 24小时之前
+        days = 1
+      } else if (range === 'week') {
+        // 本周之前：计算本周开始的时间（周一 00:00:00）
+        const now = new Date()
+        const dayOfWeek = now.getDay() // 0 = 周日, 1 = 周一, ..., 6 = 周六
+        // 计算到本周一的偏移天数（如果今天是周日，则偏移到上周一）
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        cutoffDate = new Date(now)
+        cutoffDate.setDate(now.getDate() - daysToMonday)
+        cutoffDate.setHours(0, 0, 0, 0)
+      }
+
       const res = await fetch("/api/articles/read-older", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ days: 1 }), // 默认一天前
+        body: JSON.stringify({ 
+          days: days,
+          cutoffDate: cutoffDate?.toISOString() // 如果指定了具体日期，传递 ISO 字符串
+        }),
       })
 
       if (res.ok) {

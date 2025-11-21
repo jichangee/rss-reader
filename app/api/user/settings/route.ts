@@ -27,7 +27,7 @@ export async function GET() {
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage || "zh",
-      markReadOnScroll: user.markReadOnScroll || false,
+      markReadOnScroll: user.markReadOnScroll ?? false,
       autoRefreshOnLoad: user.autoRefreshOnLoad ?? true,
     })
   } catch (error) {

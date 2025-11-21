@@ -29,7 +29,7 @@ interface ArticleListProps {
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
   onMarkAllAsRead: () => void
-  onMarkOlderAsRead?: () => void // 新增 prop
+  onMarkOlderAsRead?: (range: '24h' | 'week') => void // 新增 prop，接受时间范围参数
   markReadOnScroll?: boolean
 }
 
@@ -46,9 +46,11 @@ export default function ArticleList({
 }: ArticleListProps) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [showCleanupMenu, setShowCleanupMenu] = useState(false)
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // 批量提交已读文章
   const submitBatchRead = useCallback(() => {
@@ -173,6 +175,30 @@ export default function ArticleList({
     setTimeout(() => setSelectedArticle(null), 300)
   }
 
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowCleanupMenu(false)
+      }
+    }
+
+    if (showCleanupMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showCleanupMenu])
+
+  const handleCleanupClick = (range: '24h' | 'week') => {
+    setShowCleanupMenu(false)
+    const rangeText = range === '24h' ? '24小时前' : '本周之前'
+    if (confirm(`确定要将${rangeText}的所有未读文章标记为已读吗？`)) {
+      onMarkOlderAsRead?.(range)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -201,18 +227,37 @@ export default function ArticleList({
             最新文章
           </h2>
           {onMarkOlderAsRead && (
-            <button
-              onClick={() => {
-                if (confirm('确定要将24小时前的所有未读文章标记为已读吗？')) {
-                  onMarkOlderAsRead()
-                }
-              }}
-              className="flex items-center space-x-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
-              title="将一天前的文章标记为已读"
-            >
-              <Clock className="h-4 w-4" />
-              <span className="hidden sm:inline">清理旧文章</span>
-            </button>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowCleanupMenu(!showCleanupMenu)}
+                className="flex items-center space-x-1 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:ring-gray-700 dark:hover:bg-gray-700"
+                title="清理旧文章"
+              >
+                <Clock className="h-4 w-4" />
+                <span className="hidden sm:inline">清理旧文章</span>
+              </button>
+              
+              {showCleanupMenu && (
+                <div className="absolute right-0 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 dark:bg-gray-800 dark:ring-gray-700 z-50">
+                  <div className="py-1" role="menu">
+                    <button
+                      onClick={() => handleCleanupClick('24h')}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      role="menuitem"
+                    >
+                      24小时之前
+                    </button>
+                    <button
+                      onClick={() => handleCleanupClick('week')}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      role="menuitem"
+                    >
+                      本周之前
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="space-y-4">

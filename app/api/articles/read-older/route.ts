@@ -11,11 +11,18 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const { days = 1 } = await req.json().catch(() => ({}))
+    const { days, cutoffDate: cutoffDateStr } = await req.json().catch(() => ({}))
     
-    // 计算截止日期（默认1天前）
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - Number(days))
+    // 计算截止日期
+    let cutoffDate: Date
+    if (cutoffDateStr) {
+      // 如果提供了具体的截止日期，使用它
+      cutoffDate = new Date(cutoffDateStr)
+    } else {
+      // 否则使用 days 参数（默认1天前）
+      cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - Number(days || 1))
+    }
 
     // 1. 找出所有早于截止日期且用户未读的文章 ID
     // 注意：Prisma 不支持直接在 updateMany 中做 "NOT EXISTS" 的复杂过滤，

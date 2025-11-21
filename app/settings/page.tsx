@@ -72,7 +72,7 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json()
         setTargetLanguage(data.targetLanguage || "zh")
-        setMarkReadOnScroll(data.markReadOnScroll || false)
+        setMarkReadOnScroll(data.markReadOnScroll ?? false)
         setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
     } catch (error) {
