@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react"
 
 // 声明YouTube Player API类型
@@ -34,6 +34,10 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const saveProgressTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastMediaPositionUpdateRef = useRef<number>(0)
+  const retryCountRef = useRef<number>(0)
+  const playRetryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitializingRef = useRef<boolean>(false)
+  const lastPlayAttemptRef = useRef<number>(0)
 
   // 提取YouTube视频ID
   const extractVideoId = (url: string): string | null => {
@@ -106,32 +110,56 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }
 
+  // 检查播放器是否真正就绪
+  const isPlayerReady = useCallback((): boolean => {
+    if (!playerRef.current || !playerReady) return false
+    
+    try {
+      // 检查播放器方法是否存在
+      if (typeof playerRef.current.playVideo !== 'function' ||
+          typeof playerRef.current.pauseVideo !== 'function' ||
+          typeof playerRef.current.getCurrentTime !== 'function') {
+        return false
+      }
+      
+      // 检查播放器状态（-1: 未开始, 0: 结束, 1: 播放中, 2: 暂停, 3: 缓冲中, 5: 视频已插入）
+      const playerState = playerRef.current.getPlayerState?.()
+      // 状态 -1, 1, 2, 3, 5 都是有效的
+      return playerState !== undefined && playerState !== null
+    } catch (err) {
+      console.warn("检查播放器状态失败:", err)
+      return false
+    }
+  }, [playerReady])
+
   const isMediaSessionSupported = () => typeof navigator !== "undefined" && "mediaSession" in navigator
 
-  const updateMediaSessionMetadata = () => {
-    if (!isMediaSessionSupported() || !playerRef.current) return
+  const updateMediaSessionMetadata = useCallback(() => {
+    if (!isMediaSessionSupported() || !playerRef.current || !videoId) return
 
     try {
       const videoData = playerRef.current.getVideoData?.()
       const title = videoData?.title || "YouTube 音频"
       const artist = videoData?.author || "YouTube"
 
+      // iOS 需要完整的 artwork 数组
+      const artwork = [
+        { src: `https://img.youtube.com/vi/${videoId}/default.jpg`, sizes: "120x90", type: "image/jpeg" },
+        { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, sizes: "320x180", type: "image/jpeg" },
+        { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, sizes: "480x360", type: "image/jpeg" },
+        { src: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`, sizes: "1280x720", type: "image/jpeg" },
+      ]
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title,
         artist,
         album: "RSS Reader",
-        artwork: videoId
-          ? [
-              { src: `https://img.youtube.com/vi/${videoId}/default.jpg`, sizes: "120x90", type: "image/jpeg" },
-              { src: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, sizes: "320x180", type: "image/jpeg" },
-              { src: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, sizes: "480x360", type: "image/jpeg" },
-            ]
-          : undefined,
+        artwork,
       })
     } catch (err) {
       console.warn("设置 Media Session 元数据失败:", err)
     }
-  }
+  }, [videoId])
 
   const updateMediaSessionPlaybackState = (playing: boolean) => {
     if (!isMediaSessionSupported()) return
@@ -167,48 +195,99 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     }
   }
 
-  const registerMediaSessionHandlers = () => {
+  const registerMediaSessionHandlers = useCallback(() => {
     if (!isMediaSessionSupported()) return
 
     try {
-      navigator.mediaSession.setActionHandler("play", () => {
-        if (playerRef.current?.playVideo) {
-          playerRef.current.playVideo()
+      // 清除旧的处理程序
+      navigator.mediaSession.setActionHandler("play", null)
+      navigator.mediaSession.setActionHandler("pause", null)
+      navigator.mediaSession.setActionHandler("previoustrack", null)
+      navigator.mediaSession.setActionHandler("nexttrack", null)
+      navigator.mediaSession.setActionHandler("seekbackward", null)
+      navigator.mediaSession.setActionHandler("seekforward", null)
+
+      // 设置新的处理程序
+      navigator.mediaSession.setActionHandler("play", async () => {
+        if (isPlayerReady()) {
+          try {
+            playerRef.current?.playVideo()
+            setIsPlaying(true)
+            updateMediaSessionPlaybackState(true)
+          } catch (err) {
+            console.error("Media Session 播放失败:", err)
+          }
         }
       })
+
       navigator.mediaSession.setActionHandler("pause", () => {
-        if (playerRef.current?.pauseVideo) {
-          playerRef.current.pauseVideo()
+        if (isPlayerReady()) {
+          try {
+            playerRef.current?.pauseVideo()
+            setIsPlaying(false)
+            updateMediaSessionPlaybackState(false)
+          } catch (err) {
+            console.error("Media Session 暂停失败:", err)
+          }
         }
       })
+
       navigator.mediaSession.setActionHandler("previoustrack", () => {
-        if (playerRef.current?.seekTo) {
-          playerRef.current.seekTo(0, true)
+        if (isPlayerReady() && playerRef.current?.seekTo) {
+          try {
+            playerRef.current.seekTo(0, true)
+            setCurrentTime(0)
+          } catch (err) {
+            console.error("Media Session 跳转失败:", err)
+          }
         }
       })
+
       navigator.mediaSession.setActionHandler("nexttrack", () => {
-        if (playerRef.current?.getDuration && playerRef.current?.seekTo) {
-          const dur = playerRef.current.getDuration()
-          playerRef.current.seekTo(Math.max(dur - 5, 0), true)
+        if (isPlayerReady() && playerRef.current?.getDuration && playerRef.current?.seekTo) {
+          try {
+            const dur = playerRef.current.getDuration()
+            const newTime = Math.min(currentTime + 30, dur)
+            playerRef.current.seekTo(newTime, true)
+            setCurrentTime(newTime)
+          } catch (err) {
+            console.error("Media Session 跳转失败:", err)
+          }
         }
       })
+
       navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        if (playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
-          const current = playerRef.current.getCurrentTime()
-          playerRef.current.seekTo(Math.max(current - (details.seekOffset || 10), 0), true)
+        if (isPlayerReady() && playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
+          try {
+            const current = playerRef.current.getCurrentTime()
+            const offset = details.seekOffset || 10
+            const newTime = Math.max(current - offset, 0)
+            playerRef.current.seekTo(newTime, true)
+            setCurrentTime(newTime)
+          } catch (err) {
+            console.error("Media Session 后退失败:", err)
+          }
         }
       })
+
       navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        if (playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
-          const current = playerRef.current.getCurrentTime()
-          const dur = playerRef.current.getDuration?.() || duration
-          playerRef.current.seekTo(Math.min(current + (details.seekOffset || 10), dur), true)
+        if (isPlayerReady() && playerRef.current?.getCurrentTime && playerRef.current?.seekTo) {
+          try {
+            const current = playerRef.current.getCurrentTime()
+            const dur = playerRef.current.getDuration?.() || duration
+            const offset = details.seekOffset || 10
+            const newTime = Math.min(current + offset, dur)
+            playerRef.current.seekTo(newTime, true)
+            setCurrentTime(newTime)
+          } catch (err) {
+            console.error("Media Session 前进失败:", err)
+          }
         }
       })
     } catch (err) {
       console.warn("注册 Media Session 控件失败:", err)
     }
-  }
+  }, [isPlayerReady, currentTime, duration])
 
   // 定期保存播放进度
   useEffect(() => {
@@ -362,41 +441,69 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
   }
 
   // 播放器就绪
-  const onPlayerReady = (event: any) => {
-    setPlayerReady(true)
-    setIsLoading(false)
-    const dur = event.target.getDuration()
-    setDuration(dur)
-    event.target.setVolume(volume)
-    updateMediaSessionMetadata()
-    registerMediaSessionHandlers()
-    
-    // 如果有保存的进度，恢复到该位置
-    if (savedProgress && savedProgress > 0 && savedProgress < dur - 10) {
-      event.target.seekTo(savedProgress, true)
-      setCurrentTime(savedProgress)
-      updateMediaSessionPosition(savedProgress, dur)
-    }
-    
-    // 如果需要自动播放，立即开始播放
-    if (shouldAutoPlay) {
-      setTimeout(() => {
-        if (playerRef.current && typeof playerRef.current.playVideo === 'function') {
-          playerRef.current.playVideo()
-          updateMediaSessionPlaybackState(true)
-        }
-      }, 300)
-    }
-    
-    // 开始更新进度
-    intervalRef.current = setInterval(() => {
-      if (playerRef.current && playerRef.current.getCurrentTime) {
-        const time = playerRef.current.getCurrentTime()
-        setCurrentTime(time)
-        updateMediaSessionPosition(time, playerRef.current.getDuration?.() || dur || duration)
+  const onPlayerReady = useCallback((event: any) => {
+    try {
+      setPlayerReady(true)
+      setIsLoading(false)
+      setError(null)
+      retryCountRef.current = 0
+      
+      const dur = event.target.getDuration()
+      if (dur && dur > 0) {
+        setDuration(dur)
       }
-    }, 100)
-  }
+      
+      event.target.setVolume(volume)
+      
+      // 更新 Media Session
+      updateMediaSessionMetadata()
+      registerMediaSessionHandlers()
+      
+      // 如果有保存的进度，恢复到该位置
+      if (savedProgress && savedProgress > 0 && dur > 0 && savedProgress < dur - 10) {
+        setTimeout(() => {
+          if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+            playerRef.current.seekTo(savedProgress, true)
+            setCurrentTime(savedProgress)
+            updateMediaSessionPosition(savedProgress, dur)
+          }
+        }, 200)
+      }
+      
+      // 如果需要自动播放，延迟一下确保播放器完全就绪
+      if (shouldAutoPlay) {
+        setTimeout(() => {
+          if (isPlayerReady()) {
+            playerRef.current?.playVideo()
+            updateMediaSessionPlaybackState(true)
+          }
+        }, 500)
+      }
+      
+      // 开始更新进度
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+      intervalRef.current = setInterval(() => {
+        if (playerRef.current && playerRef.current.getCurrentTime) {
+          try {
+            const time = playerRef.current.getCurrentTime()
+            const currentDur = playerRef.current.getDuration?.() || dur || duration
+            if (time !== undefined && time !== null && isFinite(time)) {
+              setCurrentTime(time)
+              updateMediaSessionPosition(time, currentDur)
+            }
+          } catch (err) {
+            console.warn("更新进度失败:", err)
+          }
+        }
+      }, 100)
+    } catch (err) {
+      console.error("播放器就绪处理失败:", err)
+      setError("播放器初始化失败")
+      setIsLoading(false)
+    }
+  }, [savedProgress, shouldAutoPlay, volume, duration, isPlayerReady, updateMediaSessionMetadata, registerMediaSessionHandlers])
 
   // 播放器状态改变
   const onPlayerStateChange = (event: any) => {
