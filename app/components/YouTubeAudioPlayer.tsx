@@ -21,6 +21,7 @@ interface YouTubeAudioPlayerProps {
 export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay = false, initialTime }: YouTubeAudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isBuffering, setIsBuffering] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -39,6 +40,7 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
       /youtube\.com\/shorts\/([^&\n?#]+)/,
+      /youtube-nocookie\.com\/embed\/([^&\n?#]+)/, // 支持 youtube-nocookie.com
     ]
     
     for (const pattern of patterns) {
@@ -400,24 +402,36 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
   const onPlayerStateChange = (event: any) => {
     // -1: 未开始, 0: 结束, 1: 播放中, 2: 暂停, 3: 缓冲中, 5: 视频已插入
     if (event.data === 1) {
+      // 播放中
       setIsPlaying(true)
+      setIsBuffering(false)
       updateMediaSessionPlaybackState(true)
     } else if (event.data === 2) {
+      // 暂停
       setIsPlaying(false)
+      setIsBuffering(false)
       updateMediaSessionPlaybackState(false)
       // 暂停时保存进度
       if (playerRef.current && duration > 0) {
         const time = playerRef.current.getCurrentTime()
         saveProgress(time, duration)
       }
+    } else if (event.data === 3) {
+      // 缓冲中
+      setIsBuffering(true)
     } else if (event.data === 0) {
+      // 播放结束
       setIsPlaying(false)
+      setIsBuffering(false)
       setCurrentTime(0)
       updateMediaSessionPlaybackState(false)
       // 播放完成时保存进度为0（重置）
       if (duration > 0) {
         saveProgress(0, duration)
       }
+    } else {
+      // 其他状态（-1: 未开始, 5: 视频已插入）
+      setIsBuffering(false)
     }
   }
 
@@ -567,9 +581,9 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
           onClick={togglePlay}
           disabled={isLoading}
           className="flex-shrink-0 rounded-full bg-indigo-600 p-3 text-white hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
-          title={isPlaying ? "暂停" : "播放"}
+          title={isBuffering ? "缓冲中..." : isPlaying ? "暂停" : "播放"}
         >
-          {isLoading ? (
+          {isLoading || isBuffering ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : isPlaying ? (
             <Pause className="h-5 w-5" />

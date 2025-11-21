@@ -56,7 +56,8 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     if (!article) return []
     
     const content = article.content || article.contentSnippet || ""
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g
+    // 支持多种YouTube链接格式，包括 youtube-nocookie.com
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/)([a-zA-Z0-9_-]{11})/g
     const links: string[] = []
     let match
 
