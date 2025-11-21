@@ -664,15 +664,19 @@ export default function YouTubeAudioPlayer({ videoUrl, articleId, shouldAutoPlay
       <div
         ref={containerRef}
         aria-hidden="true"
+        className="youtube-player-container"
         style={{
           position: "fixed",
           width: "1px",
           height: "1px",
+          maxWidth: "1px",
+          maxHeight: "1px",
           opacity: 0,
           pointerEvents: "none",
           overflow: "hidden",
           bottom: 0,
           right: 0,
+          zIndex: -1,
         }}
       />
     </div>

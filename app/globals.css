@@ -60,3 +60,34 @@ body {
   overflow-x: auto;
   max-width: 100%;
 }
+
+/* 确保 iframe（包括 YouTube 播放器）不会超出屏幕 */
+iframe {
+  max-width: 100% !important;
+  width: 100% !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* 确保隐藏的 YouTube 播放器容器不会影响布局 */
+.youtube-player-container {
+  max-width: 1px !important;
+  max-height: 1px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+.youtube-player-container iframe {
+  max-width: 1px !important;
+  max-height: 1px !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
