@@ -1,7 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Music } from "lucide-react"
+import { Plus, RefreshCw, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Layers } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -10,6 +10,7 @@ interface SidebarProps {
   selectedFeed: string | null
   onSelectFeed: (feedId: string | null) => void
   onAddFeed: () => void
+  onBatchAddFeed: () => void
   onEditFeed: (feed: any) => void
   onDeleteFeed: (feedId: string) => void
   onRefresh: () => void
@@ -18,7 +19,6 @@ interface SidebarProps {
   isOpen: boolean
   onClose: () => void
   isRefreshing?: boolean
-  onOpenPlaylist?: () => void
 }
 
 export default function Sidebar({
@@ -26,6 +26,7 @@ export default function Sidebar({
   selectedFeed,
   onSelectFeed,
   onAddFeed,
+  onBatchAddFeed,
   onEditFeed,
   onDeleteFeed,
   onRefresh,
@@ -34,7 +35,6 @@ export default function Sidebar({
   isOpen,
   onClose,
   isRefreshing = false,
-  onOpenPlaylist,
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -112,6 +112,15 @@ export default function Sidebar({
             <span>添加订阅</span>
           </button>
           <button
+            onClick={onBatchAddFeed}
+            className="flex items-center justify-center space-x-1 rounded-lg border border-indigo-600 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:border-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors"
+          >
+            <Layers className="h-4 w-4" />
+            <span>批量添加</span>
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <button
             onClick={onRefresh}
             disabled={isRefreshing}
             className="flex items-center justify-center space-x-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -123,18 +132,18 @@ export default function Sidebar({
             )}
             <span>{isRefreshing ? "刷新中..." : "刷新"}</span>
           </button>
+          <button
+            onClick={onToggleUnreadOnly}
+            className={`flex items-center justify-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              unreadOnly
+                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                : "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            }`}
+          >
+            <Filter className="h-4 w-4" />
+            <span>{unreadOnly ? "显示全部" : "仅未读"}</span>
+          </button>
         </div>
-        <button
-          onClick={onToggleUnreadOnly}
-          className={`mt-2 flex w-full items-center justify-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-            unreadOnly
-              ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
-              : "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          }`}
-        >
-          <Filter className="h-4 w-4" />
-          <span>{unreadOnly ? "显示全部" : "仅未读"}</span>
-        </button>
       </div>
 
       {/* 订阅列表 */}
@@ -232,15 +241,6 @@ export default function Sidebar({
 
       {/* 底部 */}
       <div className="border-t border-gray-200 p-4 dark:border-gray-700 space-y-2">
-        {onOpenPlaylist && (
-          <button
-            onClick={onOpenPlaylist}
-            className="flex w-full items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm"
-          >
-            <Music className="h-4 w-4" />
-            <span>播放列表</span>
-          </button>
-        )}
         <button
           onClick={() => router.push("/settings")}
           className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"

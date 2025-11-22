@@ -61,12 +61,25 @@ body {
   max-width: 100%;
 }
 
-/* 确保 iframe（包括 YouTube 播放器）不会超出屏幕 */
+/* 确保 iframe（包括 YouTube 播放器）保持 16:9 比例且不会超出屏幕 */
 iframe {
   max-width: 100% !important;
   width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
   height: auto !important;
   box-sizing: border-box !important;
+}
+
+/* 为 YouTube iframe 创建响应式容器 */
+.article-content iframe[src*="youtube.com"],
+.article-content iframe[src*="youtu.be"],
+.prose iframe[src*="youtube.com"],
+.prose iframe[src*="youtu.be"] {
+  aspect-ratio: 16 / 9 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block !important;
 }
 
 /* 确保隐藏的 YouTube 播放器容器不会影响布局 */

@@ -23,7 +23,6 @@ model User {
   sessions      Session[]
   feeds         Feed[]
   readArticles  ReadArticle[]
-  playlistItems PlaylistItem[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -112,25 +111,5 @@ model ReadArticle {
   readAt    DateTime @default(now())
 
   @@unique([userId, articleId])
-}
-
-// YouTube播放列表项
-model PlaylistItem {
-  id            String   @id @default(cuid())
-  userId        String
-  videoId       String   // YouTube视频ID
-  videoUrl      String   // 视频完整URL
-  title         String?  // 视频标题
-  thumbnail     String?  // 缩略图URL
-  duration      Float    @default(0) // 视频总时长（秒）
-  currentTime   Float    @default(0) // 当前播放进度（秒）
-  articleId     String?  // 关联的文章ID（如果来自文章）
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lastPlayedAt  DateTime @default(now()) // 最后播放时间
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([userId, videoId])
-  @@index([userId, lastPlayedAt])
 }
 

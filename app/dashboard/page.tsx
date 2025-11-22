@@ -6,8 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
+import BatchAddFeedModal from "@/app/components/BatchAddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
-import PlaylistDrawer from "@/app/components/PlaylistDrawer"
 import { Loader2, Menu } from "lucide-react"
 
 function DashboardContent() {
@@ -19,8 +19,8 @@ function DashboardContent() {
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showAddFeed, setShowAddFeed] = useState(false)
+  const [showBatchAddFeed, setShowBatchAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
-  const [showPlaylist, setShowPlaylist] = useState(false)
   const [loading, setLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(() => {
     // 从 localStorage 读取保存的"仅未读"设置
@@ -214,6 +214,36 @@ function DashboardContent() {
       }
     } catch (error) {
       return { success: false, error: "添加失败" }
+    }
+  }
+
+  const handleBatchAddFeed = async (urls: string[], enableTranslation: boolean) => {
+    try {
+      const res = await fetch("/api/feeds/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls, enableTranslation }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        // 如果有成功的添加，刷新订阅列表和文章列表
+        if (data.summary && data.summary.success > 0) {
+          await loadFeeds()
+          await loadArticles(selectedFeed || undefined, unreadOnly)
+        }
+        return {
+          success: true,
+          results: data.results,
+          errors: data.errors,
+          summary: data.summary,
+        }
+      } else {
+        const error = await res.json()
+        return { success: false, error: error.error || "批量添加失败" }
+      }
+    } catch (error) {
+      return { success: false, error: "批量添加失败，请重试" }
     }
   }
 
@@ -499,6 +529,7 @@ function DashboardContent() {
         selectedFeed={selectedFeed}
         onSelectFeed={handleFeedSelect}
         onAddFeed={() => setShowAddFeed(true)}
+        onBatchAddFeed={() => setShowBatchAddFeed(true)}
         onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
         onRefresh={handleRefresh}
@@ -507,7 +538,6 @@ function DashboardContent() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         isRefreshing={isRefreshing}
-        onOpenPlaylist={() => setShowPlaylist(true)}
       />
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}
@@ -540,6 +570,12 @@ function DashboardContent() {
           onAdd={handleAddFeed}
         />
       )}
+      {showBatchAddFeed && (
+        <BatchAddFeedModal
+          onClose={() => setShowBatchAddFeed(false)}
+          onAdd={handleBatchAddFeed}
+        />
+      )}
       {editingFeed && (
         <EditFeedModal
           feed={editingFeed}
@@ -547,10 +583,6 @@ function DashboardContent() {
           onUpdate={handleEditFeed}
         />
       )}
-      <PlaylistDrawer
-        isOpen={showPlaylist}
-        onClose={() => setShowPlaylist(false)}
-      />
     </div>
   )
 }
