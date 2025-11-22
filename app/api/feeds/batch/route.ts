@@ -32,8 +32,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
-    const results = []
-    const errors = []
+    type SuccessResult = {
+      success: boolean
+      feed: {
+        id: string
+        url: string
+        title: string
+        description: string | null
+        link: string | null
+        imageUrl: string | null
+        enableTranslation: boolean
+        userId: string
+        createdAt: Date
+        updatedAt: Date
+        unreadCount: number
+      }
+      url: string
+    }
+    const results: SuccessResult[] = []
+    const errors: Array<{ url: string; error: string }> = []
 
     // 并行处理所有URL（但限制并发数）
     const batchSize = 5 // 每批处理5个
@@ -137,7 +154,7 @@ export async function POST(request: Request) {
           } else {
             errors.push({
               url,
-              error: result.value?.error || "添加失败",
+              error: "添加失败",
             })
           }
         } else {
