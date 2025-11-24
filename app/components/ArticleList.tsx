@@ -356,7 +356,7 @@ export default function ArticleList({
                   (isRead && !readLaterArticles.has(article.id)) ? "opacity-60 shadow-sm hover:shadow-md" : ""
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="mb-2 flex items-center space-x-2 flex-wrap">
                       {article.feed.imageUrl ? (
@@ -408,7 +408,7 @@ export default function ArticleList({
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 sm:flex-shrink-0 self-start sm:self-auto">
                     <button
                       onClick={(e) => handleToggleReadLater(article.id, e)}
                       className={`flex-shrink-0 rounded-lg p-2 transition-colors ${
