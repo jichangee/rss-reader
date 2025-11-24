@@ -89,21 +89,21 @@ function DashboardContent() {
             })
 
             if (res.ok) {
-              await loadFeeds()
               await loadArticles(selectedFeed || undefined, unreadOnly)
+              await loadFeeds()
             }
           } catch (error) {
             console.error("刷新失败:", error)
             // 即使刷新失败，也尝试加载现有数据
-            await loadFeeds()
             await loadArticles(selectedFeed || undefined, unreadOnly)
+            await loadFeeds()
           } finally {
             setIsRefreshing(false)
           }
         } else {
           // 如果关闭自动刷新，直接加载现有数据
-          await loadFeeds()
           await loadArticles(selectedFeed || undefined, unreadOnly)
+          await loadFeeds()
         }
       }
 
@@ -204,8 +204,8 @@ function DashboardContent() {
       })
 
       if (res.ok) {
-        await loadFeeds()
         await loadArticles(selectedFeed || undefined, unreadOnly)
+        await loadFeeds()
         setShowAddFeed(false)
         return { success: true }
       } else {
@@ -229,8 +229,8 @@ function DashboardContent() {
         const data = await res.json()
         // 如果有成功的添加，刷新订阅列表和文章列表
         if (data.summary && data.summary.success > 0) {
-          await loadFeeds()
           await loadArticles(selectedFeed || undefined, unreadOnly)
+          await loadFeeds()
         }
         return {
           success: true,
@@ -259,8 +259,8 @@ function DashboardContent() {
       })
 
       if (res.ok) {
-        await loadFeeds()
         await loadArticles(selectedFeed || undefined, unreadOnly)
+        await loadFeeds()
         setEditingFeed(null)
         return { success: true }
       } else {
@@ -281,11 +281,11 @@ function DashboardContent() {
       })
 
       if (res.ok) {
-        await loadFeeds()
         if (selectedFeed === feedId) {
           setSelectedFeed(null)
           await loadArticles(undefined, unreadOnly)
         }
+        await loadFeeds()
       }
     } catch (error) {
       console.error("删除订阅失败:", error)

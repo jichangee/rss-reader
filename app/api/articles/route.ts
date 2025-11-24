@@ -46,15 +46,17 @@ export async function GET(request: Request) {
       }
     }
 
-    // 先获取所有符合条件的文章ID
+    // 先获取所有符合条件的文章ID（用于获取稍后读文章）
     const allArticleIds = await prisma.article.findMany({
-      where,
+      where: {
+        feedId: feedId || { in: feedIds },
+      },
       select: { id: true },
     })
 
     const articleIds = allArticleIds.map(a => a.id)
 
-    // 获取用户的稍后读文章ID
+    // 获取用户的所有稍后读文章ID（不受 unreadOnly 限制）
     const readLaterArticles = await prisma.readLater.findMany({
       where: {
         userId: user.id,
@@ -67,8 +69,9 @@ export async function GET(request: Request) {
     const readLaterArticleIds = new Set(readLaterArticles.map(rl => rl.articleId))
 
     // 分别获取稍后读文章和其他文章
+    // 稍后读文章应该始终显示，不受 unreadOnly 限制
     const readLaterWhere = {
-      ...where,
+      feedId: feedId || { in: feedIds },
       id: { in: Array.from(readLaterArticleIds) },
     }
 

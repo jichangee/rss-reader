@@ -353,7 +353,7 @@ export default function ArticleList({
                 key={article.id}
                 data-id={article.id}
                 className={`rounded-xl bg-white p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:bg-gray-800 dark:shadow-gray-900/20 ${
-                  isRead ? "opacity-60 shadow-sm hover:shadow-md" : ""
+                  (isRead && !readLaterArticles.has(article.id)) ? "opacity-60 shadow-sm hover:shadow-md" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
