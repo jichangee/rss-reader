@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { ExternalLink, Loader2, BookOpen, CheckCheck, Clock } from "lucide-react"
+import { ExternalLink, Loader2, BookOpen, CheckCheck, Clock, Bookmark, BookmarkCheck } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import ArticleDrawer from "./ArticleDrawer"
 import { ToastContainer, useToast } from "./Toast"
@@ -20,6 +20,7 @@ interface Article {
     imageUrl?: string
   }
   readBy: any[]
+  isReadLater?: boolean
 }
 
 interface ArticleListProps {
@@ -49,11 +50,23 @@ export default function ArticleList({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [showCleanupMenu, setShowCleanupMenu] = useState(false)
   const [isCleaningUp, setIsCleaningUp] = useState(false)
+  const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, info, removeToast } = useToast()
+
+  // 初始化稍后读状态
+  useEffect(() => {
+    const readLaterSet = new Set<string>()
+    articles.forEach(article => {
+      if (article.isReadLater) {
+        readLaterSet.add(article.id)
+      }
+    })
+    setReadLaterArticles(readLaterSet)
+  }, [articles])
 
   // 批量提交已读文章
   const submitBatchRead = useCallback(() => {
@@ -170,6 +183,47 @@ export default function ArticleList({
     }
     
     window.open(article.link, "_blank")
+  }
+
+  const handleToggleReadLater = async (articleId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    
+    const isReadLater = readLaterArticles.has(articleId)
+    
+    try {
+      if (isReadLater) {
+        // 移除稍后读
+        const res = await fetch(`/api/articles/${articleId}/read-later`, {
+          method: "DELETE",
+        })
+        
+        if (res.ok) {
+          setReadLaterArticles(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(articleId)
+            return newSet
+          })
+          success("已从稍后读移除")
+        } else {
+          error("操作失败，请重试")
+        }
+      } else {
+        // 添加到稍后读
+        const res = await fetch(`/api/articles/${articleId}/read-later`, {
+          method: "POST",
+        })
+        
+        if (res.ok) {
+          setReadLaterArticles(prev => new Set(prev).add(articleId))
+          success("已添加到稍后读")
+        } else {
+          error("操作失败，请重试")
+        }
+      }
+    } catch (err) {
+      console.error("稍后读操作失败:", err)
+      error("操作失败，请重试")
+    }
   }
 
   const handleCloseDrawer = () => {
@@ -320,6 +374,12 @@ export default function ArticleList({
                           新
                         </span>
                       )}
+                      {readLaterArticles.has(article.id) && (
+                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex-shrink-0 flex items-center gap-1">
+                          <BookmarkCheck className="h-3 w-3" />
+                          稍后读
+                        </span>
+                      )}
                     </div>
                     <h3
                       className="mb-2 cursor-pointer text-xl font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400 break-words"
@@ -348,13 +408,30 @@ export default function ArticleList({
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => handleExternalLinkClick(article, e)}
-                    className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                    title="在新标签页中打开"
-                  >
-                    <ExternalLink className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => handleToggleReadLater(article.id, e)}
+                      className={`flex-shrink-0 rounded-lg p-2 transition-colors ${
+                        readLaterArticles.has(article.id)
+                          ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                          : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      }`}
+                      title={readLaterArticles.has(article.id) ? "从稍后读移除" : "添加到稍后读"}
+                    >
+                      {readLaterArticles.has(article.id) ? (
+                        <BookmarkCheck className="h-5 w-5" />
+                      ) : (
+                        <Bookmark className="h-5 w-5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={(e) => handleExternalLinkClick(article, e)}
+                      className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      title="在新标签页中打开"
+                    >
+                      <ExternalLink className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </article>
             )

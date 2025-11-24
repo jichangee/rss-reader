@@ -23,6 +23,7 @@ model User {
   sessions      Session[]
   feeds         Feed[]
   readArticles  ReadArticle[]
+  readLater     ReadLater[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -97,6 +98,7 @@ model Article {
   author      String?
   guid        String
   readBy      ReadArticle[]
+  readLaterBy ReadLater[]
   createdAt   DateTime      @default(now())
 
   @@unique([feedId, guid])
@@ -110,6 +112,18 @@ model ReadArticle {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
   readAt    DateTime @default(now())
+
+  @@unique([userId, articleId])
+}
+
+// 稍后读文章记录
+model ReadLater {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  addedAt   DateTime @default(now())
 
   @@unique([userId, articleId])
 }

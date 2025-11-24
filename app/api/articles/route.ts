@@ -46,21 +46,75 @@ export async function GET(request: Request) {
       }
     }
 
-    const articles = await prisma.article.findMany({
+    // 先获取所有符合条件的文章ID
+    const allArticleIds = await prisma.article.findMany({
       where,
+      select: { id: true },
+    })
+
+    const articleIds = allArticleIds.map(a => a.id)
+
+    // 获取用户的稍后读文章ID
+    const readLaterArticles = await prisma.readLater.findMany({
+      where: {
+        userId: user.id,
+        articleId: { in: articleIds },
+      },
+      select: { articleId: true },
+      orderBy: { addedAt: "desc" },
+    })
+
+    const readLaterArticleIds = new Set(readLaterArticles.map(rl => rl.articleId))
+
+    // 分别获取稍后读文章和其他文章
+    const readLaterWhere = {
+      ...where,
+      id: { in: Array.from(readLaterArticleIds) },
+    }
+
+    const otherWhere = {
+      ...where,
+      id: { notIn: Array.from(readLaterArticleIds) },
+    }
+
+    // 获取稍后读文章
+    const readLaterArticlesData = readLaterArticleIds.size > 0 ? await prisma.article.findMany({
+      where: readLaterWhere,
       include: {
         feed: true,
         readBy: {
           where: { userId: user.id },
         },
+        readLaterBy: {
+          where: { userId: user.id },
+        },
       },
       orderBy: { pubDate: "desc" },
-      take: limit + 1, // 多取一个用来判断是否有下一页
+    }) : []
+
+    // 计算还需要获取多少其他文章
+    const remainingLimit = limit + 1 - readLaterArticlesData.length
+    const otherArticles = remainingLimit > 0 ? await prisma.article.findMany({
+      where: otherWhere,
+      include: {
+        feed: true,
+        readBy: {
+          where: { userId: user.id },
+        },
+        readLaterBy: {
+          where: { userId: user.id },
+        },
+      },
+      orderBy: { pubDate: "desc" },
+      take: remainingLimit,
       ...(cursor && {
         cursor: { id: cursor },
         skip: 1, // 跳过 cursor 本身
       }),
-    })
+    }) : []
+
+    // 合并结果：稍后读文章在前，其他文章在后
+    const articles = [...readLaterArticlesData, ...otherArticles]
 
     const hasNextPage = articles.length > limit
     const returnArticles = hasNextPage ? articles.slice(0, limit) : articles
@@ -105,8 +159,14 @@ export async function GET(request: Request) {
       })
     )
 
+    // 为每篇文章添加 isReadLater 标记
+    const articlesWithReadLater = translatedArticles.map(article => ({
+      ...article,
+      isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
+    }))
+
     return NextResponse.json({
-      articles: translatedArticles,
+      articles: articlesWithReadLater,
       nextCursor,
       hasNextPage,
     })

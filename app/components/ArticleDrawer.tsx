@@ -2,8 +2,9 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { X, ExternalLink, Calendar, User } from "lucide-react"
-import { useEffect } from "react"
+import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ToastContainer, useToast } from "./Toast"
 
 interface Article {
   id: string
@@ -18,6 +19,7 @@ interface Article {
     imageUrl?: string
   }
   readBy: any[]
+  isReadLater?: boolean
 }
 
 interface ArticleDrawerProps {
@@ -27,6 +29,16 @@ interface ArticleDrawerProps {
 }
 
 export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawerProps) {
+  const [isReadLater, setIsReadLater] = useState(false)
+  const { toasts, success, error, removeToast } = useToast()
+
+  // 初始化稍后读状态
+  useEffect(() => {
+    if (article) {
+      setIsReadLater(article.isReadLater || false)
+    }
+  }, [article])
+
   // 按ESC键关闭抽屉
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -86,6 +98,54 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
               </div>
             </div>
             <div className="flex items-center space-x-2 ml-4">
+              <button
+                onClick={async () => {
+                  if (!article) return
+                  
+                  try {
+                    if (isReadLater) {
+                      // 移除稍后读
+                      const res = await fetch(`/api/articles/${article.id}/read-later`, {
+                        method: "DELETE",
+                      })
+                      
+                      if (res.ok) {
+                        setIsReadLater(false)
+                        success("已从稍后读移除")
+                      } else {
+                        error("操作失败，请重试")
+                      }
+                    } else {
+                      // 添加到稍后读
+                      const res = await fetch(`/api/articles/${article.id}/read-later`, {
+                        method: "POST",
+                      })
+                      
+                      if (res.ok) {
+                        setIsReadLater(true)
+                        success("已添加到稍后读")
+                      } else {
+                        error("操作失败，请重试")
+                      }
+                    }
+                  } catch (err) {
+                    console.error("稍后读操作失败:", err)
+                    error("操作失败，请重试")
+                  }
+                }}
+                className={`rounded-lg p-2 transition-colors ${
+                  isReadLater
+                    ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                }`}
+                title={isReadLater ? "从稍后读移除" : "添加到稍后读"}
+              >
+                {isReadLater ? (
+                  <BookmarkCheck className="h-5 w-5" />
+                ) : (
+                  <Bookmark className="h-5 w-5" />
+                )}
+              </button>
               <a
                 href={article.link}
                 target="_blank"
@@ -152,6 +212,9 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           </div>
         </div>
       </div>
+      
+      {/* Toast 提示 */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
   )
 }
