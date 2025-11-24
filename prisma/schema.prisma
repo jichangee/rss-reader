@@ -79,6 +79,7 @@ model Feed {
   articles          Article[]
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
+  lastRefreshedAt   DateTime? // 上次刷新时间
 
   @@unique([userId, url])
 }

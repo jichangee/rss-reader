@@ -4,8 +4,8 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
 
-// 刷新所有订阅
-export async function POST() {
+// 刷新订阅
+export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions)
     
@@ -13,9 +13,22 @@ export async function POST() {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
+    // 获取请求体中的 feedIds
+    let feedIds: string[] | undefined
+    try {
+      const body = await req.json()
+      feedIds = body.feedIds
+    } catch (e) {
+      // 忽略 JSON 解析错误，视为全量刷新
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
-      include: { feeds: true },
+      include: { 
+        feeds: {
+          where: feedIds ? { id: { in: feedIds } } : undefined
+        } 
+      },
     })
 
     if (!user) {
@@ -24,8 +37,16 @@ export async function POST() {
 
     let successCount = 0
     let failCount = 0
+    let skippedCount = 0
+    const minRefreshInterval = 5 * 60 * 1000 // 5分钟
 
     for (const feed of user.feeds) {
+      // 检查刷新间隔
+      if (feed.lastRefreshedAt && Date.now() - new Date(feed.lastRefreshedAt).getTime() < minRefreshInterval) {
+        skippedCount++
+        continue
+      }
+
       try {
         const parsedFeed = await parseRSSWithTimeout(feed.url, 10000)
         
@@ -37,6 +58,7 @@ export async function POST() {
             description: parsedFeed.description || feed.description,
             link: parsedFeed.link || feed.link,
             imageUrl: parsedFeed.image?.url || feed.imageUrl,
+            lastRefreshedAt: new Date(), // 更新刷新时间
           },
         })
 
@@ -70,6 +92,7 @@ export async function POST() {
       success: true, 
       successCount, 
       failCount,
+      skippedCount,
       total: user.feeds.length 
     })
   } catch (error) {

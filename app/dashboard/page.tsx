@@ -77,7 +77,7 @@ function DashboardContent() {
   useEffect(() => {
     if (status === "authenticated" && autoRefreshOnLoad !== null && isInitialized && !hasInitialLoadRef.current) {
       hasInitialLoadRef.current = true
-      
+
       const performInitialLoad = async () => {
         // 根据设置决定是否自动刷新
         if (autoRefreshOnLoad) {
@@ -106,7 +106,7 @@ function DashboardContent() {
           await loadArticles(selectedFeed || undefined, unreadOnly)
         }
       }
-      
+
       performInitialLoad()
     }
   }, [status, autoRefreshOnLoad, isInitialized])
@@ -136,14 +136,14 @@ function DashboardContent() {
     }
   }
 
-  const loadArticles = async (feedId?: string, unread?: boolean, reset = true) => {
+  const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread) params.append("unreadOnly", "true")
       params.append("limit", "20")
-      
+
       const res = await fetch(`/api/articles?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
@@ -154,13 +154,13 @@ function DashboardContent() {
     } catch (error) {
       console.error("加载文章失败:", error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
   const loadMoreArticles = async () => {
     if (!nextCursor || isLoadingMore) return
-    
+
     try {
       setIsLoadingMore(true)
       const params = new URLSearchParams()
@@ -168,7 +168,7 @@ function DashboardContent() {
       if (unreadOnly) params.append("unreadOnly", "true")
       params.append("limit", "20")
       params.append("cursor", nextCursor)
-      
+
       const res = await fetch(`/api/articles?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
@@ -186,7 +186,7 @@ function DashboardContent() {
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
     loadArticles(feedId || undefined, unreadOnly)
-    
+
     // 更新 URL
     if (feedId) {
       router.push(`/dashboard?feed=${feedId}`)
@@ -295,13 +295,41 @@ function DashboardContent() {
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true)
-      const res = await fetch("/api/feeds/refresh", {
-        method: "POST",
-      })
 
-      if (res.ok) {
-        await loadFeeds()
-        await loadArticles(selectedFeed || undefined, unreadOnly)
+      // 1. 获取所有需要刷新的 feed IDs
+      let feedIdsToRefresh: string[] = []
+      if (selectedFeed) {
+        feedIdsToRefresh = [selectedFeed]
+      } else {
+        feedIdsToRefresh = feeds.map(f => f.id)
+      }
+
+      if (feedIdsToRefresh.length === 0) {
+        setIsRefreshing(false)
+        return
+      }
+
+      // 2. 分批刷新 (每批3个)
+      const batchSize = 3
+      for (let i = 0; i < feedIdsToRefresh.length; i += batchSize) {
+        const batch = feedIdsToRefresh.slice(i, i + batchSize)
+
+        try {
+          const res = await fetch("/api/feeds/refresh", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feedIds: batch }),
+          })
+
+          if (res.ok) {
+            // 每批完成后，静默重新加载文章列表
+            await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+            // 同时也刷新订阅列表以更新未读计数
+            await loadFeeds()
+          }
+        } catch (error) {
+          console.error(`批次刷新失败 (${i}-${i + batchSize}):`, error)
+        }
       }
     } catch (error) {
       console.error("刷新失败:", error)
@@ -318,30 +346,30 @@ function DashboardContent() {
 
       if (res.ok) {
         const data = await res.json()
-        
+
         // 如果文章已经标记为已读，直接返回
         if (data.alreadyRead) {
           return
         }
-        
+
         // 从当前 articles 状态中找到文章
         const article = articles.find((a) => a.id === articleId)
-        
+
         // 如果文章不存在或已经是已读状态，不更新
         if (!article || article.readBy.length > 0) {
           return
         }
-        
+
         // 保存 feedId
         const targetFeedId = article.feed.id
-        
+
         // 更新文章状态
         setArticles((prevArticles) =>
           prevArticles.map((a) =>
             a.id === articleId ? { ...a, readBy: [{ articleId }] } : a
           )
         )
-        
+
         // 更新对应 feed 的未读计数（只更新一次）
         setFeeds((prevFeeds) =>
           prevFeeds.map((feed) =>
@@ -368,10 +396,10 @@ function DashboardContent() {
 
       if (res.ok) {
         const data = await res.json()
-        
+
         // 获取所有被标记的文章（包括新标记的和已经标记的）
         const markedArticles = articles.filter((a) => articleIds.includes(a.id))
-        
+
         // 统计每个 feed 的未读数减少量
         const feedUnreadDelta = new Map<string, number>()
         markedArticles.forEach((article) => {
@@ -381,14 +409,14 @@ function DashboardContent() {
             feedUnreadDelta.set(feedId, (feedUnreadDelta.get(feedId) || 0) + 1)
           }
         })
-        
+
         // 更新文章状态
         setArticles((prevArticles) =>
           prevArticles.map((a) =>
             articleIds.includes(a.id) ? { ...a, readBy: [{ articleId: a.id }] } : a
           )
         )
-        
+
         // 更新 feeds 的未读计数
         setFeeds((prevFeeds) =>
           prevFeeds.map((feed) => {
@@ -425,7 +453,7 @@ function DashboardContent() {
 
       if (res.ok) {
         const data = await res.json()
-        
+
         // 更新本地文章状态
         setArticles((prev) =>
           prev.map((a) => ({
@@ -433,7 +461,7 @@ function DashboardContent() {
             readBy: a.readBy.length === 0 ? [{ articleId: a.id }] : a.readBy,
           }))
         )
-        
+
         // 更新 feeds 的未读计数
         if (selectedFeed) {
           // 如果选择了特定 feed，只更新该 feed
@@ -476,7 +504,7 @@ function DashboardContent() {
       const res = await fetch("/api/articles/read-older", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           days: days,
           cutoffDate: cutoffDate?.toISOString() // 如果指定了具体日期，传递 ISO 字符串
         }),
@@ -489,7 +517,7 @@ function DashboardContent() {
         // 这里我们选择刷新当前列表
         await loadArticles(selectedFeed || undefined, unreadOnly)
         await loadFeeds() // 更新侧边栏计数
-        
+
         return {
           success: true,
           count: data.count || 0,
