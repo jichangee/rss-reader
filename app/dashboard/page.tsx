@@ -142,7 +142,7 @@ function DashboardContent() {
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread) params.append("unreadOnly", "true")
-      params.append("limit", "20")
+      params.append("limit", "10")
 
       const res = await fetch(`/api/articles?${params.toString()}`)
       if (res.ok) {
@@ -166,7 +166,7 @@ function DashboardContent() {
       const params = new URLSearchParams()
       if (selectedFeed) params.append("feedId", selectedFeed)
       if (unreadOnly) params.append("unreadOnly", "true")
-      params.append("limit", "20")
+      params.append("limit", "10")
       params.append("cursor", nextCursor)
 
       const res = await fetch(`/api/articles?${params.toString()}`)
