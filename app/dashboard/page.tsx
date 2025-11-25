@@ -40,10 +40,11 @@ function DashboardContent() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
   const hasInitialLoadRef = useRef(false)
+  const lastAutoRefreshRef = useRef<number>(0)
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // 从 URL 读取选中的订阅
   useEffect(() => {
@@ -79,37 +80,63 @@ function DashboardContent() {
       hasInitialLoadRef.current = true
 
       const performInitialLoad = async () => {
+        // 先加载现有数据
+        await loadArticles(selectedFeed || undefined, unreadOnly)
+        await loadFeeds()
+        
         // 根据设置决定是否自动刷新
         if (autoRefreshOnLoad) {
-          // 如果开启自动刷新，先刷新再加载
-          try {
-            setIsRefreshing(true)
-            const res = await fetch("/api/feeds/refresh", {
-              method: "POST",
-            })
-
-            if (res.ok) {
-              await loadArticles(selectedFeed || undefined, unreadOnly)
-              await loadFeeds()
-            }
-          } catch (error) {
-            console.error("刷新失败:", error)
-            // 即使刷新失败，也尝试加载现有数据
-            await loadArticles(selectedFeed || undefined, unreadOnly)
-            await loadFeeds()
-          } finally {
-            setIsRefreshing(false)
-          }
-        } else {
-          // 如果关闭自动刷新，直接加载现有数据
-          await loadArticles(selectedFeed || undefined, unreadOnly)
-          await loadFeeds()
+          // 后台静默刷新，不阻塞UI
+          triggerBackgroundRefresh()
         }
       }
 
       performInitialLoad()
     }
   }, [status, autoRefreshOnLoad, isInitialized])
+
+  // 自动后台刷新：用户浏览时每10分钟自动触发
+  useEffect(() => {
+    if (status !== "authenticated") return
+
+    // 设置定时器，每10分钟检查一次
+    const intervalId = setInterval(() => {
+      const now = Date.now()
+      const timeSinceLastRefresh = now - lastAutoRefreshRef.current
+      const TEN_MINUTES = 10 * 60 * 1000
+
+      // 如果距离上次刷新超过10分钟，触发后台刷新
+      if (timeSinceLastRefresh >= TEN_MINUTES || lastAutoRefreshRef.current === 0) {
+        console.log("自动触发后台刷新（用户浏览时）")
+        
+        // 发送刷新请求，不等待完成
+        fetch("/api/feeds/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        }).catch(err => {
+          console.error("触发后台刷新失败:", err)
+        })
+
+        // 记录刷新时间
+        lastAutoRefreshRef.current = now
+        
+        // 5秒后静默更新文章列表
+        setTimeout(() => {
+          loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+          loadFeeds()
+        }, 5000)
+      }
+    }, 60 * 1000) // 每分钟检查一次
+
+    autoRefreshIntervalRef.current = intervalId
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current)
+      }
+    }
+  }, [status, selectedFeed, unreadOnly])
 
   const loadFeeds = async () => {
     try {
@@ -292,50 +319,37 @@ function DashboardContent() {
     }
   }
 
-  const handleRefresh = async () => {
+  // 触发后台静默刷新
+  const triggerBackgroundRefresh = async (feedIds?: string[]) => {
     try {
-      setIsRefreshing(true)
+      // 发送刷新请求，不等待完成
+      fetch("/api/feeds/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedIds }),
+      }).catch(err => {
+        console.error("触发后台刷新失败:", err)
+      })
 
-      // 1. 获取所有需要刷新的 feed IDs
-      let feedIdsToRefresh: string[] = []
-      if (selectedFeed) {
-        feedIdsToRefresh = [selectedFeed]
-      } else {
-        feedIdsToRefresh = feeds.map(f => f.id)
-      }
+      // 记录刷新时间
+      lastAutoRefreshRef.current = Date.now()
 
-      if (feedIdsToRefresh.length === 0) {
-        setIsRefreshing(false)
-        return
-      }
-
-      // 2. 分批刷新 (每批3个)
-      const batchSize = 3
-      for (let i = 0; i < feedIdsToRefresh.length; i += batchSize) {
-        const batch = feedIdsToRefresh.slice(i, i + batchSize)
-
-        try {
-          const res = await fetch("/api/feeds/refresh", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ feedIds: batch }),
-          })
-
-          if (res.ok) {
-            // 每批完成后，静默重新加载文章列表
-            await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-            // 同时也刷新订阅列表以更新未读计数
-            await loadFeeds()
-          }
-        } catch (error) {
-          console.error(`批次刷新失败 (${i}-${i + batchSize}):`, error)
-        }
-      }
+      console.log("后台刷新已触发")
     } catch (error) {
-      console.error("刷新失败:", error)
-    } finally {
-      setIsRefreshing(false)
+      console.error("触发刷新失败:", error)
     }
+  }
+
+  // 手动刷新（用户点击刷新按钮）
+  const handleRefresh = async () => {
+    // 触发后台刷新
+    await triggerBackgroundRefresh(selectedFeed ? [selectedFeed] : undefined)
+    
+    // 2秒后重新加载数据以显示刷新结果
+    setTimeout(async () => {
+      await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+      await loadFeeds()
+    }, 2000)
   }
 
   const handleMarkAsRead = async (articleId: string) => {
@@ -565,7 +579,7 @@ function DashboardContent() {
         onToggleUnreadOnly={toggleUnreadOnly}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        isRefreshing={isRefreshing}
+        isRefreshing={false}
       />
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}

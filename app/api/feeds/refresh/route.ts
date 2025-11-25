@@ -4,26 +4,14 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
 
-// 刷新订阅
-export async function POST(req: Request) {
+// 后台刷新处理函数
+async function performBackgroundRefresh(
+  userEmail: string,
+  feedIds?: string[]
+) {
   try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 })
-    }
-
-    // 获取请求体中的 feedIds
-    let feedIds: string[] | undefined
-    try {
-      const body = await req.json()
-      feedIds = body.feedIds
-    } catch (e) {
-      // 忽略 JSON 解析错误，视为全量刷新
-    }
-
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { email: userEmail },
       include: { 
         feeds: {
           where: feedIds ? { id: { in: feedIds } } : undefined
@@ -32,7 +20,8 @@ export async function POST(req: Request) {
     })
 
     if (!user) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+      console.error("后台刷新: 用户不存在")
+      return
     }
 
     const minRefreshInterval = 5 * 60 * 1000 // 5分钟
@@ -43,6 +32,8 @@ export async function POST(req: Request) {
       if (!feed.lastRefreshedAt) return true
       return now - new Date(feed.lastRefreshedAt).getTime() >= minRefreshInterval
     })
+
+    console.log(`后台刷新开始: ${feedsToRefresh.length} 个订阅需要刷新`)
 
     // 并行处理所有 feed 的刷新
     const refreshResults = await Promise.allSettled(
@@ -128,18 +119,44 @@ export async function POST(req: Request) {
     // 统计结果
     const successCount = refreshResults.filter(r => r.status === 'fulfilled').length
     const failCount = refreshResults.filter(r => r.status === 'rejected').length
-    const skippedCount = user.feeds.length - feedsToRefresh.length
+
+    console.log(`后台刷新完成: 成功 ${successCount}, 失败 ${failCount}, 跳过 ${user.feeds.length - feedsToRefresh.length}`)
+  } catch (error) {
+    console.error("后台刷新失败:", error)
+  }
+}
+
+// 刷新订阅 - 非阻塞版本
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "未授权" }, { status: 401 })
+    }
+
+    // 获取请求体中的 feedIds
+    let feedIds: string[] | undefined
+    try {
+      const body = await req.json()
+      feedIds = body.feedIds
+    } catch (e) {
+      // 忽略 JSON 解析错误，视为全量刷新
+    }
+
+    // 立即返回 202 Accepted，表示请求已接受，后台处理中
+    // 在后台执行刷新任务，不阻塞响应
+    performBackgroundRefresh(session.user.email, feedIds).catch(err => {
+      console.error("后台刷新异常:", err)
+    })
 
     return NextResponse.json({ 
-      success: true, 
-      successCount, 
-      failCount,
-      skippedCount,
-      total: user.feeds.length 
-    })
+      message: "刷新任务已启动，正在后台处理",
+      status: "processing"
+    }, { status: 202 })
   } catch (error) {
-    console.error("刷新订阅失败:", error)
-    return NextResponse.json({ error: "刷新订阅失败" }, { status: 500 })
+    console.error("启动刷新失败:", error)
+    return NextResponse.json({ error: "启动刷新失败" }, { status: 500 })
   }
 }
 
