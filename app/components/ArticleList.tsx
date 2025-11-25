@@ -366,14 +366,9 @@ export default function ArticleList({
                           className="h-4 w-4 rounded flex-shrink-0"
                         />
                       ) : null}
-                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 break-words">
+                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap overflow-hidden text-ellipsis">
                         {article.feed.title}
                       </span>
-                      {!isRead && (
-                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 flex-shrink-0">
-                          新
-                        </span>
-                      )}
                       {readLaterArticles.has(article.id) && (
                         <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex-shrink-0 flex items-center gap-1">
                           <BookmarkCheck className="h-3 w-3" />
