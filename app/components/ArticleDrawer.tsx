@@ -1,10 +1,10 @@
-"use client"
-
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck } from "lucide-react"
 import { useEffect, useState } from "react"
 import { ToastContainer, useToast } from "./Toast"
+import YouTubeAudioPlayer from "./YouTubeAudioPlayer"
+import { extractFirstYouTubeVideo } from "@/lib/youtube-utils"
 
 interface Article {
   id: string
@@ -192,8 +192,19 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
               )}
             </div>
 
-            {/* 文章内容 */}
+{/* 文章内容 */}
             <div className="prose prose-sm sm:prose dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
+              {/* YouTube 音频播放器 */}
+              {article.content && (() => {
+                const youtubeVideo = extractFirstYouTubeVideo(article.content)
+                return youtubeVideo ? (
+                  <YouTubeAudioPlayer 
+                    url={youtubeVideo.url} 
+                    title={article.title}
+                  />
+                ) : null
+              })()}
+              
               {article.content ? (
                 <div
                   dangerouslySetInnerHTML={{ __html: article.content }}
