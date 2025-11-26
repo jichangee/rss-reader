@@ -117,7 +117,7 @@ export default function Sidebar({
         </div>
         <button
           onClick={onToggleUnreadOnly}
-          className={`flex w-full items-center justify-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+          className={`flex w-full items-center justify-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors mt-2 ${
             unreadOnly
               ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
               : "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
