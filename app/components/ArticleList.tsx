@@ -33,6 +33,7 @@ interface ArticleListProps {
   onMarkAllAsRead: () => void
   onMarkOlderAsRead?: (range: '24h' | 'week') => Promise<{ success: boolean; count?: number; message?: string }> // 返回 Promise，包含操作结果
   markReadOnScroll?: boolean
+  isRefreshing?: boolean
 }
 
 export default function ArticleList({
@@ -45,6 +46,7 @@ export default function ArticleList({
   onMarkAllAsRead,
   onMarkOlderAsRead, // 解构
   markReadOnScroll = false,
+  isRefreshing = false,
 }: ArticleListProps) {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -445,10 +447,15 @@ export default function ArticleList({
           <div className="flex justify-center py-8">
             <button
               onClick={onMarkAllAsRead}
-              className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+              disabled={isRefreshing}
+              className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-6 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-500 dark:hover:bg-indigo-600"
             >
-              <CheckCheck className="h-5 w-5" />
-              <span>全部已读</span>
+              {isRefreshing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCheck className="h-5 w-5" />
+              )}
+              <span>{isRefreshing ? "正在刷新..." : "全部已读"}</span>
             </button>
           </div>
         )}

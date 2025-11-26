@@ -42,6 +42,7 @@ function DashboardContent() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
+  const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const hasInitialLoadRef = useRef(false)
   const lastAutoRefreshRef = useRef<number>(0)
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -479,9 +480,23 @@ function DashboardContent() {
           // 如果选择了全部，需要重新加载 feeds 以获取准确的未读计数
           await loadFeeds()
         }
+
+        // 设置刷新状态，显示正在刷新
+        setIsRefreshingAfterMarkAllRead(true)
+        console.log("全部已读完成，触发自动刷新...")
+        await triggerBackgroundRefresh(selectedFeed ? [selectedFeed] : undefined)
+
+        // 3秒后重新加载文章列表以显示刷新结果
+        setTimeout(async () => {
+          await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+          await loadFeeds()
+          setIsRefreshingAfterMarkAllRead(false)
+          console.log("自动刷新完成，文章列表已更新")
+        }, 3000)
       }
     } catch (error) {
       console.error("全部标记已读失败:", error)
+      setIsRefreshingAfterMarkAllRead(false)
     }
   }
 
@@ -590,6 +605,7 @@ function DashboardContent() {
             onMarkAllAsRead={handleMarkAllAsRead}
             onMarkOlderAsRead={handleMarkOlderAsRead}
             markReadOnScroll={markReadOnScroll}
+            isRefreshing={isRefreshingAfterMarkAllRead}
           />
         </div>
       </main>
