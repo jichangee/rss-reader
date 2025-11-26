@@ -22,13 +22,14 @@ export default function YouTubeAudioPlayer({
     return null
   }
 
-  // iOS 平台使用 HTML5 Audio 播放器
+  // 只在 iOS 平台渲染音频播放器
+  // 桌面平台使用 RSS 内容中原有的 iframe
   if (platform === 'ios') {
     return <IOSAudioPlayer videoId={videoId} title={title} autoplay={autoplay} />
   }
 
-  // 其他平台使用 YouTube iframe
-  return <YouTubeIframePlayer videoId={videoId} title={title} autoplay={autoplay} />
+  // 桌面平台返回 null，让 RSS 内容中的 iframe 正常显示
+  return null
 }
 
 /**
@@ -316,33 +317,6 @@ function IOSAudioPlayer({
             className="w-20 h-1.5 bg-indigo-200 dark:bg-indigo-700 rounded-lg appearance-none cursor-pointer"
           />
         </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * 桌面平台的 YouTube iframe 播放器
- */
-function YouTubeIframePlayer({ 
-  videoId, 
-  title,
-  autoplay 
-}: { 
-  videoId: string
-  title: string
-  autoplay: boolean
-}) {
-  return (
-    <div className="rounded-xl overflow-hidden mb-4 shadow-md">
-      <div className="relative" style={{ paddingBottom: '56.25%' }}>
-        <iframe
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}`}
-          title={title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="absolute top-0 left-0 w-full h-full"
-        />
       </div>
     </div>
   )

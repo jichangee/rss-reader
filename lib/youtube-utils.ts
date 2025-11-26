@@ -21,8 +21,8 @@ export function extractVideoId(url: string): string | null {
       return urlObj.pathname.slice(1).split('?')[0]
     }
     
-    // youtube.com 各种格式
-    if (urlObj.hostname.includes('youtube.com')) {
+    // youtube.com 和 youtube-nocookie.com 各种格式
+    if (urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtube-nocookie.com')) {
       // watch?v=VIDEO_ID
       const vParam = urlObj.searchParams.get('v')
       if (vParam) return vParam
@@ -44,7 +44,9 @@ export function extractVideoId(url: string): string | null {
 export function isYouTubeUrl(url: string): boolean {
   try {
     const urlObj = new URL(url)
-    return urlObj.hostname.includes('youtube.com') || urlObj.hostname === 'youtu.be'
+    return urlObj.hostname.includes('youtube.com') || 
+           urlObj.hostname.includes('youtube-nocookie.com') || 
+           urlObj.hostname === 'youtu.be'
   } catch {
     return false
   }
@@ -68,19 +70,29 @@ export function detectPlatform(): 'ios' | 'other' {
 export function extractYouTubeLinks(html: string): string[] {
   const links: string[] = []
   
-  // 匹配 href 属性中的 YouTube 链接
-  const hrefRegex = /href=["']([^"']*(?:youtube\.com|youtu\.be)[^"']*)["']/gi
+  // 优先匹配 iframe src 属性中的 YouTube 链接（RSS feed 常见格式）
+  const iframeSrcRegex = /<iframe[^>]*src=["']([^"']*(?:youtube\.com|youtube-nocookie\.com|youtu\.be)[^"']*)["'][^>]*>/gi
   let match
+  
+  while ((match = iframeSrcRegex.exec(html)) !== null) {
+    const url = match[1]
+    if (isYouTubeUrl(url) && !links.includes(url)) {
+      links.push(url)
+    }
+  }
+  
+  // 匹配 href 属性中的 YouTube 链接
+  const hrefRegex = /href=["']([^"']*(?:youtube\.com|youtube-nocookie\.com|youtu\.be)[^"']*)["']/gi
   
   while ((match = hrefRegex.exec(html)) !== null) {
     const url = match[1]
-    if (isYouTubeUrl(url)) {
+    if (isYouTubeUrl(url) && !links.includes(url)) {
       links.push(url)
     }
   }
   
   // 也匹配纯文本中的 YouTube 链接
-  const textRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)[^\s<>"]*)/gi
+  const textRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com|youtube-nocookie\.com|youtu\.be)[^\s<>"]*)/gi
   
   while ((match = textRegex.exec(html)) !== null) {
     const url = match[1]
