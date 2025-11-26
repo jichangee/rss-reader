@@ -117,14 +117,29 @@ iframe {
   }
 }
 
-/* YouTube 音频播放器滑块样式 */
-input[type="range"].slider {
+/* YouTube 音频播放器进度条样式 */
+input[type="range"].youtube-progress-slider {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
+  width: 100%;
 }
 
-input[type="range"].slider::-webkit-slider-thumb {
+input[type="range"].youtube-progress-slider::-webkit-slider-track {
+  width: 100%;
+  height: 8px;
+  background: #c7d2fe; /* indigo-200 */
+  border-radius: 4px;
+}
+
+input[type="range"].youtube-progress-slider::-moz-range-track {
+  width: 100%;
+  height: 8px;
+  background: #c7d2fe; /* indigo-200 */
+  border-radius: 4px;
+}
+
+input[type="range"].youtube-progress-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 16px;
@@ -133,14 +148,15 @@ input[type="range"].slider::-webkit-slider-thumb {
   background: #4f46e5; /* indigo-600 */
   cursor: pointer;
   transition: all 0.2s;
+  margin-top: -4px;
 }
 
-input[type="range"].slider::-webkit-slider-thumb:hover {
+input[type="range"].youtube-progress-slider::-webkit-slider-thumb:hover {
   background: #4338ca; /* indigo-700 */
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 
-input[type="range"].slider::-moz-range-thumb {
+input[type="range"].youtube-progress-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -150,19 +166,46 @@ input[type="range"].slider::-moz-range-thumb {
   transition: all 0.2s;
 }
 
-input[type="range"].slider::-moz-range-thumb:hover {
+input[type="range"].youtube-progress-slider::-moz-range-thumb:hover {
   background: #4338ca; /* indigo-700 */
-  transform: scale(1.1);
+  transform: scale(1.2);
+}
+
+/* 暗色主题下的进度条样式 */
+@media (prefers-color-scheme: dark) {
+  input[type="range"].youtube-progress-slider::-webkit-slider-track {
+    background: #3730a3; /* indigo-700 */
+  }
+  
+  input[type="range"].youtube-progress-slider::-moz-range-track {
+    background: #3730a3; /* indigo-700 */
+  }
+  
+  input[type="range"].youtube-progress-slider::-webkit-slider-thumb {
+    background: #6366f1; /* indigo-500 */
+  }
+  
+  input[type="range"].youtube-progress-slider::-webkit-slider-thumb:hover {
+    background: #4f46e5; /* indigo-600 */
+  }
+  
+  input[type="range"].youtube-progress-slider::-moz-range-thumb {
+    background: #6366f1; /* indigo-500 */
+  }
+  
+  input[type="range"].youtube-progress-slider::-moz-range-thumb:hover {
+    background: #4f46e5; /* indigo-600 */
+  }
 }
 
 /* 音量滑块样式 */
-input[type="range"]:not(.slider) {
+input[type="range"]:not(.youtube-progress-slider) {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
 }
 
-input[type="range"]:not(.slider)::-webkit-slider-thumb {
+input[type="range"]:not(.youtube-progress-slider)::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 12px;
@@ -173,11 +216,11 @@ input[type="range"]:not(.slider)::-webkit-slider-thumb {
   transition: all 0.2s;
 }
 
-input[type="range"]:not(.slider)::-webkit-slider-thumb:hover {
+input[type="range"]:not(.youtube-progress-slider)::-webkit-slider-thumb:hover {
   background: #4338ca; /* indigo-700 */
 }
 
-input[type="range"]:not(.slider)::-moz-range-thumb {
+input[type="range"]:not(.youtube-progress-slider)::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
@@ -187,29 +230,25 @@ input[type="range"]:not(.slider)::-moz-range-thumb {
   transition: all 0.2s;
 }
 
-input[type="range"]:not(.slider)::-moz-range-thumb:hover {
+input[type="range"]:not(.youtube-progress-slider)::-moz-range-thumb:hover {
   background: #4338ca; /* indigo-700 */
 }
 
 /* 暗色主题下的滑块样式 */
 @media (prefers-color-scheme: dark) {
-  input[type="range"].slider::-webkit-slider-thumb,
-  input[type="range"]:not(.slider)::-webkit-slider-thumb {
+  input[type="range"]:not(.youtube-progress-slider)::-webkit-slider-thumb {
     background: #6366f1; /* indigo-500 */
   }
 
-  input[type="range"].slider::-webkit-slider-thumb:hover,
-  input[type="range"]:not(.slider)::-webkit-slider-thumb:hover {
+  input[type="range"]:not(.youtube-progress-slider)::-webkit-slider-thumb:hover {
     background: #4f46e5; /* indigo-600 */
   }
 
-  input[type="range"].slider::-moz-range-thumb,
-  input[type="range"]:not(.slider)::-moz-range-thumb {
+  input[type="range"]:not(.youtube-progress-slider)::-moz-range-thumb {
     background: #6366f1; /* indigo-500 */
   }
 
-  input[type="range"].slider::-moz-range-thumb:hover,
-  input[type="range"]:not(.slider)::-moz-range-thumb:hover {
+  input[type="range"]:not(.youtube-progress-slider)::-moz-range-thumb:hover {
     background: #4f46e5; /* indigo-600 */
   }
 }

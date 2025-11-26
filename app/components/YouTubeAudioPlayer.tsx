@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Play, Pause, Volume2, VolumeX, Loader2 } from "lucide-react"
-import { extractVideoId, detectPlatform } from "@/lib/youtube-utils"
+import { Play, Pause, Loader2 } from "lucide-react"
+import { extractVideoId } from "@/lib/youtube-utils"
 
 interface YouTubeAudioPlayerProps {
   url: string
@@ -15,21 +15,14 @@ export default function YouTubeAudioPlayer({
   title = "YouTube 音频",
   autoplay = false 
 }: YouTubeAudioPlayerProps) {
-  const [platform] = useState(() => detectPlatform())
   const videoId = extractVideoId(url)
 
   if (!videoId) {
     return null
   }
 
-  // 只在 iOS 平台渲染音频播放器
-  // 桌面平台使用 RSS 内容中原有的 iframe
-  if (platform === 'ios') {
-    return <IOSAudioPlayer videoId={videoId} title={title} autoplay={autoplay} />
-  }
-
-  // 桌面平台返回 null，让 RSS 内容中的 iframe 正常显示
-  return null
+  // 在所有平台都显示音频播放器
+  return <IOSAudioPlayer videoId={videoId} title={title} autoplay={autoplay} />
 }
 
 /**
@@ -49,8 +42,6 @@ function IOSAudioPlayer({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(1)
-  const [isMuted, setIsMuted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -181,28 +172,6 @@ function IOSAudioPlayer({
     }
   }
 
-  // 音量控制
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const vol = parseFloat(e.target.value)
-    setVolume(vol)
-    if (audioRef.current) {
-      audioRef.current.volume = vol
-    }
-    if (vol === 0) {
-      setIsMuted(true)
-    } else {
-      setIsMuted(false)
-    }
-  }
-
-  // 静音切换
-  const toggleMute = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = !isMuted
-      setIsMuted(!isMuted)
-    }
-  }
-
   // 格式化时间
   const formatTime = (seconds: number) => {
     if (!isFinite(seconds)) return '0:00'
@@ -272,7 +241,7 @@ function IOSAudioPlayer({
           max={duration || 0}
           value={currentTime}
           onChange={handleSeek}
-          className="w-full h-2 bg-indigo-200 dark:bg-indigo-700 rounded-lg appearance-none cursor-pointer slider"
+          className="w-full h-2 bg-indigo-200 dark:bg-indigo-700 rounded-lg appearance-none cursor-pointer youtube-progress-slider"
         />
         <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
           <span>{formatTime(currentTime)}</span>
@@ -281,42 +250,18 @@ function IOSAudioPlayer({
       </div>
 
       {/* 控制按钮 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-center">
         <button
           onClick={togglePlay}
-          className="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white transition-colors shadow-md hover:shadow-lg"
+          className="flex items-center justify-center h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white transition-colors shadow-md hover:shadow-lg"
           title={isPlaying ? '暂停' : '播放'}
         >
           {isPlaying ? (
-            <Pause className="h-5 w-5" fill="currentColor" />
+            <Pause className="h-6 w-6" fill="currentColor" />
           ) : (
-            <Play className="h-5 w-5 ml-0.5" fill="currentColor" />
+            <Play className="h-6 w-6 ml-0.5" fill="currentColor" />
           )}
         </button>
-
-        {/* 音量控制 */}
-        <div className="flex items-center space-x-2 flex-1 ml-4">
-          <button
-            onClick={toggleMute}
-            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
-            title={isMuted ? '取消静音' : '静音'}
-          >
-            {isMuted || volume === 0 ? (
-              <VolumeX className="h-5 w-5" />
-            ) : (
-              <Volume2 className="h-5 w-5" />
-            )}
-          </button>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={isMuted ? 0 : volume}
-            onChange={handleVolumeChange}
-            className="w-20 h-1.5 bg-indigo-200 dark:bg-indigo-700 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
       </div>
     </div>
   )
