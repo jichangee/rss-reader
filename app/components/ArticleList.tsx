@@ -288,7 +288,7 @@ export default function ArticleList({
       <div className="flex h-full flex-col items-center justify-center text-gray-500 dark:text-gray-400">
         <BookOpen className="h-16 w-16 mb-4 opacity-50" />
         <p className="text-lg font-medium">暂无文章</p>
-        <p className="mt-2 text-sm">添加订阅或刷新以获取最新内容</p>
+        <p className="mt-2 text-sm">添加订阅以获取最新内容</p>
       </div>
     )
   }

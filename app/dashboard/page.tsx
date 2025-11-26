@@ -340,18 +340,7 @@ function DashboardContent() {
     }
   }
 
-  // 手动刷新（用户点击刷新按钮）
-  const handleRefresh = async () => {
-    // 触发后台刷新
-    await triggerBackgroundRefresh(selectedFeed ? [selectedFeed] : undefined)
-    
-    // 2秒后重新加载数据以显示刷新结果
-    setTimeout(async () => {
-      await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-      await loadFeeds()
-    }, 2000)
-  }
-
+  
   const handleMarkAsRead = async (articleId: string) => {
     try {
       const res = await fetch(`/api/articles/${articleId}/read`, {
@@ -574,13 +563,11 @@ function DashboardContent() {
         onBatchAddFeed={() => setShowBatchAddFeed(true)}
         onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
-        onRefresh={handleRefresh}
-        unreadOnly={unreadOnly}
+          unreadOnly={unreadOnly}
         onToggleUnreadOnly={toggleUnreadOnly}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        isRefreshing={false}
-      />
+        />
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}
         <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
