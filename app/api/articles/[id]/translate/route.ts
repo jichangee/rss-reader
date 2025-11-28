@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { translateText } from "@/lib/translate"
+import { translateText, TranslationConfig } from "@/lib/translate"
 
 // 翻译单篇文章
 export async function POST(
@@ -16,16 +16,25 @@ export async function POST(
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    // 注意：需要先运行数据库迁移以添加新字段
+    // npx prisma migrate dev --name add_translation_providers
+    // 或使用: npx prisma db push
+    const userRaw = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: {
-        id: true,
-        targetLanguage: true,
-      },
     })
 
-    if (!user) {
+    if (!userRaw) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+    }
+
+    // 类型断言，因为 Prisma 类型可能还未更新
+    const user = userRaw as typeof userRaw & {
+      translationProvider?: string | null
+      googleTranslateApiKey?: string | null
+      niutransApiKey?: string | null
+      niutransApiSecret?: string | null
+      microsoftTranslateApiKey?: string | null
+      microsoftTranslateRegion?: string | null
     }
 
     const { id } = await params
@@ -47,12 +56,32 @@ export async function POST(
     }
 
     // 获取用户的目标语言设置
-    // 注意：如果user.targetLanguage为null，使用默认值"zh"
-    // 但应该确保用户设置中已经保存了目标语言
     const targetLanguage = user.targetLanguage || "zh"
     
     if (!targetLanguage || targetLanguage.trim() === "") {
       return NextResponse.json({ error: "未设置目标语言" }, { status: 400 })
+    }
+
+    // 构建翻译配置
+    const translationProvider = (user.translationProvider || "google") as "google" | "niutrans" | "microsoft"
+    const translationConfig: TranslationConfig = {
+      provider: translationProvider,
+      googleApiKey: user.googleTranslateApiKey || undefined,
+      niutransApiKey: user.niutransApiKey || undefined,
+      niutransApiSecret: user.niutransApiSecret || undefined,
+      microsoftApiKey: user.microsoftTranslateApiKey || undefined,
+      microsoftRegion: user.microsoftTranslateRegion || undefined,
+    }
+
+    // 检查是否配置了相应的 API Key
+    if (translationProvider === "google" && !translationConfig.googleApiKey) {
+      return NextResponse.json({ error: "未配置 Google 翻译 API Key" }, { status: 400 })
+    }
+    if (translationProvider === "niutrans" && (!translationConfig.niutransApiKey || !translationConfig.niutransApiSecret)) {
+      return NextResponse.json({ error: "未配置小牛翻译 API Key 或 Secret" }, { status: 400 })
+    }
+    if (translationProvider === "microsoft" && !translationConfig.microsoftApiKey) {
+      return NextResponse.json({ error: "未配置微软翻译 API Key" }, { status: 400 })
     }
 
     // 翻译标题、内容和摘要
@@ -60,17 +89,20 @@ export async function POST(
       translateText({
         text: article.title,
         targetLanguage,
+        config: translationConfig,
       }),
       article.content
         ? translateText({
             text: article.content,
             targetLanguage,
+            config: translationConfig,
           })
         : Promise.resolve(article.content),
       article.contentSnippet
         ? translateText({
             text: article.contentSnippet,
             targetLanguage,
+            config: translationConfig,
           })
         : Promise.resolve(article.contentSnippet),
     ])

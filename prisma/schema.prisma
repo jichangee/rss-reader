@@ -17,6 +17,12 @@ model User {
   emailVerified DateTime?
   image         String?
   targetLanguage String?  @default("zh") // 翻译目标语言，默认中文
+  translationProvider String? // 翻译服务提供商: google, niutrans, microsoft
+  googleTranslateApiKey String? // Google 翻译 API Key
+  niutransApiKey String? // 小牛翻译 API Key
+  niutransApiSecret String? // 小牛翻译 API Secret
+  microsoftTranslateApiKey String? // 微软翻译 API Key
+  microsoftTranslateRegion String? // 微软翻译服务区域
   markReadOnScroll Boolean @default(false) // 是否启用滚动标记已读
   autoRefreshOnLoad Boolean @default(true) // 首次进入页面时自动刷新，默认开启
   accounts      Account[]

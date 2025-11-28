@@ -46,6 +46,12 @@ export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [targetLanguage, setTargetLanguage] = useState("zh")
+  const [translationProvider, setTranslationProvider] = useState<"google" | "niutrans" | "microsoft">("google")
+  const [googleTranslateApiKey, setGoogleTranslateApiKey] = useState("")
+  const [niutransApiKey, setNiutransApiKey] = useState("")
+  const [niutransApiSecret, setNiutransApiSecret] = useState("")
+  const [microsoftTranslateApiKey, setMicrosoftTranslateApiKey] = useState("")
+  const [microsoftTranslateRegion, setMicrosoftTranslateRegion] = useState("global")
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -77,6 +83,12 @@ export default function SettingsPage() {
       if (res.ok) {
         const data = await res.json()
         setTargetLanguage(data.targetLanguage || "zh")
+        setTranslationProvider(data.translationProvider || "google")
+        setGoogleTranslateApiKey(data.googleTranslateApiKey || "")
+        setNiutransApiKey(data.niutransApiKey || "")
+        setNiutransApiSecret(data.niutransApiSecret || "")
+        setMicrosoftTranslateApiKey(data.microsoftTranslateApiKey || "")
+        setMicrosoftTranslateRegion(data.microsoftTranslateRegion || "global")
         setMarkReadOnScroll(data.markReadOnScroll ?? false)
         setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
@@ -97,7 +109,17 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetLanguage, markReadOnScroll, autoRefreshOnLoad }),
+        body: JSON.stringify({ 
+          targetLanguage, 
+          translationProvider,
+          googleTranslateApiKey,
+          niutransApiKey,
+          niutransApiSecret,
+          microsoftTranslateApiKey,
+          microsoftTranslateRegion,
+          markReadOnScroll, 
+          autoRefreshOnLoad 
+        }),
       })
 
       if (res.ok) {
@@ -248,28 +270,154 @@ export default function SettingsPage() {
               翻译设置
             </h2>
             <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-              设置默认的翻译目标语言。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
+              设置默认的翻译目标语言和翻译服务提供商。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
             </p>
 
-            <div className="mb-6">
-              <label
-                htmlFor="target-language"
-                className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                目标语言
-              </label>
-              <select
-                id="target-language"
-                value={targetLanguage}
-                onChange={(e) => setTargetLanguage(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              >
-                {LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-6">
+              <div>
+                <label
+                  htmlFor="target-language"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  目标语言
+                </label>
+                <select
+                  id="target-language"
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="translation-provider"
+                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  翻译服务提供商
+                </label>
+                <select
+                  id="translation-provider"
+                  value={translationProvider}
+                  onChange={(e) => setTranslationProvider(e.target.value as "google" | "niutrans" | "microsoft")}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="google">Google 翻译</option>
+                  <option value="niutrans">小牛翻译</option>
+                  <option value="microsoft">微软翻译</option>
+                </select>
+              </div>
+
+              {/* Google 翻译配置 */}
+              {translationProvider === "google" && (
+                <div>
+                  <label
+                    htmlFor="google-api-key"
+                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Google 翻译 API Key
+                  </label>
+                  <input
+                    id="google-api-key"
+                    type="password"
+                    value={googleTranslateApiKey}
+                    onChange={(e) => setGoogleTranslateApiKey(e.target.value)}
+                    placeholder="请输入 Google 翻译 API Key"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    在 <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">Google Cloud Console</a> 创建 API 密钥
+                  </p>
+                </div>
+              )}
+
+              {/* 小牛翻译配置 */}
+              {translationProvider === "niutrans" && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="niutrans-api-key"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      小牛翻译 API Key
+                    </label>
+                    <input
+                      id="niutrans-api-key"
+                      type="password"
+                      value={niutransApiKey}
+                      onChange={(e) => setNiutransApiKey(e.target.value)}
+                      placeholder="请输入小牛翻译 API Key"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="niutrans-api-secret"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      小牛翻译 API Secret
+                    </label>
+                    <input
+                      id="niutrans-api-secret"
+                      type="password"
+                      value={niutransApiSecret}
+                      onChange={(e) => setNiutransApiSecret(e.target.value)}
+                      placeholder="请输入小牛翻译 API Secret"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      在 <a href="https://niutrans.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">小牛翻译官网</a> 注册并获取 API 密钥
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* 微软翻译配置 */}
+              {translationProvider === "microsoft" && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="microsoft-api-key"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      微软翻译 API Key
+                    </label>
+                    <input
+                      id="microsoft-api-key"
+                      type="password"
+                      value={microsoftTranslateApiKey}
+                      onChange={(e) => setMicrosoftTranslateApiKey(e.target.value)}
+                      placeholder="请输入微软翻译 API Key"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="microsoft-region"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      服务区域
+                    </label>
+                    <input
+                      id="microsoft-region"
+                      type="text"
+                      value={microsoftTranslateRegion}
+                      onChange={(e) => setMicrosoftTranslateRegion(e.target.value)}
+                      placeholder="例如: global, eastus, westeurope"
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      在 <a href="https://azure.microsoft.com/zh-cn/services/cognitive-services/translator/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">Azure 门户</a> 创建翻译服务资源并获取密钥和区域
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

@@ -1,12 +1,56 @@
 /**
  * 翻译服务
- * 支持多种翻译API，目前使用Google Translate API
+ * 支持多种翻译API：Google Translate、小牛翻译、微软翻译
  */
 
-interface TranslateOptions {
+export type TranslationProvider = "google" | "niutrans" | "microsoft"
+
+export interface TranslationConfig {
+  provider: TranslationProvider
+  googleApiKey?: string
+  niutransApiKey?: string
+  niutransApiSecret?: string
+  microsoftApiKey?: string
+  microsoftRegion?: string
+}
+
+export interface TranslateOptions {
   text: string
   targetLanguage: string
   sourceLanguage?: string
+  config: TranslationConfig
+}
+
+/**
+ * 语言代码映射
+ */
+const languageCodeMap: Record<string, string> = {
+  zh: "zh",
+  en: "en",
+  ja: "ja",
+  ko: "ko",
+  es: "es",
+  fr: "fr",
+  de: "de",
+  ru: "ru",
+  pt: "pt",
+  it: "it",
+  ar: "ar",
+  hi: "hi",
+}
+
+/**
+ * 将语言代码转换为各服务商支持的格式
+ */
+function normalizeLanguageCode(code: string, provider: TranslationProvider): string {
+  const normalized = languageCodeMap[code] || code
+  
+  // 微软翻译需要 zh-Hans 而不是 zh
+  if (provider === "microsoft" && normalized === "zh") {
+    return "zh-Hans"
+  }
+  
+  return normalized
 }
 
 /**
@@ -16,16 +60,16 @@ async function translateWithGoogle({
   text,
   targetLanguage,
   sourceLanguage = "auto",
+  config,
 }: TranslateOptions): Promise<string> {
-  const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY
+  const apiKey = config.googleApiKey
 
   if (!apiKey) {
-    console.warn("GOOGLE_TRANSLATE_API_KEY 未设置，跳过翻译")
+    console.warn("Google Translate API Key 未设置，跳过翻译")
     return text
   }
 
   try {
-    // 如果文本为空或太短，直接返回
     if (!text || text.trim().length === 0) {
       return text
     }
@@ -35,20 +79,16 @@ async function translateWithGoogle({
       return text
     }
 
-    // 使用Google Translate API v2
     const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`
     
-    // 构建请求体，如果 sourceLanguage 是 "auto" 或未指定，则不传递 source 参数
-    // Google Translate API 会自动检测源语言
     const requestBody: any = {
       q: text,
-      target: targetLanguage,
-      format: "html", // 支持HTML格式
+      target: normalizeLanguageCode(targetLanguage, "google"),
+      format: "html",
     }
     
-    // 只有当 sourceLanguage 明确指定且不是 "auto" 时才添加 source 参数
     if (sourceLanguage && sourceLanguage !== "auto") {
-      requestBody.source = sourceLanguage
+      requestBody.source = normalizeLanguageCode(sourceLanguage, "google")
     }
     
     const response = await fetch(url, {
@@ -61,34 +101,184 @@ async function translateWithGoogle({
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: "未知错误" }))
-      console.error("翻译API错误:", JSON.stringify(errorData, null, 2))
-      // 如果API调用失败，返回原文而不是抛出错误
+      console.error("Google 翻译API错误:", JSON.stringify(errorData, null, 2))
       return text
     }
 
     const data = await response.json()
     
-    // 记录完整的API响应，便于调试
-    
     if (data.data?.translations?.[0]?.translatedText) {
-      const translatedText = data.data.translations[0].translatedText
-      
-      return translatedText
+      return data.data.translations[0].translatedText
     }
 
-    // 如果没有翻译结果，返回原文
     return text
   } catch (error) {
-    console.error("翻译失败:", error)
+    console.error("Google 翻译失败:", error)
     return text
   }
+}
+
+/**
+ * 使用小牛翻译 API进行翻译
+ */
+async function translateWithNiutrans({
+  text,
+  targetLanguage,
+  sourceLanguage = "auto",
+  config,
+}: TranslateOptions): Promise<string> {
+  const apiKey = config.niutransApiKey
+  const apiSecret = config.niutransApiSecret
+
+  if (!apiKey || !apiSecret) {
+    console.warn("小牛翻译 API Key 或 Secret 未设置，跳过翻译")
+    return text
+  }
+
+  try {
+    if (!text || text.trim().length === 0) {
+      return text
+    }
+
+    // 如果目标语言是中文且文本看起来已经是中文，跳过翻译
+    if (targetLanguage === "zh" && /[\u4e00-\u9fa5]/.test(text)) {
+      return text
+    }
+
+    // 小牛翻译 API
+    // 注意：小牛翻译的 API 格式可能因版本而异，这里使用通用格式
+    const url = "https://api.niutrans.com/NiuTransServer/translation"
+    
+    // 小牛翻译需要签名认证
+    const timestamp = Date.now().toString()
+    const signStr = apiKey + apiSecret + timestamp
+    const sign = await generateMD5(signStr)
+    
+    const requestBody: any = {
+      apikey: apiKey,
+      src_text: text,
+      to: normalizeLanguageCode(targetLanguage, "niutrans"),
+      sign,
+      timestamp,
+    }
+    
+    // 小牛翻译支持自动检测源语言，如果指定了源语言则传入
+    if (sourceLanguage && sourceLanguage !== "auto") {
+      requestBody.from = normalizeLanguageCode(sourceLanguage, "niutrans")
+    }
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "未知错误" }))
+      console.error("小牛翻译API错误:", JSON.stringify(errorData, null, 2))
+      return text
+    }
+
+    const data = await response.json()
+    
+    if (data.tgt_text) {
+      return data.tgt_text
+    }
+
+    return text
+  } catch (error) {
+    console.error("小牛翻译失败:", error)
+    return text
+  }
+}
+
+/**
+ * 使用微软翻译 API进行翻译
+ */
+async function translateWithMicrosoft({
+  text,
+  targetLanguage,
+  sourceLanguage = "auto",
+  config,
+}: TranslateOptions): Promise<string> {
+  const apiKey = config.microsoftApiKey
+  const region = config.microsoftRegion || "global"
+
+  if (!apiKey) {
+    console.warn("微软翻译 API Key 未设置，跳过翻译")
+    return text
+  }
+
+  try {
+    if (!text || text.trim().length === 0) {
+      return text
+    }
+
+    // 如果目标语言是中文且文本看起来已经是中文，跳过翻译
+    if (targetLanguage === "zh" && /[\u4e00-\u9fa5]/.test(text)) {
+      return text
+    }
+
+    // 微软翻译 API v3
+    const endpoint = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0`
+    const targetLang = normalizeLanguageCode(targetLanguage, "microsoft")
+    
+    const params = new URLSearchParams({
+      "to": targetLang,
+    })
+    
+    if (sourceLanguage && sourceLanguage !== "auto") {
+      params.append("from", normalizeLanguageCode(sourceLanguage, "microsoft"))
+    }
+    
+    const url = `${endpoint}&${params.toString()}`
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Ocp-Apim-Subscription-Key": apiKey,
+        "Ocp-Apim-Subscription-Region": region,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([{ Text: text }]),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => "未知错误")
+      console.error("微软翻译API错误:", errorData)
+      return text
+    }
+
+    const data = await response.json()
+    
+    if (Array.isArray(data) && data[0]?.translations?.[0]?.text) {
+      return data[0].translations[0].text
+    }
+
+    return text
+  } catch (error) {
+    console.error("微软翻译失败:", error)
+    return text
+  }
+}
+
+/**
+ * 生成 MD5 哈希（用于小牛翻译签名）
+ * 注意：此函数仅在服务端使用（Node.js 环境）
+ */
+async function generateMD5(str: string): Promise<string> {
+  // 翻译服务在服务端运行，使用 Node.js 的 crypto 模块
+  const crypto = await import("crypto")
+  return crypto.createHash("md5").update(str).digest("hex")
 }
 
 /**
  * 翻译文本（主函数）
  */
 export async function translateText(options: TranslateOptions): Promise<string> {
-  const { text, targetLanguage } = options
+  const { text, targetLanguage, config } = options
 
   // 如果目标语言未设置或为空，直接返回原文
   if (!targetLanguage || targetLanguage.trim() === "") {
@@ -100,8 +290,18 @@ export async function translateText(options: TranslateOptions): Promise<string> 
     return text
   }
 
-  // 使用Google Translate
-  return translateWithGoogle(options)
+  // 根据配置的提供商选择翻译服务
+  switch (config.provider) {
+    case "google":
+      return translateWithGoogle(options)
+    case "niutrans":
+      return translateWithNiutrans(options)
+    case "microsoft":
+      return translateWithMicrosoft(options)
+    default:
+      console.warn(`未知的翻译服务提供商: ${config.provider}`)
+      return text
+  }
 }
 
 /**
@@ -110,6 +310,7 @@ export async function translateText(options: TranslateOptions): Promise<string> 
 export async function translateTexts(
   texts: string[],
   targetLanguage: string,
+  config: TranslationConfig,
   sourceLanguage?: string
 ): Promise<string[]> {
   if (!targetLanguage || texts.length === 0) {
@@ -123,6 +324,7 @@ export async function translateTexts(
         text,
         targetLanguage,
         sourceLanguage,
+        config,
       })
     )
   )
@@ -144,4 +346,3 @@ export function extractTextFromHtml(html: string): string {
     .replace(/\s+/g, " ")
     .trim()
 }
-

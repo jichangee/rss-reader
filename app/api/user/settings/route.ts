@@ -16,6 +16,12 @@ export async function GET() {
       where: { email: session.user.email },
       select: {
         targetLanguage: true,
+        translationProvider: true,
+        googleTranslateApiKey: true,
+        niutransApiKey: true,
+        niutransApiSecret: true,
+        microsoftTranslateApiKey: true,
+        microsoftTranslateRegion: true,
         markReadOnScroll: true,
         autoRefreshOnLoad: true,
       },
@@ -27,6 +33,12 @@ export async function GET() {
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage || "zh",
+      translationProvider: user.translationProvider || "google",
+      googleTranslateApiKey: user.googleTranslateApiKey || "",
+      niutransApiKey: user.niutransApiKey || "",
+      niutransApiSecret: user.niutransApiSecret || "",
+      microsoftTranslateApiKey: user.microsoftTranslateApiKey || "",
+      microsoftTranslateRegion: user.microsoftTranslateRegion || "global",
       markReadOnScroll: user.markReadOnScroll ?? false,
       autoRefreshOnLoad: user.autoRefreshOnLoad ?? true,
     })
@@ -45,21 +57,60 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    const { targetLanguage, markReadOnScroll, autoRefreshOnLoad } = await request.json()
+    const { 
+      targetLanguage, 
+      translationProvider,
+      googleTranslateApiKey,
+      niutransApiKey,
+      niutransApiSecret,
+      microsoftTranslateApiKey,
+      microsoftTranslateRegion,
+      markReadOnScroll, 
+      autoRefreshOnLoad 
+    } = await request.json()
 
     if (!targetLanguage) {
       return NextResponse.json({ error: "目标语言不能为空" }, { status: 400 })
     }
 
+    // 构建更新数据对象
+    const updateData: any = {
+      targetLanguage,
+      markReadOnScroll,
+      autoRefreshOnLoad,
+    }
+
+    // 如果提供了翻译服务配置，则更新
+    if (translationProvider !== undefined) {
+      updateData.translationProvider = translationProvider
+    }
+    if (googleTranslateApiKey !== undefined) {
+      updateData.googleTranslateApiKey = googleTranslateApiKey || null
+    }
+    if (niutransApiKey !== undefined) {
+      updateData.niutransApiKey = niutransApiKey || null
+    }
+    if (niutransApiSecret !== undefined) {
+      updateData.niutransApiSecret = niutransApiSecret || null
+    }
+    if (microsoftTranslateApiKey !== undefined) {
+      updateData.microsoftTranslateApiKey = microsoftTranslateApiKey || null
+    }
+    if (microsoftTranslateRegion !== undefined) {
+      updateData.microsoftTranslateRegion = microsoftTranslateRegion || null
+    }
+
     const user = await prisma.user.update({
       where: { email: session.user.email },
-      data: {
-        targetLanguage,
-        markReadOnScroll,
-        autoRefreshOnLoad,
-      },
+      data: updateData,
       select: {
         targetLanguage: true,
+        translationProvider: true,
+        googleTranslateApiKey: true,
+        niutransApiKey: true,
+        niutransApiSecret: true,
+        microsoftTranslateApiKey: true,
+        microsoftTranslateRegion: true,
         markReadOnScroll: true,
         autoRefreshOnLoad: true,
       },
@@ -67,6 +118,12 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({
       targetLanguage: user.targetLanguage,
+      translationProvider: user.translationProvider,
+      googleTranslateApiKey: user.googleTranslateApiKey || "",
+      niutransApiKey: user.niutransApiKey || "",
+      niutransApiSecret: user.niutransApiSecret || "",
+      microsoftTranslateApiKey: user.microsoftTranslateApiKey || "",
+      microsoftTranslateRegion: user.microsoftTranslateRegion || "global",
       markReadOnScroll: user.markReadOnScroll,
       autoRefreshOnLoad: user.autoRefreshOnLoad,
     })
