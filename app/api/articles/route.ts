@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { translateText } from "@/lib/translate"
 
 // 获取所有文章（支持分页）
 export async function GET(request: Request) {
@@ -123,47 +122,9 @@ export async function GET(request: Request) {
     const returnArticles = hasNextPage ? articles.slice(0, limit) : articles
     const nextCursor = hasNextPage ? returnArticles[returnArticles.length - 1].id : null
 
-    // 获取用户的目标语言设置
-    const targetLanguage = user.targetLanguage || "zh"
-
-    // 对需要翻译的文章进行翻译
-    const translatedArticles = await Promise.all(
-      returnArticles.map(async (article) => {
-        // 如果订阅启用了翻译，则翻译标题和内容
-        if (article.feed.enableTranslation && targetLanguage) {
-          const [translatedTitle, translatedContent, translatedSnippet] = await Promise.all([
-            translateText({
-              text: article.title,
-              targetLanguage,
-            }),
-            article.content
-              ? translateText({
-                  text: article.content,
-                  targetLanguage,
-                })
-              : Promise.resolve(article.content),
-            article.contentSnippet
-              ? translateText({
-                  text: article.contentSnippet,
-                  targetLanguage,
-                })
-              : Promise.resolve(article.contentSnippet),
-          ])
-
-          return {
-            ...article,
-            title: translatedTitle,
-            content: translatedContent,
-            contentSnippet: translatedSnippet,
-          }
-        }
-
-        return article
-      })
-    )
-
     // 为每篇文章添加 isReadLater 标记
-    const articlesWithReadLater = translatedArticles.map(article => ({
+    // 注意：翻译功能已移至前端按需翻译，不再在此处进行翻译
+    const articlesWithReadLater = returnArticles.map(article => ({
       ...article,
       isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
     }))
