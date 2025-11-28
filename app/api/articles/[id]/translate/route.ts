@@ -32,7 +32,6 @@ export async function POST(
       translationProvider?: string | null
       googleTranslateApiKey?: string | null
       niutransApiKey?: string | null
-      niutransApiSecret?: string | null
       microsoftTranslateApiKey?: string | null
       microsoftTranslateRegion?: string | null
     }
@@ -68,7 +67,6 @@ export async function POST(
       provider: translationProvider,
       googleApiKey: user.googleTranslateApiKey || undefined,
       niutransApiKey: user.niutransApiKey || undefined,
-      niutransApiSecret: user.niutransApiSecret || undefined,
       microsoftApiKey: user.microsoftTranslateApiKey || undefined,
       microsoftRegion: user.microsoftTranslateRegion || undefined,
     }
@@ -77,8 +75,8 @@ export async function POST(
     if (translationProvider === "google" && !translationConfig.googleApiKey) {
       return NextResponse.json({ error: "未配置 Google 翻译 API Key" }, { status: 400 })
     }
-    if (translationProvider === "niutrans" && (!translationConfig.niutransApiKey || !translationConfig.niutransApiSecret)) {
-      return NextResponse.json({ error: "未配置小牛翻译 API Key 或 Secret" }, { status: 400 })
+    if (translationProvider === "niutrans" && !translationConfig.niutransApiKey) {
+      return NextResponse.json({ error: "未配置小牛翻译 API Key" }, { status: 400 })
     }
     if (translationProvider === "microsoft" && !translationConfig.microsoftApiKey) {
       return NextResponse.json({ error: "未配置微软翻译 API Key" }, { status: 400 })

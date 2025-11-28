@@ -9,7 +9,6 @@ export interface TranslationConfig {
   provider: TranslationProvider
   googleApiKey?: string
   niutransApiKey?: string
-  niutransApiSecret?: string
   microsoftApiKey?: string
   microsoftRegion?: string
 }
@@ -128,10 +127,9 @@ async function translateWithNiutrans({
   config,
 }: TranslateOptions): Promise<string> {
   const apiKey = config.niutransApiKey
-  const apiSecret = config.niutransApiSecret
 
-  if (!apiKey || !apiSecret) {
-    console.warn("小牛翻译 API Key 或 Secret 未设置，跳过翻译")
+  if (!apiKey) {
+    console.warn("小牛翻译 API Key 未设置，跳过翻译")
     return text
   }
 
@@ -145,21 +143,14 @@ async function translateWithNiutrans({
       return text
     }
 
-    // 小牛翻译 API
-    // 注意：小牛翻译的 API 格式可能因版本而异，这里使用通用格式
+    // 小牛翻译 API - 文本翻译服务只需要 API Key
     const url = "https://api.niutrans.com/NiuTransServer/translation"
-    
-    // 小牛翻译需要签名认证
-    const timestamp = Date.now().toString()
-    const signStr = apiKey + apiSecret + timestamp
-    const sign = await generateMD5(signStr)
     
     const requestBody: any = {
       apikey: apiKey,
       src_text: text,
+      from: 'en',
       to: normalizeLanguageCode(targetLanguage, "niutrans"),
-      sign,
-      timestamp,
     }
     
     // 小牛翻译支持自动检测源语言，如果指定了源语言则传入
@@ -182,6 +173,7 @@ async function translateWithNiutrans({
     }
 
     const data = await response.json()
+    console.log('data', data);
     
     if (data.tgt_text) {
       return data.tgt_text
@@ -264,15 +256,6 @@ async function translateWithMicrosoft({
   }
 }
 
-/**
- * 生成 MD5 哈希（用于小牛翻译签名）
- * 注意：此函数仅在服务端使用（Node.js 环境）
- */
-async function generateMD5(str: string): Promise<string> {
-  // 翻译服务在服务端运行，使用 Node.js 的 crypto 模块
-  const crypto = await import("crypto")
-  return crypto.createHash("md5").update(str).digest("hex")
-}
 
 /**
  * 翻译文本（主函数）

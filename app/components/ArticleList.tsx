@@ -77,18 +77,37 @@ export default function ArticleList({
 
   // 翻译单篇文章
   const translateArticle = useCallback(async (articleId: string) => {
-    // 如果正在翻译或已翻译，跳过
-    if (translatingArticles.has(articleId) || translatedArticles.has(articleId)) {
-      return
-    }
-
     // 检查文章是否需要翻译
     const article = articles.find(a => a.id === articleId)
     if (!article || !article.feed.enableTranslation) {
       return
     }
 
-    setTranslatingArticles(prev => new Set(prev).add(articleId))
+    // 使用函数式更新来检查状态，避免依赖项问题
+    setTranslatingArticles(prev => {
+      // 如果正在翻译，跳过
+      if (prev.has(articleId)) {
+        return prev
+      }
+      // 添加到翻译中集合
+      const newSet = new Set(prev)
+      newSet.add(articleId)
+      return newSet
+    })
+
+    // 检查是否已翻译
+    setTranslatedArticles(prev => {
+      if (prev.has(articleId)) {
+        // 如果已翻译，清除翻译中状态
+        setTranslatingArticles(prevTranslating => {
+          const newSet = new Set(prevTranslating)
+          newSet.delete(articleId)
+          return newSet
+        })
+        return prev
+      }
+      return prev
+    })
 
     try {
       const res = await fetch(`/api/articles/${articleId}/translate`, {
@@ -114,7 +133,7 @@ export default function ArticleList({
         return newSet
       })
     }
-  }, [articles, translatingArticles, translatedArticles])
+  }, [articles])
 
   // 清理不再存在的文章的翻译状态
   useEffect(() => {

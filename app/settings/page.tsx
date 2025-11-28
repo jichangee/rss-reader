@@ -49,7 +49,6 @@ export default function SettingsPage() {
   const [translationProvider, setTranslationProvider] = useState<"google" | "niutrans" | "microsoft">("google")
   const [googleTranslateApiKey, setGoogleTranslateApiKey] = useState("")
   const [niutransApiKey, setNiutransApiKey] = useState("")
-  const [niutransApiSecret, setNiutransApiSecret] = useState("")
   const [microsoftTranslateApiKey, setMicrosoftTranslateApiKey] = useState("")
   const [microsoftTranslateRegion, setMicrosoftTranslateRegion] = useState("global")
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
@@ -86,7 +85,6 @@ export default function SettingsPage() {
         setTranslationProvider(data.translationProvider || "google")
         setGoogleTranslateApiKey(data.googleTranslateApiKey || "")
         setNiutransApiKey(data.niutransApiKey || "")
-        setNiutransApiSecret(data.niutransApiSecret || "")
         setMicrosoftTranslateApiKey(data.microsoftTranslateApiKey || "")
         setMicrosoftTranslateRegion(data.microsoftTranslateRegion || "global")
         setMarkReadOnScroll(data.markReadOnScroll ?? false)
@@ -114,7 +112,6 @@ export default function SettingsPage() {
           translationProvider,
           googleTranslateApiKey,
           niutransApiKey,
-          niutransApiSecret,
           microsoftTranslateApiKey,
           microsoftTranslateRegion,
           markReadOnScroll, 
@@ -339,43 +336,25 @@ export default function SettingsPage() {
 
               {/* 小牛翻译配置 */}
               {translationProvider === "niutrans" && (
-                <>
-                  <div>
-                    <label
-                      htmlFor="niutrans-api-key"
-                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      小牛翻译 API Key
-                    </label>
-                    <input
-                      id="niutrans-api-key"
-                      type="password"
-                      value={niutransApiKey}
-                      onChange={(e) => setNiutransApiKey(e.target.value)}
-                      placeholder="请输入小牛翻译 API Key"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="niutrans-api-secret"
-                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      小牛翻译 API Secret
-                    </label>
-                    <input
-                      id="niutrans-api-secret"
-                      type="password"
-                      value={niutransApiSecret}
-                      onChange={(e) => setNiutransApiSecret(e.target.value)}
-                      placeholder="请输入小牛翻译 API Secret"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      在 <a href="https://niutrans.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">小牛翻译官网</a> 注册并获取 API 密钥
-                    </p>
-                  </div>
-                </>
+                <div>
+                  <label
+                    htmlFor="niutrans-api-key"
+                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    小牛翻译 API Key
+                  </label>
+                  <input
+                    id="niutrans-api-key"
+                    type="password"
+                    value={niutransApiKey}
+                    onChange={(e) => setNiutransApiKey(e.target.value)}
+                    placeholder="请输入小牛翻译 API Key"
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    在 <a href="https://niutrans.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">小牛翻译官网</a> 注册并获取 API Key
+                  </p>
+                </div>
               )}
 
               {/* 微软翻译配置 */}
