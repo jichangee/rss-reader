@@ -68,17 +68,15 @@ async function translateWithGoogle({
 
     const data = await response.json()
     
+    // 记录完整的API响应，便于调试
+    
     if (data.data?.translations?.[0]?.translatedText) {
       const translatedText = data.data.translations[0].translatedText
-      // 检查翻译结果是否与原文相同（可能源语言和目标语言相同）
-      if (translatedText === text && targetLanguage !== "zh") {
-        console.warn(`[翻译警告] 翻译结果与原文相同，目标语言=${targetLanguage}，可能源语言与目标语言相同`)
-      }
+      
       return translatedText
     }
 
     // 如果没有翻译结果，返回原文
-    console.warn(`[翻译警告] API返回了空结果，目标语言=${targetLanguage}`)
     return text
   } catch (error) {
     console.error("翻译失败:", error)

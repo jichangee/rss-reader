@@ -51,8 +51,6 @@ export async function POST(
     // 但应该确保用户设置中已经保存了目标语言
     const targetLanguage = user.targetLanguage || "zh"
     
-    console.log(`[翻译API] 文章ID: ${id}, 用户目标语言设置: ${user.targetLanguage}, 实际使用: ${targetLanguage}`)
-
     if (!targetLanguage || targetLanguage.trim() === "") {
       return NextResponse.json({ error: "未设置目标语言" }, { status: 400 })
     }
@@ -77,9 +75,12 @@ export async function POST(
         : Promise.resolve(article.contentSnippet),
     ])
 
+    // 记录翻译结果
+    
     return NextResponse.json({
       success: true,
       targetLanguage, // 返回使用的目标语言，便于调试
+      userTargetLanguage: user.targetLanguage, // 返回数据库中的原始值
       translated: {
         title: translatedTitle,
         content: translatedContent,
