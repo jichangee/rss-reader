@@ -172,3 +172,185 @@ input[type="range"]::-moz-range-thumb:hover {
     background: #4f46e5; /* indigo-600 */
   }
 }
+
+/* Telegram 卡片样式 */
+.telegram-card {
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-card {
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* Telegram 文章内容样式 */
+.telegram-article-content {
+  line-height: 1.7;
+  color: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content {
+    color: #d1d5db;
+  }
+}
+
+.telegram-article-content p {
+  margin-bottom: 1rem;
+}
+
+.telegram-article-content p:last-child {
+  margin-bottom: 0;
+}
+
+.telegram-article-content h1,
+.telegram-article-content h2,
+.telegram-article-content h3,
+.telegram-article-content h4,
+.telegram-article-content h5,
+.telegram-article-content h6 {
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #111827;
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content h1,
+  .telegram-article-content h2,
+  .telegram-article-content h3,
+  .telegram-article-content h4,
+  .telegram-article-content h5,
+  .telegram-article-content h6 {
+    color: #f9fafb;
+  }
+}
+
+.telegram-article-content h1 {
+  font-size: 1.5rem;
+}
+
+.telegram-article-content h2 {
+  font-size: 1.25rem;
+}
+
+.telegram-article-content h3 {
+  font-size: 1.125rem;
+}
+
+.telegram-article-content a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #4f46e5;
+  background-color: #eef2ff;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  text-decoration: none;
+  word-break: break-word;
+  transition: all 0.2s;
+  font-size: 0.625em;
+  font-weight: 500;
+  margin-right: 0.1rem;
+  margin-bottom: 0.2rem;
+}
+
+.telegram-article-content a::after {
+  content: '';
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.telegram-article-content a:hover {
+  color: #4338ca;
+  background-color: #e0e7ff;
+  transform: translateY(-1px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content a {
+    color: #a5b4fc;
+    background-color: #312e81;
+  }
+  
+  .telegram-article-content a::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a5b4fc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
+  }
+  
+  .telegram-article-content a:hover {
+    color: #c7d2fe;
+    background-color: #3730a3;
+  }
+}
+
+.telegram-article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.telegram-article-content ul,
+.telegram-article-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.telegram-article-content li {
+  margin: 0.25rem 0;
+}
+
+.telegram-article-content blockquote {
+  border-left: 3px solid #4f46e5;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content blockquote {
+    border-left-color: #818cf8;
+    color: #9ca3af;
+  }
+}
+
+.telegram-article-content code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content code {
+    background-color: #374151;
+  }
+}
+
+.telegram-article-content pre {
+  background-color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .telegram-article-content pre {
+    background-color: #1f2937;
+  }
+}
+
+.telegram-article-content pre code {
+  background-color: transparent;
+  padding: 0;
+}

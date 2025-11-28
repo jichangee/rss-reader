@@ -2,9 +2,8 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { ExternalLink, Loader2, BookOpen, CheckCheck, Clock, Bookmark, BookmarkCheck } from "lucide-react"
+import { Loader2, BookOpen, CheckCheck, Clock, Bookmark, BookmarkCheck, X, ExternalLink, User, Calendar } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
-import ArticleDrawer from "./ArticleDrawer"
 import { ToastContainer, useToast } from "./Toast"
 
 interface Article {
@@ -48,15 +47,15 @@ export default function ArticleList({
   markReadOnScroll = false,
   isRefreshing = false,
 }: ArticleListProps) {
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [showCleanupMenu, setShowCleanupMenu] = useState(false)
   const [isCleaningUp, setIsCleaningUp] = useState(false)
   const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const articleContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const { toasts, success, error, info, removeToast } = useToast()
 
   // 初始化稍后读状态
@@ -165,27 +164,43 @@ export default function ArticleList({
     }
   }, [articles, markReadOnScroll, addToPendingRead])
 
-  const handleArticleClick = (article: Article) => {
-    // 打开抽屉
-    setSelectedArticle(article)
-    setIsDrawerOpen(true)
-    
+  const handleTitleClick = (article: Article) => {
     // 如果是未读文章，标记为已读
     if (article.readBy.length === 0) {
       onMarkAsRead(article.id)
     }
   }
 
-  const handleExternalLinkClick = (article: Article, e: React.MouseEvent) => {
-    e.stopPropagation()
-    
-    // 如果是未读文章，标记为已读
-    if (article.readBy.length === 0) {
-      onMarkAsRead(article.id)
-    }
-    
-    window.open(article.link, "_blank")
+  // 处理图片点击放大
+  const handleImageClick = (src: string) => {
+    setPreviewImage(src)
   }
+
+  // 关闭图片预览
+  const closeImagePreview = () => {
+    setPreviewImage(null)
+  }
+
+  // 为文章内容中的图片添加点击事件
+  useEffect(() => {
+    articleContentRefs.current.forEach((contentDiv) => {
+      if (!contentDiv) return
+      
+      const images = contentDiv.querySelectorAll('img')
+      images.forEach((img) => {
+        img.style.cursor = 'pointer'
+        const handleClick = () => {
+          handleImageClick(img.src)
+        }
+        img.addEventListener('click', handleClick)
+        
+        // 清理函数
+        return () => {
+          img.removeEventListener('click', handleClick)
+        }
+      })
+    })
+  }, [articles])
 
   const handleToggleReadLater = async (articleId: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -228,11 +243,7 @@ export default function ArticleList({
     }
   }
 
-  const handleCloseDrawer = () => {
-    setIsDrawerOpen(false)
-    // 延迟清空选中的文章，等待动画完成
-    setTimeout(() => setSelectedArticle(null), 300)
-  }
+
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -347,88 +358,94 @@ export default function ArticleList({
             </div>
           )}
         </div>
-        <div className="space-y-5">
+        <div className="space-y-6">
           {articles.map((article) => {
-            const isRead = article.readBy.length > 0
             return (
               <article
                 key={article.id}
                 data-id={article.id}
-                className={`rounded-xl bg-white p-6 shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1 dark:bg-gray-800 dark:shadow-gray-900/20 ${
-                  (isRead && !readLaterArticles.has(article.id)) ? "opacity-60 shadow-sm hover:shadow-md" : ""
-                }`}
+                className={`telegram-card rounded-2xl bg-white p-5 sm:p-6 shadow-sm transition-all duration-200 hover:shadow-md dark:bg-gray-800 dark:shadow-gray-900/10`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-2 flex items-center space-x-2 flex-wrap">
-                      {article.feed.imageUrl ? (
-                        <img
-                          src={article.feed.imageUrl}
-                          alt=""
-                          className="h-4 w-4 rounded flex-shrink-0"
-                        />
-                      ) : null}
-                      <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap overflow-hidden text-ellipsis">
-                        {article.feed.title}
+                {/* 顶部：订阅源信息和标签 */}
+                <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center space-x-2 min-w-0 flex-1">
+                    {article.feed.imageUrl ? (
+                      <img
+                        src={article.feed.imageUrl}
+                        alt=""
+                        className="h-5 w-5 rounded-full flex-shrink-0"
+                      />
+                    ) : null}
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
+                      {article.feed.title}
+                    </span>
+                  </div>
+                  {readLaterArticles.has(article.id) && (
+                    <span className="rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex-shrink-0 flex items-center gap-1">
+                      <BookmarkCheck className="h-3 w-3" />
+                      稍后读
+                    </span>
+                  )}
+                </div>
+
+                {/* 标题：可点击跳转 */}
+                <a
+                  href={article.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleTitleClick(article)}
+                  className="block mb-3 group"
+                >
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400 break-words transition-colors leading-snug flex items-start gap-2">
+                    <span className="flex-1">{article.title}</span>
+                  </h3>
+                </a>
+
+                {/* 文章完整内容 */}
+                {article.content && (
+                  <div 
+                    ref={(el) => {
+                      if (el) articleContentRefs.current.set(article.id, el)
+                    }}
+                    className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
+                    dangerouslySetInnerHTML={{ __html: article.content }}
+                  />
+                )}
+
+                {/* 底部：元数据和操作按钮 */}
+                <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center flex-wrap gap-2 flex-1 min-w-0">
+                    {article.author && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                        <User className="h-3 w-3" />
+                        <span className="truncate max-w-[150px]">{article.author}</span>
                       </span>
-                      {readLaterArticles.has(article.id) && (
-                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 flex-shrink-0 flex items-center gap-1">
-                          <BookmarkCheck className="h-3 w-3" />
-                          稍后读
-                        </span>
-                      )}
-                    </div>
-                    <h3
-                      className="mb-2 cursor-pointer text-xl font-semibold text-gray-900 hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400 break-words"
-                      onClick={() => handleArticleClick(article)}
-                    >
-                      {article.title}
-                    </h3>
-                    {article.contentSnippet && (
-                      <p className="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400 break-words">
-                        {article.contentSnippet}
-                      </p>
                     )}
-                    <div className="flex items-center flex-wrap gap-x-4 gap-y-2 text-xs text-gray-500 dark:text-gray-400">
-                      {article.author && (
-                        <span className="flex items-center break-words">
-                          <span className="mr-1 flex-shrink-0">作者:</span>
-                          <span className="break-words">{article.author}</span>
-                        </span>
-                      )}
-                      {article.pubDate && (
-                        <span className="flex-shrink-0">
-                          {format(new Date(article.pubDate), "yyyy年MM月dd日 HH:mm", {
-                            locale: zhCN,
-                          })}
-                        </span>
-                      )}
-                    </div>
+                    {article.pubDate && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300 flex-shrink-0">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(article.pubDate), "yyyy年MM月dd日 HH:mm", {
+                          locale: zhCN,
+                        })}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 sm:flex-shrink-0 self-start sm:self-auto">
-                    <button
-                      onClick={(e) => handleToggleReadLater(article.id, e)}
-                      className={`flex-shrink-0 rounded-lg p-2 transition-colors ${
-                        readLaterArticles.has(article.id)
-                          ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
-                          : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                      }`}
-                      title={readLaterArticles.has(article.id) ? "从稍后读移除" : "添加到稍后读"}
-                    >
-                      {readLaterArticles.has(article.id) ? (
-                        <BookmarkCheck className="h-5 w-5" />
-                      ) : (
-                        <Bookmark className="h-5 w-5" />
-                      )}
-                    </button>
-                    <button
-                      onClick={(e) => handleExternalLinkClick(article, e)}
-                      className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                      title="在新标签页中打开"
-                    >
-                      <ExternalLink className="h-5 w-5" />
-                    </button>
-                  </div>
+                  
+                  <button
+                    onClick={(e) => handleToggleReadLater(article.id, e)}
+                    className={`rounded-lg p-2 transition-colors flex-shrink-0 ${
+                      readLaterArticles.has(article.id)
+                        ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                        : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                    }`}
+                    title={readLaterArticles.has(article.id) ? "从稍后读移除" : "添加到稍后读"}
+                  >
+                    {readLaterArticles.has(article.id) ? (
+                      <BookmarkCheck className="h-5 w-5" />
+                    ) : (
+                      <Bookmark className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
               </article>
             )
@@ -468,16 +485,30 @@ export default function ArticleList({
         )}
       </div>
       
-      {/* 文章详情抽屉 */}
-      <ArticleDrawer
-        article={selectedArticle}
-        isOpen={isDrawerOpen}
-        onClose={handleCloseDrawer}
-      />
+      {/* 图片预览 Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={closeImagePreview}
+        >
+          <button
+            onClick={closeImagePreview}
+            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+            aria-label="关闭预览"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="预览"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
       
       {/* Toast 提示 */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   )
 }
-
