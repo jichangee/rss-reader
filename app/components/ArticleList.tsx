@@ -60,7 +60,7 @@ export default function ArticleList({
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const articleContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const articleRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const articleRefs = useRef<Map<string, HTMLElement>>(new Map())
   const translationObserverRef = useRef<IntersectionObserver | null>(null)
   const { toasts, success, error, info, removeToast } = useToast()
 
@@ -148,7 +148,7 @@ export default function ArticleList({
       return newMap
     })
     setTranslatingArticles(prev => {
-      const newSet = new Set()
+      const newSet = new Set<string>()
       prev.forEach(id => {
         if (currentArticleIds.has(id)) {
           newSet.add(id)
