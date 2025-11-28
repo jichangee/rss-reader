@@ -318,6 +318,8 @@ export default function ArticleList({
 
   // 为文章内容中的图片添加点击事件
   useEffect(() => {
+    const cleanupFunctions: Array<() => void> = []
+    
     articleContentRefs.current.forEach((contentDiv) => {
       if (!contentDiv) return
       
@@ -329,12 +331,17 @@ export default function ArticleList({
         }
         img.addEventListener('click', handleClick)
         
-        // 清理函数
-        return () => {
+        // 保存清理函数
+        cleanupFunctions.push(() => {
           img.removeEventListener('click', handleClick)
-        }
+        })
       })
     })
+    
+    // 返回清理函数
+    return () => {
+      cleanupFunctions.forEach(cleanup => cleanup())
+    }
   }, [articles])
 
   const handleToggleReadLater = async (articleId: string, e: React.MouseEvent) => {

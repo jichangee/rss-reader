@@ -1,7 +1,7 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, Loader2 } from "lucide-react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
 interface Article {
@@ -31,6 +31,8 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   const [isReadLater, setIsReadLater] = useState(false)
   const [translated, setTranslated] = useState<{ title: string; content?: string; contentSnippet?: string } | null>(null)
   const [isTranslating, setIsTranslating] = useState(false)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const articleContentRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, removeToast } = useToast()
 
   // 初始化稍后读状态
@@ -109,6 +111,52 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       document.body.style.overflow = "unset"
     }
   }, [isOpen])
+
+  // 处理图片点击放大
+  const handleImageClick = useCallback((src: string) => {
+    setPreviewImage(src)
+  }, [])
+
+  // 关闭图片预览
+  const closeImagePreview = useCallback(() => {
+    setPreviewImage(null)
+  }, [])
+
+  // 为文章内容中的图片添加点击事件
+  useEffect(() => {
+    if (!articleContentRef.current) return
+
+    const contentDiv = articleContentRef.current
+    const images = contentDiv.querySelectorAll('img')
+    const cleanupFunctions: Array<() => void> = []
+
+    images.forEach((img) => {
+      img.style.cursor = 'pointer'
+      const handleClick = () => {
+        handleImageClick(img.src)
+      }
+      img.addEventListener('click', handleClick)
+      
+      cleanupFunctions.push(() => {
+        img.removeEventListener('click', handleClick)
+      })
+    })
+
+    return () => {
+      cleanupFunctions.forEach(cleanup => cleanup())
+    }
+  }, [article?.id, translated?.content, article?.content, handleImageClick])
+
+  // 按ESC键关闭图片预览
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && previewImage) {
+        closeImagePreview()
+      }
+    }
+    document.addEventListener("keydown", handleEscape)
+    return () => document.removeEventListener("keydown", handleEscape)
+  }, [previewImage, closeImagePreview])
 
   if (!article) return null
 
@@ -247,8 +295,9 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
             <div className="prose prose-sm sm:prose dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
               {translated?.content || article.content ? (
                 <div
+                  ref={articleContentRef}
                   dangerouslySetInnerHTML={{ __html: translated?.content || article.content || "" }}
-                  className="article-content text-gray-800 dark:text-gray-200 leading-relaxed break-words [&_*]:break-words [&_a]:break-all [&_pre]:overflow-x-auto [&_code]:break-words [&_img]:max-w-full [&_img]:h-auto"
+                  className="article-content text-gray-800 dark:text-gray-200 leading-relaxed break-words [&_*]:break-words [&_a]:break-all [&_pre]:overflow-x-auto [&_code]:break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:cursor-pointer"
                 />
               ) : translated?.contentSnippet || article.contentSnippet ? (
                 <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed break-words">
@@ -263,6 +312,28 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           </div>
         </div>
       </div>
+      
+      {/* 图片预览 Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={closeImagePreview}
+        >
+          <button
+            onClick={closeImagePreview}
+            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+            aria-label="关闭预览"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={previewImage}
+            alt="预览"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
       
       {/* Toast 提示 */}
       <ToastContainer toasts={toasts} onClose={removeToast} />
