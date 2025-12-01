@@ -113,7 +113,7 @@ export default function ArticleList({
           onLoadMore()
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.5 }
     )
 
     const currentTarget = observerTarget.current
