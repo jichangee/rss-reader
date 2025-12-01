@@ -3,11 +3,13 @@
  * 支持多种翻译API：Google Translate、小牛翻译、微软翻译
  */
 
+import { translate } from '@vitalets/google-translate-api'
+
 export type TranslationProvider = "google" | "niutrans" | "microsoft"
 
 export interface TranslationConfig {
   provider: TranslationProvider
-  googleApiKey?: string
+  googleApiKey?: string // 保留字段以兼容旧配置，但不再使用
   niutransApiKey?: string
   microsoftApiKey?: string
   microsoftRegion?: string
@@ -53,7 +55,7 @@ function normalizeLanguageCode(code: string, provider: TranslationProvider): str
 }
 
 /**
- * 使用Google Translate API进行翻译
+ * 使用Google Translate API进行翻译（使用 @vitalets/google-translate-api）
  */
 async function translateWithGoogle({
   text,
@@ -61,13 +63,6 @@ async function translateWithGoogle({
   sourceLanguage = "auto",
   config,
 }: TranslateOptions): Promise<string> {
-  const apiKey = config.googleApiKey
-
-  if (!apiKey) {
-    console.warn("Google Translate API Key 未设置，跳过翻译")
-    return text
-  }
-
   try {
     if (!text || text.trim().length === 0) {
       return text
@@ -78,39 +73,19 @@ async function translateWithGoogle({
       return text
     }
 
-    const url = `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`
-    
-    const requestBody: any = {
-      q: text,
-      target: normalizeLanguageCode(targetLanguage, "google"),
-      format: "html",
+    const targetLang = normalizeLanguageCode(targetLanguage, "google")
+    const translateOptions: { to: string; from?: string } = {
+      to: targetLang,
     }
-    
+
+    // 如果指定了源语言且不是自动检测，则传入 from 参数
     if (sourceLanguage && sourceLanguage !== "auto") {
-      requestBody.source = normalizeLanguageCode(sourceLanguage, "google")
+      translateOptions.from = normalizeLanguageCode(sourceLanguage, "google")
     }
+
+    const result = await translate(text, translateOptions)
     
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: "未知错误" }))
-      console.error("Google 翻译API错误:", JSON.stringify(errorData, null, 2))
-      return text
-    }
-
-    const data = await response.json()
-    
-    if (data.data?.translations?.[0]?.translatedText) {
-      return data.data.translations[0].translatedText
-    }
-
-    return text
+    return result.text || text
   } catch (error) {
     console.error("Google 翻译失败:", error)
     return text

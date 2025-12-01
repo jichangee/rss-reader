@@ -71,10 +71,7 @@ export async function POST(
       microsoftRegion: user.microsoftTranslateRegion || undefined,
     }
 
-    // 检查是否配置了相应的 API Key
-    if (translationProvider === "google" && !translationConfig.googleApiKey) {
-      return NextResponse.json({ error: "未配置 Google 翻译 API Key" }, { status: 400 })
-    }
+    // 检查是否配置了相应的 API Key（Google 翻译不再需要 API Key）
     if (translationProvider === "niutrans" && !translationConfig.niutransApiKey) {
       return NextResponse.json({ error: "未配置小牛翻译 API Key" }, { status: 400 })
     }

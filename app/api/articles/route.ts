@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { translateText, TranslationConfig } from "@/lib/translate"
 
 // 获取所有文章（支持分页）
 export async function GET(request: Request) {
@@ -18,20 +19,34 @@ export async function GET(request: Request) {
     const cursor = searchParams.get("cursor")
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
-    const user = await prisma.user.findUnique({
+    const userRaw = await prisma.user.findUnique({
       where: { email: session.user.email },
-      select: {
-        id: true,
-        targetLanguage: true,
-        feeds: true,
+      include: {
+        feeds: {
+          select: {
+            id: true,
+          },
+        },
       },
     })
 
-    if (!user) {
+    if (!userRaw) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
-    const feedIds = user.feeds.map((f) => f.id)
+    // 类型断言，因为 Prisma 类型可能还未更新
+    const user = userRaw as typeof userRaw & {
+      id: string
+      targetLanguage?: string | null
+      translationProvider?: string | null
+      googleTranslateApiKey?: string | null
+      niutransApiKey?: string | null
+      microsoftTranslateApiKey?: string | null
+      microsoftTranslateRegion?: string | null
+      feeds: Array<{ id: string }>
+    }
+
+    const feedIds = user.feeds?.map((f) => f.id) || []
 
     const where: any = {
       feedId: feedId || { in: feedIds },
@@ -122,12 +137,68 @@ export async function GET(request: Request) {
     const returnArticles = hasNextPage ? articles.slice(0, limit) : articles
     const nextCursor = hasNextPage ? returnArticles[returnArticles.length - 1].id : null
 
-    // 为每篇文章添加 isReadLater 标记
-    // 注意：翻译功能已移至前端按需翻译，不再在此处进行翻译
-    const articlesWithReadLater = returnArticles.map(article => ({
-      ...article,
-      isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
-    }))
+    // 获取用户的翻译配置
+    const targetLanguage = user.targetLanguage || "zh"
+    const translationProvider = (user.translationProvider || "google") as "google" | "niutrans" | "microsoft"
+    const translationConfig: TranslationConfig = {
+      provider: translationProvider,
+      googleApiKey: user.googleTranslateApiKey || undefined,
+      niutransApiKey: user.niutransApiKey || undefined,
+      microsoftApiKey: user.microsoftTranslateApiKey || undefined,
+      microsoftRegion: user.microsoftTranslateRegion || undefined,
+    }
+
+    // 为每篇文章添加 isReadLater 标记，并对启用了翻译的文章进行翻译
+    const articlesWithReadLater = await Promise.all(
+      returnArticles.map(async (article) => {
+        const baseArticle = {
+          ...article,
+          isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
+        }
+
+        // 如果该 feed 启用了翻译，且用户设置了目标语言，则进行翻译
+        if (article.feed.enableTranslation && targetLanguage && targetLanguage.trim() !== "") {
+          try {
+            // 并行翻译标题、内容和摘要
+            const [translatedTitle, translatedContent, translatedSnippet] = await Promise.all([
+              translateText({
+                text: article.title,
+                targetLanguage,
+                config: translationConfig,
+              }),
+              article.content
+                ? translateText({
+                    text: article.content,
+                    targetLanguage,
+                    config: translationConfig,
+                  })
+                : Promise.resolve(article.content),
+              article.contentSnippet
+                ? translateText({
+                    text: article.contentSnippet,
+                    targetLanguage,
+                    config: translationConfig,
+                  })
+                : Promise.resolve(article.contentSnippet),
+            ])
+
+            return {
+              ...baseArticle,
+              title: translatedTitle,
+              content: translatedContent,
+              contentSnippet: translatedSnippet,
+              translated: true, // 标记已翻译
+            }
+          } catch (error) {
+            console.error(`翻译文章 ${article.id} 失败:`, error)
+            // 翻译失败时返回原文
+            return baseArticle
+          }
+        }
+
+        return baseArticle
+      })
+    )
 
     return NextResponse.json({
       articles: articlesWithReadLater,

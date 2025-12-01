@@ -9,15 +9,7 @@ const LANGUAGES = [
   { code: "zh", name: "中文" },
   { code: "en", name: "English" },
   { code: "ja", name: "日本語" },
-  { code: "ko", name: "한국어" },
-  { code: "es", name: "Español" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "ru", name: "Русский" },
-  { code: "pt", name: "Português" },
-  { code: "it", name: "Italiano" },
-  { code: "ar", name: "العربية" },
-  { code: "hi", name: "हिन्दी" },
+  { code: "ko", name: "한국어" }
 ]
 
 function Switch({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
@@ -307,32 +299,8 @@ export default function SettingsPage() {
                 >
                   <option value="google">Google 翻译</option>
                   <option value="niutrans">小牛翻译</option>
-                  <option value="microsoft">微软翻译</option>
                 </select>
               </div>
-
-              {/* Google 翻译配置 */}
-              {translationProvider === "google" && (
-                <div>
-                  <label
-                    htmlFor="google-api-key"
-                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Google 翻译 API Key
-                  </label>
-                  <input
-                    id="google-api-key"
-                    type="password"
-                    value={googleTranslateApiKey}
-                    onChange={(e) => setGoogleTranslateApiKey(e.target.value)}
-                    placeholder="请输入 Google 翻译 API Key"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    在 <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">Google Cloud Console</a> 创建 API 密钥
-                  </p>
-                </div>
-              )}
 
               {/* 小牛翻译配置 */}
               {translationProvider === "niutrans" && (

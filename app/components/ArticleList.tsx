@@ -52,16 +52,12 @@ export default function ArticleList({
   const [isCleaningUp, setIsCleaningUp] = useState(false)
   const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<string | null>(null)
-  // 翻译相关状态
-  const [translatedArticles, setTranslatedArticles] = useState<Map<string, { title: string; content?: string; contentSnippet?: string }>>(new Map())
-  const [translatingArticles, setTranslatingArticles] = useState<Set<string>>(new Set())
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const articleContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const articleRefs = useRef<Map<string, HTMLElement>>(new Map())
-  const translationObserverRef = useRef<IntersectionObserver | null>(null)
   const { toasts, success, error, info, removeToast } = useToast()
 
   // 初始化稍后读状态
@@ -74,135 +70,6 @@ export default function ArticleList({
     })
     setReadLaterArticles(readLaterSet)
   }, [articles])
-
-  // 翻译单篇文章
-  const translateArticle = useCallback(async (articleId: string) => {
-    // 检查文章是否需要翻译
-    const article = articles.find(a => a.id === articleId)
-    if (!article || !article.feed.enableTranslation) {
-      return
-    }
-
-    // 使用函数式更新来检查状态，避免依赖项问题
-    setTranslatingArticles(prev => {
-      // 如果正在翻译，跳过
-      if (prev.has(articleId)) {
-        return prev
-      }
-      // 添加到翻译中集合
-      const newSet = new Set(prev)
-      newSet.add(articleId)
-      return newSet
-    })
-
-    // 检查是否已翻译
-    setTranslatedArticles(prev => {
-      if (prev.has(articleId)) {
-        // 如果已翻译，清除翻译中状态
-        setTranslatingArticles(prevTranslating => {
-          const newSet = new Set(prevTranslating)
-          newSet.delete(articleId)
-          return newSet
-        })
-        return prev
-      }
-      return prev
-    })
-
-    try {
-      const res = await fetch(`/api/articles/${articleId}/translate`, {
-        method: "POST",
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success && data.translated) {
-          setTranslatedArticles(prev => {
-            const newMap = new Map(prev)
-            newMap.set(articleId, data.translated)
-            return newMap
-          })
-        }
-      }
-    } catch (err) {
-      console.error("翻译文章失败:", err)
-    } finally {
-      setTranslatingArticles(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(articleId)
-        return newSet
-      })
-    }
-  }, [articles])
-
-  // 清理不再存在的文章的翻译状态
-  useEffect(() => {
-    const currentArticleIds = new Set(articles.map(a => a.id))
-    setTranslatedArticles(prev => {
-      const newMap = new Map()
-      prev.forEach((value, key) => {
-        if (currentArticleIds.has(key)) {
-          newMap.set(key, value)
-        }
-      })
-      return newMap
-    })
-    setTranslatingArticles(prev => {
-      const newSet = new Set<string>()
-      prev.forEach(id => {
-        if (currentArticleIds.has(id)) {
-          newSet.add(id)
-        }
-      })
-      return newSet
-    })
-  }, [articles])
-
-  // 使用 IntersectionObserver 监听文章，当接近视口时触发翻译
-  useEffect(() => {
-    // 清理旧的 observer
-    if (translationObserverRef.current) {
-      translationObserverRef.current.disconnect()
-    }
-
-    // 创建新的 observer，提前200px触发翻译
-    translationObserverRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const articleId = entry.target.getAttribute("data-article-id")
-            if (articleId) {
-              translateArticle(articleId)
-            }
-          }
-        })
-      },
-      {
-        rootMargin: "200px 0px", // 提前200px触发
-        threshold: 0.1,
-      }
-    )
-
-    // 延迟设置observer，确保DOM已更新
-    const timeoutId = setTimeout(() => {
-      // 观察所有需要翻译的文章
-      articles.forEach((article) => {
-        if (article.feed.enableTranslation) {
-          const element = articleRefs.current.get(article.id)
-          if (element && translationObserverRef.current) {
-            translationObserverRef.current.observe(element)
-          }
-        }
-      })
-    }, 0)
-
-    return () => {
-      clearTimeout(timeoutId)
-      if (translationObserverRef.current) {
-        translationObserverRef.current.disconnect()
-      }
-    }
-  }, [articles, translateArticle])
 
   // 批量提交已读文章
   const submitBatchRead = useCallback(() => {
@@ -536,13 +403,6 @@ export default function ArticleList({
         </div>
         <div className="space-y-6">
           {articles.map((article) => {
-            // 获取翻译后的内容（如果有）
-            const translated = translatedArticles.get(article.id)
-            const isTranslating = translatingArticles.has(article.id)
-            const displayTitle = translated?.title || article.title
-            const displayContent = translated?.content || article.content
-            const displaySnippet = translated?.contentSnippet || article.contentSnippet
-
             return (
               <article
                 key={article.id}
@@ -587,22 +447,19 @@ export default function ArticleList({
                   onClick={() => handleTitleClick(article)}
                   className="block mb-3 group"
                 >
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400 break-words transition-colors leading-snug flex items-start gap-2">
-                    <span className="flex-1">{displayTitle}</span>
-                    {isTranslating && article.feed.enableTranslation && (
-                      <Loader2 className="h-4 w-4 animate-spin text-indigo-600 flex-shrink-0" />
-                    )}
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 group-hover:text-indigo-600 dark:text-white dark:group-hover:text-indigo-400 break-words transition-colors leading-snug">
+                    {article.title}
                   </h3>
                 </a>
 
                 {/* 文章完整内容 */}
-                {displayContent && (
+                {article.content && (
                   <div 
                     ref={(el) => {
                       if (el) articleContentRefs.current.set(article.id, el)
                     }}
                     className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
-                    dangerouslySetInnerHTML={{ __html: displayContent }}
+                    dangerouslySetInnerHTML={{ __html: article.content }}
                   />
                 )}
 

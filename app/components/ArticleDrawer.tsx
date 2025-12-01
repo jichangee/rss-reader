@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, Loader2 } from "lucide-react"
+import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
@@ -29,8 +29,6 @@ interface ArticleDrawerProps {
 
 export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawerProps) {
   const [isReadLater, setIsReadLater] = useState(false)
-  const [translated, setTranslated] = useState<{ title: string; content?: string; contentSnippet?: string } | null>(null)
-  const [isTranslating, setIsTranslating] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const articleContentRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, removeToast } = useToast()
@@ -41,53 +39,6 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       setIsReadLater(article.isReadLater || false)
     }
   }, [article])
-
-  // 翻译文章
-  const translateArticle = useCallback(async (articleId: string) => {
-    // 如果正在翻译或已翻译，跳过
-    if (isTranslating || translated) {
-      return
-    }
-
-    // 检查文章是否需要翻译
-    if (!article || !article.feed.enableTranslation) {
-      return
-    }
-
-    setIsTranslating(true)
-
-    try {
-      const res = await fetch(`/api/articles/${articleId}/translate`, {
-        method: "POST",
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success && data.translated) {
-          setTranslated(data.translated)
-        }
-      }
-    } catch (err) {
-      console.error("翻译文章失败:", err)
-    } finally {
-      setIsTranslating(false)
-    }
-  }, [article, isTranslating, translated])
-
-  // 当文章打开且需要翻译时，自动触发翻译
-  useEffect(() => {
-    if (isOpen && article && article.feed.enableTranslation && !translated && !isTranslating) {
-      translateArticle(article.id)
-    }
-  }, [isOpen, article, translateArticle, translated, isTranslating])
-
-  // 当文章变化时，重置翻译状态
-  useEffect(() => {
-    if (article) {
-      setTranslated(null)
-      setIsTranslating(false)
-    }
-  }, [article?.id])
 
   // 按ESC键关闭抽屉
   useEffect(() => {
@@ -170,7 +121,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       contentDiv.removeEventListener('click', handleContainerClick, true)
       observer.disconnect()
     }
-  }, [article?.id, translated?.content, article?.content, handleImageClick, isOpen])
+  }, [article?.id, article?.content, handleImageClick, isOpen])
 
   // 按ESC键关闭图片预览
   useEffect(() => {
@@ -289,11 +240,8 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           {/* 内容区域 */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 overflow-x-hidden">
             {/* 文章标题 */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 leading-tight break-words flex items-start gap-2">
-              <span className="flex-1">{translated?.title || article.title}</span>
-              {isTranslating && article.feed.enableTranslation && (
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-600 flex-shrink-0 mt-1" />
-              )}
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-4 leading-tight break-words">
+              {article.title}
             </h1>
 
             {/* 元数据 */}
@@ -318,15 +266,15 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
 
 {/* 文章内容 */}
             <div className="prose prose-sm sm:prose dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
-              {translated?.content || article.content ? (
+              {article.content ? (
                 <div
                   ref={articleContentRef}
-                  dangerouslySetInnerHTML={{ __html: translated?.content || article.content || "" }}
+                  dangerouslySetInnerHTML={{ __html: article.content || "" }}
                   className="article-content text-gray-800 dark:text-gray-200 leading-relaxed break-words [&_*]:break-words [&_a]:break-all [&_pre]:overflow-x-auto [&_code]:break-words [&_img]:max-w-full [&_img]:h-auto [&_img]:cursor-pointer"
                 />
-              ) : translated?.contentSnippet || article.contentSnippet ? (
+              ) : article.contentSnippet ? (
                 <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed break-words">
-                  {translated?.contentSnippet || article.contentSnippet}
+                  {article.contentSnippet}
                 </p>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400 italic">

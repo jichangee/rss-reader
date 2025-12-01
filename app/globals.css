@@ -248,7 +248,11 @@ input[type="range"]::-moz-range-thumb:hover {
   padding: 0.125rem 0.5rem;
   border-radius: 9999px;
   text-decoration: none;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  min-width: 0;
   transition: all 0.2s;
   font-size: 0.625em;
   font-weight: 500;
