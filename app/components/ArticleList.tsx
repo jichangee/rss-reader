@@ -316,33 +316,67 @@ export default function ArticleList({
     setPreviewImage(null)
   }
 
-  // 为文章内容中的图片添加点击事件
+  // 为文章内容中的图片添加点击事件（使用事件委托）
   useEffect(() => {
+    // 为所有图片添加样式
+    const updateImageStyles = () => {
+      articleContentRefs.current.forEach((contentDiv) => {
+        if (!contentDiv) return
+        const images = contentDiv.querySelectorAll('img')
+        images.forEach((img) => {
+          img.style.cursor = 'pointer'
+          img.style.userSelect = 'none'
+        })
+      })
+    }
+
+    // 为每个内容容器添加点击事件监听器
+    const handleContainerClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // 检查点击的是图片，或者是链接内的图片
+      const img = target.tagName === 'IMG' ? target as HTMLImageElement : target.closest('img')
+      
+      if (img && img instanceof HTMLImageElement) {
+        e.preventDefault()
+        e.stopPropagation()
+        handleImageClick(img.src)
+      }
+    }
+
+    // 初始设置样式
+    updateImageStyles()
+
+    // 为每个内容容器添加事件监听器和 MutationObserver
     const cleanupFunctions: Array<() => void> = []
     
     articleContentRefs.current.forEach((contentDiv) => {
       if (!contentDiv) return
       
-      const images = contentDiv.querySelectorAll('img')
-      images.forEach((img) => {
-        img.style.cursor = 'pointer'
-        const handleClick = () => {
-          handleImageClick(img.src)
-        }
-        img.addEventListener('click', handleClick)
-        
-        // 保存清理函数
-        cleanupFunctions.push(() => {
-          img.removeEventListener('click', handleClick)
-        })
+      // 添加点击事件监听器
+      contentDiv.addEventListener('click', handleContainerClick, true)
+      cleanupFunctions.push(() => {
+        contentDiv.removeEventListener('click', handleContainerClick, true)
+      })
+      
+      // 添加 MutationObserver 监听 DOM 变化
+      const observer = new MutationObserver(() => {
+        updateImageStyles()
+      })
+      
+      observer.observe(contentDiv, {
+        childList: true,
+        subtree: true,
+      })
+      
+      cleanupFunctions.push(() => {
+        observer.disconnect()
       })
     })
-    
-    // 返回清理函数
+
     return () => {
       cleanupFunctions.forEach(cleanup => cleanup())
     }
-  }, [articles])
+  }, [articles, handleImageClick])
 
   const handleToggleReadLater = async (articleId: string, e: React.MouseEvent) => {
     e.stopPropagation()

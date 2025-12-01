@@ -122,30 +122,55 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     setPreviewImage(null)
   }, [])
 
-  // 为文章内容中的图片添加点击事件
+  // 为文章内容中的图片添加点击事件（使用事件委托）
   useEffect(() => {
-    if (!articleContentRef.current) return
+    if (!articleContentRef.current || !isOpen) return
 
     const contentDiv = articleContentRef.current
-    const images = contentDiv.querySelectorAll('img')
-    const cleanupFunctions: Array<() => void> = []
 
-    images.forEach((img) => {
-      img.style.cursor = 'pointer'
-      const handleClick = () => {
+    // 使用事件委托，监听整个容器的点击事件
+    const handleContainerClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // 检查点击的是图片，或者是链接内的图片
+      const img = target.tagName === 'IMG' ? target as HTMLImageElement : target.closest('img')
+      
+      if (img && img instanceof HTMLImageElement) {
+        e.preventDefault()
+        e.stopPropagation()
         handleImageClick(img.src)
       }
-      img.addEventListener('click', handleClick)
-      
-      cleanupFunctions.push(() => {
-        img.removeEventListener('click', handleClick)
+    }
+
+    // 为所有图片添加样式
+    const updateImageStyles = () => {
+      const images = contentDiv.querySelectorAll('img')
+      images.forEach((img) => {
+        img.style.cursor = 'pointer'
+        img.style.userSelect = 'none'
       })
+    }
+
+    // 初始设置样式
+    updateImageStyles()
+
+    // 监听容器点击事件
+    contentDiv.addEventListener('click', handleContainerClick, true)
+
+    // 使用 MutationObserver 监听 DOM 变化，为新添加的图片设置样式
+    const observer = new MutationObserver(() => {
+      updateImageStyles()
+    })
+
+    observer.observe(contentDiv, {
+      childList: true,
+      subtree: true,
     })
 
     return () => {
-      cleanupFunctions.forEach(cleanup => cleanup())
+      contentDiv.removeEventListener('click', handleContainerClick, true)
+      observer.disconnect()
     }
-  }, [article?.id, translated?.content, article?.content, handleImageClick])
+  }, [article?.id, translated?.content, article?.content, handleImageClick, isOpen])
 
   // 按ESC键关闭图片预览
   useEffect(() => {
