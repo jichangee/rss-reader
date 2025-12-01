@@ -448,54 +448,33 @@ function DashboardContent() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const params = new URLSearchParams()
-      if (selectedFeed) params.append("feedId", selectedFeed)
+      // 只标记当前列表中未读的文章
+      const unreadArticleIds = articles
+        .filter((a) => a.readBy.length === 0)
+        .map((a) => a.id)
 
-      const res = await fetch(`/api/articles/read-all?${params.toString()}`, {
-        method: "POST",
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-
-        // 更新本地文章状态
-        setArticles((prev) =>
-          prev.map((a) => ({
-            ...a,
-            readBy: a.readBy.length === 0 ? [{ articleId: a.id }] : a.readBy,
-          }))
-        )
-
-        // 更新 feeds 的未读计数
-        if (selectedFeed) {
-          // 如果选择了特定 feed，只更新该 feed
-          setFeeds((prev) =>
-            prev.map((feed) =>
-              feed.id === selectedFeed
-                ? { ...feed, unreadCount: 0 }
-                : feed
-            )
-          )
-        } else {
-          // 如果选择了全部，需要重新加载 feeds 以获取准确的未读计数
-          await loadFeeds()
-        }
-
-        // 设置刷新状态，显示正在刷新
-        setIsRefreshingAfterMarkAllRead(true)
-        console.log("全部已读完成，触发自动刷新...")
-        await triggerBackgroundRefresh(selectedFeed ? [selectedFeed] : undefined)
-
-        // 3秒后重新加载文章列表以显示刷新结果
-        setTimeout(async () => {
-          await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-          await loadFeeds()
-          setIsRefreshingAfterMarkAllRead(false)
-          console.log("自动刷新完成，文章列表已更新")
-        }, 3000)
+      if (unreadArticleIds.length === 0) {
+        return
       }
+
+      // 设置加载状态
+      setIsRefreshingAfterMarkAllRead(true)
+
+      // 使用批量标记已读功能
+      await handleMarkAsReadBatch(unreadArticleIds)
+
+      // 重置分页状态
+      setNextCursor(null)
+      setHasMore(true)
+
+      // 重新加载第一页文章数据
+      await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
+      
+      // 更新订阅列表的未读计数
+      await loadFeeds()
     } catch (error) {
-      console.error("全部标记已读失败:", error)
+      console.error("标记当前列表已读失败:", error)
+    } finally {
       setIsRefreshingAfterMarkAllRead(false)
     }
   }

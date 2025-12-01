@@ -113,7 +113,11 @@ export default function ArticleList({
           onLoadMore()
         }
       },
-      { threshold: 0.5 }
+      { 
+        threshold: 0.1,
+        // 使用 rootMargin 提前触发：当元素距离视口底部还有 33% 时就触发加载
+        rootMargin: '0px 0px 33% 0px'
+      }
     )
 
     const currentTarget = observerTarget.current
@@ -510,7 +514,7 @@ export default function ArticleList({
           </div>
         )}
 
-        {/* 没有更多内容时显示全部已读按钮 */}
+        {/* 没有更多内容时显示已读当前列表按钮 */}
         {!hasMore && articles.length > 0 && unreadCount > 0 && (
           <div className="flex justify-center py-8">
             <button
@@ -523,7 +527,7 @@ export default function ArticleList({
               ) : (
                 <CheckCheck className="h-5 w-5" />
               )}
-              <span>{isRefreshing ? "正在刷新..." : "全部已读"}</span>
+              <span>{isRefreshing ? "处理中..." : "已读当前列表"}</span>
             </button>
           </div>
         )}
