@@ -1,7 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Layers } from "lucide-react"
+import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Layers, Loader2 } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -17,6 +17,7 @@ interface SidebarProps {
   onToggleUnreadOnly: () => void
   isOpen: boolean
   onClose: () => void
+  loading?: boolean
 }
 
 export default function Sidebar({
@@ -31,6 +32,7 @@ export default function Sidebar({
   onToggleUnreadOnly,
   isOpen,
   onClose,
+  loading = false,
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
@@ -141,11 +143,15 @@ export default function Sidebar({
           >
             <span className="font-medium">全部文章</span>
             <span className="text-xs">
-              {feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
+              {loading ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
             </span>
           </button>
 
-          {feeds.length > 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            </div>
+          ) : feeds.length > 0 ? (
             <div className="mt-4">
               <h2 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                 我的订阅

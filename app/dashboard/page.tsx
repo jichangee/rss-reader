@@ -22,6 +22,7 @@ function DashboardContent() {
   const [showBatchAddFeed, setShowBatchAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
+  const [feedsLoading, setFeedsLoading] = useState(true)
   const [unreadOnly, setUnreadOnly] = useState(() => {
     // 从 localStorage 读取保存的"仅未读"设置
     // 如果首次进入（没有保存的值），默认开启仅未读功能
@@ -141,6 +142,7 @@ function DashboardContent() {
 
   const loadFeeds = async () => {
     try {
+      setFeedsLoading(true)
       const res = await fetch("/api/feeds")
       if (res.ok) {
         const data = await res.json()
@@ -148,6 +150,8 @@ function DashboardContent() {
       }
     } catch (error) {
       console.error("加载订阅失败:", error)
+    } finally {
+      setFeedsLoading(false)
     }
   }
 
@@ -561,6 +565,7 @@ function DashboardContent() {
         onToggleUnreadOnly={toggleUnreadOnly}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        loading={feedsLoading}
         />
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}
