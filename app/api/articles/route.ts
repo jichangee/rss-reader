@@ -148,57 +148,149 @@ export async function GET(request: Request) {
       microsoftRegion: user.microsoftTranslateRegion || undefined,
     }
 
-    // 为每篇文章添加 isReadLater 标记，并对启用了翻译的文章进行翻译
-    const articlesWithReadLater = await Promise.all(
-      returnArticles.map(async (article) => {
-        const baseArticle = {
-          ...article,
-          isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
+    // 为每篇文章添加 isReadLater 标记
+    const articlesWithReadLater = returnArticles.map((article) => ({
+      ...article,
+      isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
+    }))
+
+    // 收集需要翻译的文章
+    const articlesToTranslate = articlesWithReadLater.filter(
+      (article) => article.feed.enableTranslation && targetLanguage && targetLanguage.trim() !== ""
+    )
+
+    // 如果有需要翻译的文章，批量翻译
+    if (articlesToTranslate.length > 0) {
+      try {
+        // 使用特殊分隔符标记各部分，确保翻译后仍能识别
+        const separators = {
+          articleStart: (id: string) => `|||ARTICLE_START:${id}|||`,
+          articleEnd: (id: string) => `|||ARTICLE_END:${id}|||`,
+          title: "|||TITLE|||",
+          content: "|||CONTENT|||",
+          snippet: "|||SNIPPET|||",
         }
 
-        // 如果该 feed 启用了翻译，且用户设置了目标语言，则进行翻译
-        if (article.feed.enableTranslation && targetLanguage && targetLanguage.trim() !== "") {
-          try {
-            // 并行翻译标题、内容和摘要
-            const [translatedTitle, translatedContent, translatedSnippet] = await Promise.all([
-              translateText({
-                text: article.title,
-                targetLanguage,
-                config: translationConfig,
-              }),
-              article.content
-                ? translateText({
-                    text: article.content,
-                    targetLanguage,
-                    config: translationConfig,
-                  })
-                : Promise.resolve(article.content),
-              article.contentSnippet
-                ? translateText({
-                    text: article.contentSnippet,
-                    targetLanguage,
-                    config: translationConfig,
-                  })
-                : Promise.resolve(article.contentSnippet),
-            ])
+        // 构建合并文本，包含所有需要翻译的文章
+        const combinedParts: string[] = []
+        const articleMap = new Map<string, typeof articlesToTranslate[0]>()
 
-            return {
-              ...baseArticle,
-              title: translatedTitle,
-              content: translatedContent,
-              contentSnippet: translatedSnippet,
-              translated: true, // 标记已翻译
+        for (const article of articlesToTranslate) {
+          articleMap.set(article.id, article)
+          
+          combinedParts.push(separators.articleStart(article.id))
+          combinedParts.push(separators.title)
+          combinedParts.push(article.title || "")
+          
+          if (article.content) {
+            combinedParts.push(separators.content)
+            combinedParts.push(article.content)
+          }
+          
+          if (article.contentSnippet) {
+            combinedParts.push(separators.snippet)
+            combinedParts.push(article.contentSnippet)
+          }
+          
+          combinedParts.push(separators.articleEnd(article.id))
+        }
+
+        const combinedText = combinedParts.join("\n\n")
+
+        // 一次性翻译所有文章的内容
+        const translatedCombined = await translateText({
+          text: combinedText,
+          targetLanguage,
+          config: translationConfig,
+        })
+
+        // 解析翻译结果，按文章ID和字段类型分配
+        const translations = new Map<
+          string,
+          { title?: string; content?: string; contentSnippet?: string }
+        >()
+
+        for (const article of articlesToTranslate) {
+          const articleStartMarker = separators.articleStart(article.id)
+          const articleEndMarker = separators.articleEnd(article.id)
+          
+          const startIndex = translatedCombined.indexOf(articleStartMarker)
+          const endIndex = translatedCombined.indexOf(articleEndMarker)
+
+          if (startIndex !== -1 && endIndex !== -1) {
+            const articleText = translatedCombined.substring(
+              startIndex + articleStartMarker.length,
+              endIndex
+            )
+
+            const translation: { title?: string; content?: string; contentSnippet?: string } = {}
+
+            // 提取标题
+            const titleIndex = articleText.indexOf(separators.title)
+            if (titleIndex !== -1) {
+              const titleEnd = articleText.indexOf(separators.content, titleIndex)
+              const contentEnd = articleText.indexOf(separators.snippet, titleIndex)
+              const end = titleEnd !== -1 ? titleEnd : contentEnd !== -1 ? contentEnd : articleText.length
+              
+              translation.title = articleText
+                .substring(titleIndex + separators.title.length, end)
+                .replace(/^\n+|\n+$/g, "")
+                .trim() || article.title
+            } else {
+              translation.title = article.title
             }
-          } catch (error) {
-            console.error(`翻译文章 ${article.id} 失败:`, error)
-            // 翻译失败时返回原文
-            return baseArticle
+
+            // 提取内容
+            const contentIndex = articleText.indexOf(separators.content)
+            if (contentIndex !== -1) {
+              const contentEnd = articleText.indexOf(separators.snippet, contentIndex)
+              const end = contentEnd !== -1 ? contentEnd : articleText.length
+              
+              const translatedContent = articleText
+                .substring(contentIndex + separators.content.length, end)
+                .replace(/^\n+|\n+$/g, "")
+                .trim()
+              translation.content = translatedContent || article.content || undefined
+            } else {
+              translation.content = article.content || undefined
+            }
+
+            // 提取摘要
+            const snippetIndex = articleText.indexOf(separators.snippet)
+            if (snippetIndex !== -1) {
+              const translatedSnippet = articleText
+                .substring(snippetIndex + separators.snippet.length)
+                .replace(/^\n+|\n+$/g, "")
+                .trim()
+              translation.contentSnippet = translatedSnippet || article.contentSnippet || undefined
+            } else {
+              translation.contentSnippet = article.contentSnippet || undefined
+            }
+
+            translations.set(article.id, translation)
           }
         }
 
-        return baseArticle
-      })
-    )
+        // 将翻译结果应用到文章
+        for (let i = 0; i < articlesWithReadLater.length; i++) {
+          const article = articlesWithReadLater[i]
+          const translation = translations.get(article.id)
+          
+          if (translation) {
+            articlesWithReadLater[i] = {
+              ...article,
+              title: translation.title ?? article.title,
+              content: translation.content ?? article.content ?? undefined,
+              contentSnippet: translation.contentSnippet ?? article.contentSnippet ?? undefined,
+              translated: true,
+            } as typeof article & { translated: boolean }
+          }
+        }
+      } catch (error) {
+        console.error("批量翻译文章失败:", error)
+        // 翻译失败时返回原文，不影响其他功能
+      }
+    }
 
     return NextResponse.json({
       articles: articlesWithReadLater,
