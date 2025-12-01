@@ -158,17 +158,17 @@ export async function GET(request: Request) {
     const articlesToTranslate = articlesWithReadLater.filter(
       (article) => article.feed.enableTranslation && targetLanguage && targetLanguage.trim() !== ""
     )
-
+    
     // 如果有需要翻译的文章，批量翻译
     if (articlesToTranslate.length > 0) {
       try {
-        // 使用特殊分隔符标记各部分，确保翻译后仍能识别
+        // 使用特殊分隔符标记各部分，使用纯数字和特殊字符组合，避免被翻译
         const separators = {
-          articleStart: (id: string) => `|||ARTICLE_START:${id}|||`,
-          articleEnd: (id: string) => `|||ARTICLE_END:${id}|||`,
-          title: "|||TITLE|||",
-          content: "|||CONTENT|||",
-          snippet: "|||SNIPPET|||",
+          articleStart: (id: string) => `|||#0#${id}#0#|||`,
+          articleEnd: (id: string) => `|||#4#${id}#4#|||`,
+          title: "|||#1#|||",
+          content: "|||#2#|||",
+          snippet: "|||#3#|||",
         }
 
         // 构建合并文本，包含所有需要翻译的文章
@@ -196,7 +196,7 @@ export async function GET(request: Request) {
         }
 
         const combinedText = combinedParts.join("\n\n")
-
+        
         // 一次性翻译所有文章的内容
         const translatedCombined = await translateText({
           text: combinedText,

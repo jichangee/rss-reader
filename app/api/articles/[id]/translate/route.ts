@@ -55,11 +55,11 @@ export async function POST(
     }
 
     // 合并标题、内容和摘要，使用特殊分隔符标记各部分
-    // 使用不易被翻译的标记，确保翻译后仍能识别
+    // 使用纯数字和特殊字符组合，避免被翻译
     const separators = {
-      title: "|||TITLE|||",
-      content: "|||CONTENT|||",
-      snippet: "|||SNIPPET|||",
+      title: "|||#1#|||",
+      content: "|||#2#|||",
+      snippet: "|||#3#|||",
     }
 
     const parts: string[] = []

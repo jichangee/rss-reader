@@ -61,7 +61,6 @@ async function translateWithGoogle({
   text,
   targetLanguage,
   sourceLanguage = "auto",
-  config,
 }: TranslateOptions): Promise<string> {
   try {
     if (!text || text.trim().length === 0) {
@@ -236,7 +235,7 @@ async function translateWithMicrosoft({
  * 翻译文本（主函数）
  */
 export async function translateText(options: TranslateOptions): Promise<string> {
-  const { text, targetLanguage, config } = options
+  const { text, targetLanguage } = options
 
   // 如果目标语言未设置或为空，直接返回原文
   if (!targetLanguage || targetLanguage.trim() === "") {
@@ -249,17 +248,7 @@ export async function translateText(options: TranslateOptions): Promise<string> 
   }
 
   // 根据配置的提供商选择翻译服务
-  switch (config.provider) {
-    case "google":
-      return translateWithGoogle(options)
-    case "niutrans":
-      return translateWithNiutrans(options)
-    case "microsoft":
-      return translateWithMicrosoft(options)
-    default:
-      console.warn(`未知的翻译服务提供商: ${config.provider}`)
-      return text
-  }
+  return translateWithGoogle(options)
 }
 
 /**
