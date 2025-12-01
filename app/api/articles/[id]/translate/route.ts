@@ -16,24 +16,12 @@ export async function POST(
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
-    // 注意：需要先运行数据库迁移以添加新字段
-    // npx prisma migrate dev --name add_translation_providers
-    // 或使用: npx prisma db push
     const userRaw = await prisma.user.findUnique({
       where: { email: session.user.email },
     })
 
     if (!userRaw) {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
-    }
-
-    // 类型断言，因为 Prisma 类型可能还未更新
-    const user = userRaw as typeof userRaw & {
-      translationProvider?: string | null
-      googleTranslateApiKey?: string | null
-      niutransApiKey?: string | null
-      microsoftTranslateApiKey?: string | null
-      microsoftTranslateRegion?: string | null
     }
 
     const { id } = await params
@@ -55,59 +43,89 @@ export async function POST(
     }
 
     // 获取用户的目标语言设置
-    const targetLanguage = user.targetLanguage || "zh"
+    const targetLanguage = userRaw.targetLanguage || "zh"
     
     if (!targetLanguage || targetLanguage.trim() === "") {
       return NextResponse.json({ error: "未设置目标语言" }, { status: 400 })
     }
 
-    // 构建翻译配置
-    const translationProvider = (user.translationProvider || "google") as "google" | "niutrans" | "microsoft"
+    // 构建翻译配置（仅使用Google翻译）
     const translationConfig: TranslationConfig = {
-      provider: translationProvider,
-      googleApiKey: user.googleTranslateApiKey || undefined,
-      niutransApiKey: user.niutransApiKey || undefined,
-      microsoftApiKey: user.microsoftTranslateApiKey || undefined,
-      microsoftRegion: user.microsoftTranslateRegion || undefined,
+      provider: "google",
     }
 
-    // 检查是否配置了相应的 API Key（Google 翻译不再需要 API Key）
-    if (translationProvider === "niutrans" && !translationConfig.niutransApiKey) {
-      return NextResponse.json({ error: "未配置小牛翻译 API Key" }, { status: 400 })
-    }
-    if (translationProvider === "microsoft" && !translationConfig.microsoftApiKey) {
-      return NextResponse.json({ error: "未配置微软翻译 API Key" }, { status: 400 })
+    // 合并标题、内容和摘要，使用特殊分隔符标记各部分
+    // 使用不易被翻译的标记，确保翻译后仍能识别
+    const separators = {
+      title: "|||TITLE|||",
+      content: "|||CONTENT|||",
+      snippet: "|||SNIPPET|||",
     }
 
-    // 翻译标题、内容和摘要
-    const [translatedTitle, translatedContent, translatedSnippet] = await Promise.all([
-      translateText({
-        text: article.title,
-        targetLanguage,
-        config: translationConfig,
-      }),
-      article.content
-        ? translateText({
-            text: article.content,
-            targetLanguage,
-            config: translationConfig,
-          })
-        : Promise.resolve(article.content),
-      article.contentSnippet
-        ? translateText({
-            text: article.contentSnippet,
-            targetLanguage,
-            config: translationConfig,
-          })
-        : Promise.resolve(article.contentSnippet),
-    ])
-
-    // 记录翻译结果
+    const parts: string[] = []
     
+    // 构建合并文本，按顺序添加各部分
+    parts.push(separators.title)
+    parts.push(article.title || "")
+    
+    if (article.content) {
+      parts.push(separators.content)
+      parts.push(article.content)
+    }
+    
+    if (article.contentSnippet) {
+      parts.push(separators.snippet)
+      parts.push(article.contentSnippet)
+    }
+
+    const combinedText = parts.join("\n\n")
+
+    // 一次性翻译合并后的文本
+    const translatedCombined = await translateText({
+      text: combinedText,
+      targetLanguage,
+      config: translationConfig,
+    })
+
+    // 按分隔符拆分翻译结果
+    let translatedTitle = article.title
+    let translatedContent = article.content
+    let translatedSnippet = article.contentSnippet
+
+    // 查找各个分隔符的位置
+    const titleIndex = translatedCombined.indexOf(separators.title)
+    const contentIndex = translatedCombined.indexOf(separators.content)
+    const snippetIndex = translatedCombined.indexOf(separators.snippet)
+
+    // 提取标题部分
+    if (titleIndex !== -1) {
+      const titleEnd = contentIndex !== -1 ? contentIndex : snippetIndex !== -1 ? snippetIndex : translatedCombined.length
+      translatedTitle = translatedCombined
+        .substring(titleIndex + separators.title.length, titleEnd)
+        .replace(/^\n+|\n+$/g, "")
+        .trim()
+    }
+
+    // 提取内容部分
+    if (contentIndex !== -1) {
+      const contentEnd = snippetIndex !== -1 ? snippetIndex : translatedCombined.length
+      translatedContent = translatedCombined
+        .substring(contentIndex + separators.content.length, contentEnd)
+        .replace(/^\n+|\n+$/g, "")
+        .trim()
+    }
+
+    // 提取摘要部分
+    if (snippetIndex !== -1) {
+      translatedSnippet = translatedCombined
+        .substring(snippetIndex + separators.snippet.length)
+        .replace(/^\n+|\n+$/g, "")
+        .trim()
+    }
+
     return NextResponse.json({
       success: true,
-      targetLanguage, // 返回使用的目标语言，便于调试
-      userTargetLanguage: user.targetLanguage, // 返回数据库中的原始值
+      targetLanguage,
       translated: {
         title: translatedTitle,
         content: translatedContent,

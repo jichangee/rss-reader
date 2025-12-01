@@ -294,77 +294,12 @@ export default function SettingsPage() {
                 <select
                   id="translation-provider"
                   value={translationProvider}
-                  onChange={(e) => setTranslationProvider(e.target.value as "google" | "niutrans" | "microsoft")}
+                  onChange={(e) => setTranslationProvider(e.target.value as "google")}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="google">Google 翻译</option>
-                  <option value="niutrans">小牛翻译</option>
                 </select>
               </div>
-
-              {/* 小牛翻译配置 */}
-              {translationProvider === "niutrans" && (
-                <div>
-                  <label
-                    htmlFor="niutrans-api-key"
-                    className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    小牛翻译 API Key
-                  </label>
-                  <input
-                    id="niutrans-api-key"
-                    type="password"
-                    value={niutransApiKey}
-                    onChange={(e) => setNiutransApiKey(e.target.value)}
-                    placeholder="请输入小牛翻译 API Key"
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    在 <a href="https://niutrans.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">小牛翻译官网</a> 注册并获取 API Key
-                  </p>
-                </div>
-              )}
-
-              {/* 微软翻译配置 */}
-              {translationProvider === "microsoft" && (
-                <>
-                  <div>
-                    <label
-                      htmlFor="microsoft-api-key"
-                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      微软翻译 API Key
-                    </label>
-                    <input
-                      id="microsoft-api-key"
-                      type="password"
-                      value={microsoftTranslateApiKey}
-                      onChange={(e) => setMicrosoftTranslateApiKey(e.target.value)}
-                      placeholder="请输入微软翻译 API Key"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="microsoft-region"
-                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      服务区域
-                    </label>
-                    <input
-                      id="microsoft-region"
-                      type="text"
-                      value={microsoftTranslateRegion}
-                      onChange={(e) => setMicrosoftTranslateRegion(e.target.value)}
-                      placeholder="例如: global, eastus, westeurope"
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    />
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      在 <a href="https://azure.microsoft.com/zh-cn/services/cognitive-services/translator/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">Azure 门户</a> 创建翻译服务资源并获取密钥和区域
-                    </p>
-                  </div>
-                </>
-              )}
             </div>
           </div>
 
