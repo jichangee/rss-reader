@@ -56,18 +56,25 @@ export default function ArticleList({
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const observerTarget = useRef<HTMLDivElement>(null)
   const pendingReadIds = useRef<Set<string>>(new Set())
+  const processedReadIds = useRef<Set<string>>(new Set()) // 跟踪已处理过的文章ID
   const batchSubmitTimer = useRef<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const articleContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const articleRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const scrollObserverRef = useRef<IntersectionObserver | null>(null) // 保存观察器引用
   const { toasts, success, error, info, removeToast } = useToast()
 
-  // 初始化稍后读状态
+  // 初始化稍后读状态，并同步已读状态
   useEffect(() => {
     const readLaterSet = new Set<string>()
     articles.forEach(article => {
       if (article.isReadLater) {
         readLaterSet.add(article.id)
+      }
+      // 如果文章已读，从待提交队列中移除并标记为已处理
+      if (article.readBy.length > 0) {
+        pendingReadIds.current.delete(article.id)
+        processedReadIds.current.add(article.id)
       }
     })
     setReadLaterArticles(readLaterSet)
@@ -77,13 +84,31 @@ export default function ArticleList({
   const submitBatchRead = useCallback(() => {
     if (pendingReadIds.current.size > 0) {
       const idsToSubmit = Array.from(pendingReadIds.current)
+      // 标记为已处理
+      idsToSubmit.forEach(id => processedReadIds.current.add(id))
       pendingReadIds.current.clear()
       onMarkAsReadBatch(idsToSubmit)
     }
   }, [onMarkAsReadBatch])
 
   // 添加文章到待标记队列
-  const addToPendingRead = useCallback((articleId: string) => {
+  const addToPendingRead = useCallback((articleId: string, article?: Article) => {
+    // 检查是否已经处理过
+    if (processedReadIds.current.has(articleId)) {
+      return
+    }
+    
+    // 检查是否已经在待提交队列中
+    if (pendingReadIds.current.has(articleId)) {
+      return
+    }
+    
+    // 如果提供了文章对象，检查是否已读
+    if (article && article.readBy.length > 0) {
+      processedReadIds.current.add(articleId)
+      return
+    }
+    
     pendingReadIds.current.add(articleId)
     
     // 清除旧的定时器
@@ -138,6 +163,11 @@ export default function ArticleList({
   useEffect(() => {
     if (!markReadOnScroll) return
 
+    // 清理之前的观察器
+    if (scrollObserverRef.current) {
+      scrollObserverRef.current.disconnect()
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -145,8 +175,24 @@ export default function ArticleList({
           if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
             const articleId = entry.target.getAttribute("data-id")
             if (articleId) {
+              // 检查是否已经处理过
+              if (processedReadIds.current.has(articleId)) {
+                observer.unobserve(entry.target)
+                return
+              }
+              
+              // 查找对应的文章对象
+              const article = articles.find(a => a.id === articleId)
+              
+              // 检查文章是否已读
+              if (article && article.readBy.length > 0) {
+                processedReadIds.current.add(articleId)
+                observer.unobserve(entry.target)
+                return
+              }
+              
               // 添加到批量提交队列
-              addToPendingRead(articleId)
+              addToPendingRead(articleId, article)
               // 停止观察已处理的文章
               observer.unobserve(entry.target)
             }
@@ -158,23 +204,35 @@ export default function ArticleList({
       }
     )
 
-    // 只观察未读文章
-    const unreadArticles = articles.filter(a => a.readBy.length === 0)
+    scrollObserverRef.current = observer
+
+    // 只观察未读且未处理过的文章
+    const unreadArticles = articles.filter(a => 
+      a.readBy.length === 0 && !processedReadIds.current.has(a.id)
+    )
+    
     unreadArticles.forEach((article) => {
       const element = document.querySelector(`article[data-id="${article.id}"]`)
-      if (element) {
+      if (element && !processedReadIds.current.has(article.id)) {
         observer.observe(element)
       }
     })
 
     return () => {
-      observer.disconnect()
+      if (scrollObserverRef.current) {
+        scrollObserverRef.current.disconnect()
+        scrollObserverRef.current = null
+      }
     }
   }, [articles, markReadOnScroll, addToPendingRead])
 
   const handleTitleClick = (article: Article) => {
     // 如果是未读文章，标记为已读
     if (article.readBy.length === 0) {
+      // 从待提交队列中移除（如果存在）
+      pendingReadIds.current.delete(article.id)
+      // 标记为已处理
+      processedReadIds.current.add(article.id)
       onMarkAsRead(article.id)
     }
   }
