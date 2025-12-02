@@ -116,18 +116,25 @@ function DashboardContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
-        }).catch(err => {
-          console.error("触发后台刷新失败:", err)
         })
-
-        // 记录刷新时间
-        lastAutoRefreshRef.current = now
-        
-        // 5秒后静默更新文章列表
-        setTimeout(() => {
-          loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-          loadFeeds()
-        }, 5000)
+          .then(async (res) => {
+            if (res.status === 429) {
+              // 刷新过于频繁，静默处理，不更新lastAutoRefreshRef
+              const data = await res.json().catch(() => ({}))
+              console.log("刷新过于频繁，等待中...", data.remainingMinutes ? `剩余 ${data.remainingMinutes} 分钟` : "")
+            } else if (res.ok) {
+              // 刷新成功，记录刷新时间
+              lastAutoRefreshRef.current = now
+              // 5秒后静默更新文章列表
+              setTimeout(() => {
+                loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+                loadFeeds()
+              }, 5000)
+            }
+          })
+          .catch(err => {
+            console.error("触发后台刷新失败:", err)
+          })
       }
     }, 60 * 1000) // 每分钟检查一次
 
@@ -332,14 +339,21 @@ function DashboardContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedIds }),
-      }).catch(err => {
-        console.error("触发后台刷新失败:", err)
       })
-
-      // 记录刷新时间
-      lastAutoRefreshRef.current = Date.now()
-
-      console.log("后台刷新已触发")
+        .then(async (res) => {
+          if (res.status === 429) {
+            // 刷新过于频繁，静默处理
+            const data = await res.json().catch(() => ({}))
+            console.log("刷新过于频繁，等待中...", data.remainingMinutes ? `剩余 ${data.remainingMinutes} 分钟` : "")
+          } else if (res.ok) {
+            // 刷新成功，记录刷新时间
+            lastAutoRefreshRef.current = Date.now()
+            console.log("后台刷新已触发")
+          }
+        })
+        .catch(err => {
+          console.error("触发后台刷新失败:", err)
+        })
     } catch (error) {
       console.error("触发刷新失败:", error)
     }

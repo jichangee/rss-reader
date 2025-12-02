@@ -25,6 +25,7 @@ model User {
   microsoftTranslateRegion String? // 微软翻译服务区域
   markReadOnScroll Boolean @default(false) // 是否启用滚动标记已读
   autoRefreshOnLoad Boolean @default(true) // 首次进入页面时自动刷新，默认开启
+  lastRefreshRequestAt DateTime? // 用户最后一次刷新请求时间，用于限制刷新频率
   accounts      Account[]
   sessions      Session[]
   feeds         Feed[]

@@ -135,6 +135,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "未授权" }, { status: 401 })
     }
 
+    // 检查用户刷新间隔限制（10分钟）
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, lastRefreshRequestAt: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+    }
+
+    const MIN_REFRESH_INTERVAL = 10 * 60 * 1000 // 10分钟
+    const now = Date.now()
+
+    if (user.lastRefreshRequestAt) {
+      const timeSinceLastRefresh = now - new Date(user.lastRefreshRequestAt).getTime()
+      if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
+        const remainingMinutes = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / (60 * 1000))
+        return NextResponse.json({ 
+          error: `刷新过于频繁，请等待 ${remainingMinutes} 分钟后再试`,
+          remainingMinutes 
+        }, { status: 429 })
+      }
+    }
+
+    // 更新用户最后刷新请求时间
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastRefreshRequestAt: new Date() },
+    })
+
     // 获取请求体中的 feedIds
     let feedIds: string[] | undefined
     try {
