@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Loader2, BookOpen, CheckCheck, Clock, Bookmark, BookmarkCheck, X, ExternalLink, User, Calendar } from "lucide-react"
+import { Loader2, BookOpen, CheckCheck, Clock, Bookmark, BookmarkCheck, X, ExternalLink, User, Calendar, RotateCw } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
@@ -34,6 +34,7 @@ interface ArticleListProps {
   onMarkOlderAsRead?: (range: '24h' | 'week') => Promise<{ success: boolean; count?: number; message?: string }> // 返回 Promise，包含操作结果
   markReadOnScroll?: boolean
   isRefreshing?: boolean
+  onRefresh?: () => void
 }
 
 export default function ArticleList({
@@ -47,6 +48,7 @@ export default function ArticleList({
   onMarkOlderAsRead, // 解构
   markReadOnScroll = false,
   isRefreshing = false,
+  onRefresh,
 }: ArticleListProps) {
   const [showCleanupMenu, setShowCleanupMenu] = useState(false)
   const [isCleaningUp, setIsCleaningUp] = useState(false)
@@ -345,10 +347,38 @@ export default function ArticleList({
 
   if (articles.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-        <BookOpen className="h-16 w-16 mb-4 opacity-50" />
-        <p className="text-lg font-medium">暂无文章</p>
-        <p className="mt-2 text-sm">添加订阅以获取最新内容</p>
+      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <div className="mx-auto max-w-4xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              最新文章
+            </h2>
+            <div className="flex items-center space-x-2">
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
+                  title="刷新订阅"
+                >
+                  {isRefreshing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCw className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isRefreshing ? "刷新中..." : "刷新"}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex h-full flex-col items-center justify-center text-gray-500 dark:text-gray-400 py-20">
+            <BookOpen className="h-16 w-16 mb-4 opacity-50" />
+            <p className="text-lg font-medium">暂无文章</p>
+            <p className="mt-2 text-sm">添加订阅以获取最新内容</p>
+          </div>
+        </div>
       </div>
     )
   }
@@ -362,8 +392,26 @@ export default function ArticleList({
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             最新文章
           </h2>
-          {onMarkOlderAsRead && (
-            <div className="relative" ref={menuRef}>
+          <div className="flex items-center space-x-2">
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
+                title="刷新订阅"
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCw className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isRefreshing ? "刷新中..." : "刷新"}
+                </span>
+              </button>
+            )}
+            {onMarkOlderAsRead && (
+              <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowCleanupMenu(!showCleanupMenu)}
                 disabled={isCleaningUp}
@@ -403,7 +451,8 @@ export default function ArticleList({
                 </div>
               )}
             </div>
-          )}
+            )}
+          </div>
         </div>
         <div className="space-y-6">
           {articles.map((article) => {

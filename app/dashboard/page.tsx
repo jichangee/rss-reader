@@ -44,9 +44,18 @@ function DashboardContent() {
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false)
   const hasInitialLoadRef = useRef(false)
   const lastAutoRefreshRef = useRef<number>(0)
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const selectedFeedRef = useRef<string | null>(null)
+  const unreadOnlyRef = useRef<boolean>(true)
+  
+  // 同步 ref 值
+  useEffect(() => {
+    selectedFeedRef.current = selectedFeed
+    unreadOnlyRef.current = unreadOnly
+  }, [selectedFeed, unreadOnly])
 
   // 从 URL 读取选中的订阅
   useEffect(() => {
@@ -122,14 +131,60 @@ function DashboardContent() {
               // 刷新过于频繁，静默处理，不更新lastAutoRefreshRef
               const data = await res.json().catch(() => ({}))
               console.log("刷新过于频繁，等待中...", data.remainingMinutes ? `剩余 ${data.remainingMinutes} 分钟` : "")
-            } else if (res.ok) {
+            } else if (res.ok || res.status === 202) {
               // 刷新成功，记录刷新时间
               lastAutoRefreshRef.current = now
-              // 5秒后静默更新文章列表
-              setTimeout(() => {
-                loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-                loadFeeds()
-              }, 5000)
+              
+              // 记录刷新前的第一篇文章ID
+              const firstArticleId = articles.length > 0 ? articles[0].id : null
+              
+              // 轮询检查新文章，最多检查10次，每次间隔2秒
+              let pollCount = 0
+              const maxPolls = 10
+              const pollInterval = 2000 // 2秒
+              
+              const pollForNewArticles = setInterval(async () => {
+                pollCount++
+                
+                // 重新加载文章列表（静默模式）
+                try {
+                  // 使用 ref 获取最新的值
+                  const currentSelectedFeed = selectedFeedRef.current
+                  const currentUnreadOnly = unreadOnlyRef.current
+                  
+                  const params = new URLSearchParams()
+                  if (currentSelectedFeed) params.append("feedId", currentSelectedFeed)
+                  if (currentUnreadOnly) params.append("unreadOnly", "true")
+                  params.append("limit", "10")
+
+                  const res = await fetch(`/api/articles?${params.toString()}`)
+                  if (res.ok) {
+                    const data = await res.json()
+                    const newFirstArticleId = data.articles.length > 0 ? data.articles[0].id : null
+                    
+                    // 如果第一篇文章ID变化了，说明有新文章
+                    // 或者第一次轮询时也要更新（确保列表是最新的）
+                    if (newFirstArticleId !== firstArticleId || pollCount === 1) {
+                      setArticles(data.articles)
+                      setNextCursor(data.nextCursor)
+                      setHasMore(data.hasNextPage)
+                      // 同时更新订阅列表
+                      loadFeeds()
+                      console.log("自动刷新：检测到新文章，已更新列表")
+                      clearInterval(pollForNewArticles)
+                    } else if (pollCount >= maxPolls) {
+                      // 达到最大轮询次数，停止轮询
+                      console.log("自动刷新：轮询结束，未检测到新文章")
+                      clearInterval(pollForNewArticles)
+                    }
+                  }
+                } catch (error) {
+                  console.error("自动刷新：轮询检查新文章失败:", error)
+                  if (pollCount >= maxPolls) {
+                    clearInterval(pollForNewArticles)
+                  }
+                }
+              }, pollInterval)
             }
           })
           .catch(err => {
@@ -334,21 +389,72 @@ function DashboardContent() {
   // 触发后台静默刷新
   const triggerBackgroundRefresh = async (feedIds?: string[]) => {
     try {
+      // 记录刷新前的第一篇文章ID，用于检测是否有新文章
+      const firstArticleId = articles.length > 0 ? articles[0].id : null
+      
       // 发送刷新请求，不等待完成
       fetch("/api/feeds/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedIds }),
+        body: JSON.stringify({ feedIds, forceRefresh: true }),
       })
         .then(async (res) => {
           if (res.status === 429) {
             // 刷新过于频繁，静默处理
             const data = await res.json().catch(() => ({}))
             console.log("刷新过于频繁，等待中...", data.remainingMinutes ? `剩余 ${data.remainingMinutes} 分钟` : "")
-          } else if (res.ok) {
+          } else if (res.ok || res.status === 202) {
             // 刷新成功，记录刷新时间
             lastAutoRefreshRef.current = Date.now()
-            console.log("后台刷新已触发")
+            console.log("后台刷新已触发，开始轮询检查新文章")
+            
+            // 轮询检查新文章，最多检查10次，每次间隔2秒
+            let pollCount = 0
+            const maxPolls = 10
+            const pollInterval = 2000 // 2秒
+            
+            const pollForNewArticles = setInterval(async () => {
+              pollCount++
+              
+              // 重新加载文章列表（静默模式）
+              try {
+                // 使用 ref 获取最新的值
+                const currentSelectedFeed = selectedFeedRef.current
+                const currentUnreadOnly = unreadOnlyRef.current
+                
+                const params = new URLSearchParams()
+                if (currentSelectedFeed) params.append("feedId", currentSelectedFeed)
+                if (currentUnreadOnly) params.append("unreadOnly", "true")
+                params.append("limit", "10")
+
+                const res = await fetch(`/api/articles?${params.toString()}`)
+                if (res.ok) {
+                  const data = await res.json()
+                  const newFirstArticleId = data.articles.length > 0 ? data.articles[0].id : null
+                  
+                  // 如果第一篇文章ID变化了，说明有新文章
+                  // 或者第一次轮询时也要更新（确保列表是最新的）
+                  if (newFirstArticleId !== firstArticleId || pollCount === 1) {
+                    setArticles(data.articles)
+                    setNextCursor(data.nextCursor)
+                    setHasMore(data.hasNextPage)
+                    // 同时更新订阅列表
+                    loadFeeds()
+                    console.log("检测到新文章，已更新列表")
+                    clearInterval(pollForNewArticles)
+                  } else if (pollCount >= maxPolls) {
+                    // 达到最大轮询次数，停止轮询
+                    console.log("轮询结束，未检测到新文章")
+                    clearInterval(pollForNewArticles)
+                  }
+                }
+              } catch (error) {
+                console.error("轮询检查新文章失败:", error)
+                if (pollCount >= maxPolls) {
+                  clearInterval(pollForNewArticles)
+                }
+              }
+            }, pollInterval)
           }
         })
         .catch(err => {
@@ -497,6 +603,90 @@ function DashboardContent() {
     }
   }
 
+  const handleManualRefresh = async () => {
+    if (isManualRefreshing) return
+    
+    try {
+      setIsManualRefreshing(true)
+      
+      // 记录刷新前的第一篇文章ID
+      const firstArticleId = articles.length > 0 ? articles[0].id : null
+      
+      // 发送刷新请求（强制刷新）
+      const res = await fetch("/api/feeds/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceRefresh: true }),
+      })
+      
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}))
+        alert(`刷新过于频繁，请等待 ${data.remainingMinutes || 0} 分钟后再试`)
+        return
+      }
+      
+      if (res.ok || res.status === 202) {
+        // 刷新成功，记录刷新时间
+        lastAutoRefreshRef.current = Date.now()
+        console.log("手动刷新已触发，开始轮询检查新文章")
+        
+        // 轮询检查新文章，最多检查10次，每次间隔2秒
+        let pollCount = 0
+        const maxPolls = 10
+        const pollInterval = 2000 // 2秒
+        
+        const pollForNewArticles = setInterval(async () => {
+          pollCount++
+          
+          // 重新加载文章列表（静默模式）
+          try {
+            // 使用 ref 获取最新的值
+            const currentSelectedFeed = selectedFeedRef.current
+            const currentUnreadOnly = unreadOnlyRef.current
+            
+            const params = new URLSearchParams()
+            if (currentSelectedFeed) params.append("feedId", currentSelectedFeed)
+            if (currentUnreadOnly) params.append("unreadOnly", "true")
+            params.append("limit", "10")
+
+            const res = await fetch(`/api/articles?${params.toString()}`)
+            if (res.ok) {
+              const data = await res.json()
+              const newFirstArticleId = data.articles.length > 0 ? data.articles[0].id : null
+              
+              // 如果第一篇文章ID变化了，说明有新文章
+              // 或者第一次轮询时也要更新（确保列表是最新的）
+              if (newFirstArticleId !== firstArticleId || pollCount === 1) {
+                setArticles(data.articles)
+                setNextCursor(data.nextCursor)
+                setHasMore(data.hasNextPage)
+                // 同时更新订阅列表
+                loadFeeds()
+                console.log("手动刷新：检测到新文章，已更新列表")
+                clearInterval(pollForNewArticles)
+                setIsManualRefreshing(false)
+              } else if (pollCount >= maxPolls) {
+                // 达到最大轮询次数，停止轮询
+                console.log("手动刷新：轮询结束，未检测到新文章")
+                clearInterval(pollForNewArticles)
+                setIsManualRefreshing(false)
+              }
+            }
+          } catch (error) {
+            console.error("手动刷新：轮询检查新文章失败:", error)
+            if (pollCount >= maxPolls) {
+              clearInterval(pollForNewArticles)
+              setIsManualRefreshing(false)
+            }
+          }
+        }, pollInterval)
+      }
+    } catch (error) {
+      console.error("手动刷新失败:", error)
+      setIsManualRefreshing(false)
+    }
+  }
+
   const handleMarkOlderAsRead = async (range: '24h' | 'week'): Promise<{ success: boolean; count?: number; message?: string }> => {
     try {
       let days: number | undefined
@@ -603,7 +793,8 @@ function DashboardContent() {
             onMarkAllAsRead={handleMarkAllAsRead}
             onMarkOlderAsRead={handleMarkOlderAsRead}
             markReadOnScroll={markReadOnScroll}
-            isRefreshing={isRefreshingAfterMarkAllRead}
+            isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
+            onRefresh={handleManualRefresh}
           />
         </div>
       </main>

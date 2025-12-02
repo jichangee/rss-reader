@@ -7,7 +7,8 @@ import { parseRSSWithTimeout } from "@/lib/rss-parser"
 // 后台刷新处理函数
 async function performBackgroundRefresh(
   userEmail: string,
-  feedIds?: string[]
+  feedIds?: string[],
+  forceRefresh?: boolean
 ) {
   try {
     const user = await prisma.user.findUnique({
@@ -28,12 +29,14 @@ async function performBackgroundRefresh(
     const now = Date.now()
 
     // 过滤出需要刷新的 feed
+    // 如果 forceRefresh 为 true，则忽略时间限制
     const feedsToRefresh = user.feeds.filter(feed => {
+      if (forceRefresh) return true // 强制刷新时，忽略时间限制
       if (!feed.lastRefreshedAt) return true
       return now - new Date(feed.lastRefreshedAt).getTime() >= minRefreshInterval
     })
 
-    console.log(`后台刷新开始: ${feedsToRefresh.length} 个订阅需要刷新`)
+    console.log(`后台刷新开始: ${feedsToRefresh.length} 个订阅需要刷新${forceRefresh ? ' (强制刷新)' : ''}`)
 
     // 并行处理所有 feed 的刷新
     const refreshResults = await Promise.allSettled(
@@ -165,18 +168,20 @@ export async function POST(req: Request) {
       data: { lastRefreshRequestAt: new Date() },
     })
 
-    // 获取请求体中的 feedIds
+    // 获取请求体中的 feedIds 和 forceRefresh
     let feedIds: string[] | undefined
+    let forceRefresh: boolean = false
     try {
       const body = await req.json()
       feedIds = body.feedIds
+      forceRefresh = body.forceRefresh === true
     } catch (e) {
       // 忽略 JSON 解析错误，视为全量刷新
     }
 
     // 立即返回 202 Accepted，表示请求已接受，后台处理中
     // 在后台执行刷新任务，不阻塞响应
-    performBackgroundRefresh(session.user.email, feedIds).catch(err => {
+    performBackgroundRefresh(session.user.email, feedIds, forceRefresh).catch(err => {
       console.error("后台刷新异常:", err)
     })
 
