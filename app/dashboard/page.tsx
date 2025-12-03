@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
-import BatchAddFeedModal from "@/app/components/BatchAddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
 import { Loader2, Menu } from "lucide-react"
 
@@ -19,7 +18,6 @@ function DashboardContent() {
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showAddFeed, setShowAddFeed] = useState(false)
-  const [showBatchAddFeed, setShowBatchAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [feedsLoading, setFeedsLoading] = useState(true)
@@ -634,7 +632,6 @@ function DashboardContent() {
         selectedFeed={selectedFeed}
         onSelectFeed={handleFeedSelect}
         onAddFeed={() => setShowAddFeed(true)}
-        onBatchAddFeed={() => setShowBatchAddFeed(true)}
         onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
           unreadOnly={unreadOnly}
@@ -675,13 +672,8 @@ function DashboardContent() {
       {showAddFeed && (
         <AddFeedModal
           onClose={() => setShowAddFeed(false)}
-          onAdd={handleAddFeed}
-        />
-      )}
-      {showBatchAddFeed && (
-        <BatchAddFeedModal
-          onClose={() => setShowBatchAddFeed(false)}
-          onAdd={handleBatchAddFeed}
+          onAddSingle={handleAddFeed}
+          onAddBatch={handleBatchAddFeed}
         />
       )}
       {editingFeed && (
