@@ -4,15 +4,62 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
 
-// 后台刷新处理函数
-async function performBackgroundRefresh(
-  userEmail: string,
-  feedIds?: string[],
-  forceRefresh?: boolean
-) {
+// 刷新订阅 - 同步版本
+export async function POST(req: Request) {
+  const startTime = Date.now()
+  
   try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "未授权" }, { status: 401 })
+    }
+
+    // 检查用户刷新间隔限制（10分钟）
     const user = await prisma.user.findUnique({
-      where: { email: userEmail },
+      where: { email: session.user.email },
+      select: { id: true, lastRefreshRequestAt: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+    }
+
+    const MIN_REFRESH_INTERVAL = 10 * 60 * 1000 // 10分钟
+    const now = Date.now()
+
+    // 获取请求体中的 feedIds 和 forceRefresh
+    let feedIds: string[] | undefined
+    let forceRefresh: boolean = false
+    try {
+      const body = await req.json()
+      feedIds = body.feedIds
+      forceRefresh = body.forceRefresh === true
+    } catch (e) {
+      // 忽略 JSON 解析错误，视为全量刷新
+    }
+
+    // 如果 forceRefresh 为 false，检查刷新间隔限制
+    if (!forceRefresh && user.lastRefreshRequestAt) {
+      const timeSinceLastRefresh = now - new Date(user.lastRefreshRequestAt).getTime()
+      if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
+        const remainingMinutes = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / (60 * 1000))
+        return NextResponse.json({ 
+          error: `刷新过于频繁，请等待 ${remainingMinutes} 分钟后再试`,
+          remainingMinutes 
+        }, { status: 429 })
+      }
+    }
+
+    // 更新用户最后刷新请求时间
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastRefreshRequestAt: new Date() },
+    })
+
+    // 获取用户的所有订阅
+    const userWithFeeds = await prisma.user.findUnique({
+      where: { email: session.user.email },
       include: { 
         feeds: {
           where: feedIds ? { id: { in: feedIds } } : undefined
@@ -20,29 +67,28 @@ async function performBackgroundRefresh(
       },
     })
 
-    if (!user) {
-      console.error("后台刷新: 用户不存在")
-      return
+    if (!userWithFeeds) {
+      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
     const minRefreshInterval = 5 * 60 * 1000 // 5分钟
-    const now = Date.now()
 
     // 过滤出需要刷新的 feed
     // 如果 forceRefresh 为 true，则忽略时间限制
-    const feedsToRefresh = user.feeds.filter(feed => {
+    const feedsToRefresh = userWithFeeds.feeds.filter(feed => {
       if (forceRefresh) return true // 强制刷新时，忽略时间限制
       if (!feed.lastRefreshedAt) return true
       return now - new Date(feed.lastRefreshedAt).getTime() >= minRefreshInterval
     })
 
-    console.log(`后台刷新开始: ${feedsToRefresh.length} 个订阅需要刷新${forceRefresh ? ' (强制刷新)' : ''}`)
+    console.log(`同步刷新开始: ${feedsToRefresh.length} 个订阅需要刷新${forceRefresh ? ' (强制刷新)' : ''}`)
 
     // 并行处理所有 feed 的刷新
     const refreshResults = await Promise.allSettled(
       feedsToRefresh.map(async (feed) => {
         try {
-          const parsedFeed = await parseRSSWithTimeout(feed.url, 10000)
+          // 单个订阅源超时设为 8 秒
+          const parsedFeed = await parseRSSWithTimeout(feed.url, 8000)
           
           // 准备更新数据，只在信息真正改变时才更新
           const updateData: any = {
@@ -72,7 +118,7 @@ async function performBackgroundRefresh(
             : Promise.resolve(feed)
 
           // 处理文章
-          let articleInsertPromise = Promise.resolve(0)
+          let newArticlesCount = 0
           if (parsedFeed.items && parsedFeed.items.length > 0) {
             // 先查询已存在的文章 guid，减少重复插入
             const existingGuids = await prisma.article.findMany({
@@ -101,17 +147,18 @@ async function performBackgroundRefresh(
 
             // 只在有新文章时插入
             if (newArticles.length > 0) {
-              articleInsertPromise = prisma.article.createMany({
+              await prisma.article.createMany({
                 data: newArticles,
                 skipDuplicates: true,
-              }).then(() => newArticles.length)
+              })
+              newArticlesCount = newArticles.length
             }
           }
 
-          // 并行执行更新和插入
-          await Promise.all([feedUpdatePromise, articleInsertPromise])
+          // 执行 feed 更新
+          await feedUpdatePromise
 
-          return { success: true, feedId: feed.id }
+          return { success: true, feedId: feed.id, newArticlesCount }
         } catch (error) {
           console.error(`刷新订阅 ${feed.title} 失败:`, error)
           throw error
@@ -121,77 +168,34 @@ async function performBackgroundRefresh(
 
     // 统计结果
     const successCount = refreshResults.filter(r => r.status === 'fulfilled').length
-    const failCount = refreshResults.filter(r => r.status === 'rejected').length
-
-    console.log(`后台刷新完成: 成功 ${successCount}, 失败 ${failCount}, 跳过 ${user.feeds.length - feedsToRefresh.length}`)
-  } catch (error) {
-    console.error("后台刷新失败:", error)
-  }
-}
-
-// 刷新订阅 - 非阻塞版本
-export async function POST(req: Request) {
-  try {
-    const session = await getServerSession(authOptions)
+    const failedCount = refreshResults.filter(r => r.status === 'rejected').length
     
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "未授权" }, { status: 401 })
-    }
-
-    // 检查用户刷新间隔限制（10分钟）
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, lastRefreshRequestAt: true },
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
-    }
-
-    const MIN_REFRESH_INTERVAL = 10 * 60 * 1000 // 10分钟
-    const now = Date.now()
-
-    if (user.lastRefreshRequestAt) {
-      const timeSinceLastRefresh = now - new Date(user.lastRefreshRequestAt).getTime()
-      if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
-        const remainingMinutes = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / (60 * 1000))
-        return NextResponse.json({ 
-          error: `刷新过于频繁，请等待 ${remainingMinutes} 分钟后再试`,
-          remainingMinutes 
-        }, { status: 429 })
+    // 统计新增文章总数
+    let totalNewArticlesCount = 0
+    refreshResults.forEach(result => {
+      if (result.status === 'fulfilled' && result.value.newArticlesCount) {
+        totalNewArticlesCount += result.value.newArticlesCount
       }
-    }
-
-    // 更新用户最后刷新请求时间
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastRefreshRequestAt: new Date() },
     })
 
-    // 获取请求体中的 feedIds 和 forceRefresh
-    let feedIds: string[] | undefined
-    let forceRefresh: boolean = false
-    try {
-      const body = await req.json()
-      feedIds = body.feedIds
-      forceRefresh = body.forceRefresh === true
-    } catch (e) {
-      // 忽略 JSON 解析错误，视为全量刷新
-    }
+    const totalTime = Date.now() - startTime
 
-    // 立即返回 202 Accepted，表示请求已接受，后台处理中
-    // 在后台执行刷新任务，不阻塞响应
-    performBackgroundRefresh(session.user.email, feedIds, forceRefresh).catch(err => {
-      console.error("后台刷新异常:", err)
+    console.log(`同步刷新完成: 成功 ${successCount}, 失败 ${failedCount}, 新增文章 ${totalNewArticlesCount}, 耗时 ${totalTime}ms`)
+
+    return NextResponse.json({
+      success: true,
+      refreshedCount: successCount,
+      newArticlesCount: totalNewArticlesCount,
+      failedCount,
+      totalTime,
     })
-
-    return NextResponse.json({ 
-      message: "刷新任务已启动，正在后台处理",
-      status: "processing"
-    }, { status: 202 })
   } catch (error) {
-    console.error("启动刷新失败:", error)
-    return NextResponse.json({ error: "启动刷新失败" }, { status: 500 })
+    console.error("刷新失败:", error)
+    const totalTime = Date.now() - startTime
+    return NextResponse.json({ 
+      error: "刷新失败",
+      totalTime 
+    }, { status: 500 })
   }
 }
 

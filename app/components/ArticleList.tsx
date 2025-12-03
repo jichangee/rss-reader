@@ -35,6 +35,8 @@ interface ArticleListProps {
   markReadOnScroll?: boolean
   isRefreshing?: boolean
   onRefresh?: () => void
+  newArticlesCount?: number
+  onRefreshAndReload?: () => void
 }
 
 export default function ArticleList({
@@ -49,6 +51,8 @@ export default function ArticleList({
   markReadOnScroll = false,
   isRefreshing = false,
   onRefresh,
+  newArticlesCount = 0,
+  onRefreshAndReload,
 }: ArticleListProps) {
   const [showCleanupMenu, setShowCleanupMenu] = useState(false)
   const [isCleaningUp, setIsCleaningUp] = useState(false)
@@ -431,6 +435,24 @@ export default function ArticleList({
               )}
             </div>
           </div>
+          
+          {/* 新文章通知栏 */}
+          {newArticlesCount > 0 && (
+            <div className="sticky top-0 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
+              <span className="text-indigo-700 dark:text-indigo-300 font-medium">
+                有 {newArticlesCount} 篇新文章
+              </span>
+              {onRefreshAndReload && (
+                <button
+                  onClick={onRefreshAndReload}
+                  className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                >
+                  查看新文章
+                </button>
+              )}
+            </div>
+          )}
+          
           <div className="flex h-full flex-col items-center justify-center text-gray-500 dark:text-gray-400 py-20">
             <BookOpen className="h-16 w-16 mb-4 opacity-50" />
             <p className="text-lg font-medium">暂无文章</p>
@@ -512,6 +534,24 @@ export default function ArticleList({
             )}
           </div>
         </div>
+        
+        {/* 新文章通知栏 */}
+        {newArticlesCount > 0 && (
+          <div className="sticky top-0 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <span className="text-indigo-700 dark:text-indigo-300 font-medium">
+              有 {newArticlesCount} 篇新文章
+            </span>
+            {onRefreshAndReload && (
+              <button
+                onClick={onRefreshAndReload}
+                className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+              >
+                查看新文章
+              </button>
+            )}
+          </div>
+        )}
+        
         <div className="space-y-6">
           {articles.map((article) => {
             return (
