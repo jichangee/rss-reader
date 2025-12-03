@@ -297,6 +297,7 @@ export default function ArticleList({
       images.forEach((img, index) => {
         const mediaId = `img-${index}`
         const isExpanded = articleExpanded.has(mediaId)
+        const shouldHide = hideImagesAndVideos && !isExpanded
         
         // 检查是否已经有包装器
         let wrapper = img.parentElement
@@ -310,11 +311,20 @@ export default function ArticleList({
           wrapper.appendChild(img)
         }
 
-        if (hideImagesAndVideos && !isExpanded) {
-          // 隐藏图片
-          img.style.display = 'none'
-          if (wrapper) {
-            wrapper.style.display = 'block'
+        // 检查当前状态，避免不必要的 DOM 操作
+        // 使用 data 属性来跟踪我们设置的隐藏状态，避免与 CSS 样式冲突
+        const wasHiddenByUs = img.dataset.hiddenByUs === 'true'
+        const shouldBeHidden = shouldHide && !wasHiddenByUs
+        const shouldBeShown = !shouldHide && wasHiddenByUs
+
+        if (shouldHide) {
+          // 只在需要隐藏且当前未隐藏时才操作
+          if (shouldBeHidden) {
+            img.style.display = 'none'
+            img.dataset.hiddenByUs = 'true'
+            if (wrapper) {
+              wrapper.style.display = 'block'
+            }
           }
           
           // 检查是否已经有展开按钮
@@ -339,10 +349,13 @@ export default function ArticleList({
             wrapper?.appendChild(toggleBtn)
           }
         } else {
-          // 显示图片
-          img.style.display = ''
-          if (wrapper) {
-            wrapper.style.display = ''
+          // 只在需要显示且当前已隐藏时才操作
+          if (shouldBeShown) {
+            img.style.display = ''
+            delete img.dataset.hiddenByUs
+            if (wrapper) {
+              wrapper.style.display = ''
+            }
           }
           
           // 移除展开按钮
@@ -385,6 +398,7 @@ export default function ArticleList({
         const video = videoElement as HTMLElement
         const mediaId = `video-${index}`
         const isExpanded = articleExpanded.has(mediaId)
+        const shouldHide = hideImagesAndVideos && !isExpanded
         
         // 检查是否已经有包装器
         let wrapper = video.parentElement
@@ -398,11 +412,20 @@ export default function ArticleList({
           wrapper.appendChild(video)
         }
 
-        if (hideImagesAndVideos && !isExpanded) {
-          // 隐藏视频
-          video.style.display = 'none'
-          if (wrapper) {
-            wrapper.style.display = 'block'
+        // 检查当前状态，避免不必要的 DOM 操作
+        // 使用 data 属性来跟踪我们设置的隐藏状态，避免与 CSS 样式冲突
+        const wasHiddenByUs = video.dataset.hiddenByUs === 'true'
+        const shouldBeHidden = shouldHide && !wasHiddenByUs
+        const shouldBeShown = !shouldHide && wasHiddenByUs
+
+        if (shouldHide) {
+          // 只在需要隐藏且当前未隐藏时才操作
+          if (shouldBeHidden) {
+            video.style.display = 'none'
+            video.dataset.hiddenByUs = 'true'
+            if (wrapper) {
+              wrapper.style.display = 'block'
+            }
           }
           
           // 检查是否已经有展开按钮
@@ -427,10 +450,13 @@ export default function ArticleList({
             wrapper?.appendChild(toggleBtn)
           }
         } else {
-          // 显示视频
-          video.style.display = ''
-          if (wrapper) {
-            wrapper.style.display = ''
+          // 只在需要显示且当前已隐藏时才操作
+          if (shouldBeShown) {
+            video.style.display = ''
+            delete video.dataset.hiddenByUs
+            if (wrapper) {
+              wrapper.style.display = ''
+            }
           }
           
           // 移除展开按钮
@@ -503,6 +529,17 @@ export default function ArticleList({
     // 为每个内容容器添加事件监听器和 MutationObserver
     const cleanupFunctions: Array<() => void> = []
     
+    // 防抖处理函数
+    let updateTimer: NodeJS.Timeout | null = null
+    const debouncedUpdateImageStyles = () => {
+      if (updateTimer) {
+        clearTimeout(updateTimer)
+      }
+      updateTimer = setTimeout(() => {
+        updateImageStyles()
+      }, 100)
+    }
+    
     articleContentRefs.current.forEach((contentDiv) => {
       if (!contentDiv) return
       
@@ -512,11 +549,9 @@ export default function ArticleList({
         contentDiv.removeEventListener('click', handleContainerClick, true)
       })
       
-      // 添加 MutationObserver 监听 DOM 变化
+      // 添加 MutationObserver 监听 DOM 变化，使用防抖
       const observer = new MutationObserver(() => {
-        setTimeout(() => {
-          updateImageStyles()
-        }, 50)
+        debouncedUpdateImageStyles()
       })
       
       observer.observe(contentDiv, {
@@ -527,6 +562,13 @@ export default function ArticleList({
       cleanupFunctions.push(() => {
         observer.disconnect()
       })
+    })
+    
+    // 清理防抖定时器
+    cleanupFunctions.push(() => {
+      if (updateTimer) {
+        clearTimeout(updateTimer)
+      }
     })
 
     return () => {
