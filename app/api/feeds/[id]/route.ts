@@ -107,7 +107,8 @@ export async function PUT(
 
         // 验证新的URL是否可以解析
         try {
-          const parsedFeed = await parseRSSWithTimeout(newUrl, 10000)
+          const parseResult = await parseRSSWithTimeout(newUrl, 10000)
+          const parsedFeed = parseResult.feed
           updateData.url = newUrl
           // 如果URL改变了，可以选择同时更新从RSS获取的元数据
           if (!title) {

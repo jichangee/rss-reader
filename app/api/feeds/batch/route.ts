@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { FeedStatus } from "@/lib/feed-refresh-service"
 
 // 批量添加RSS订阅
 export async function POST(request: Request) {
@@ -79,17 +80,19 @@ export async function POST(request: Request) {
           }
 
           // 解析RSS feed (10秒超时)
-          let feed
+          let parseResult
           try {
-            feed = await parseRSSWithTimeout(trimmedUrl, 10000)
+            parseResult = await parseRSSWithTimeout(trimmedUrl, 10000)
           } catch (error) {
             const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
               ? "RSS解析超时，请稍后重试" 
               : "无效的RSS链接"
             throw new Error(errorMessage)
           }
+          const feed = parseResult.feed
 
-          // 创建订阅
+          // 创建订阅（设置初始状态和下次刷新时间）
+          const now = new Date()
           const newFeed = await prisma.feed.create({
             data: {
               url: trimmedUrl,
@@ -99,6 +102,10 @@ export async function POST(request: Request) {
               imageUrl: feed.image?.url,
               enableTranslation: enableTranslation === true,
               userId: user.id,
+              status: FeedStatus.ACTIVE, // 初始状态为 ACTIVE
+              errorCount: 0,
+              // 设置下次刷新时间为 15 分钟后（允许立即刷新）
+              nextFetchAt: new Date(now.getTime() + 15 * 60 * 1000),
             },
           })
 

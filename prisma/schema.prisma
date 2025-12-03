@@ -11,29 +11,29 @@ datasource db {
 
 // 用户模型
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  targetLanguage String?  @default("zh") // 翻译目标语言，默认中文
-  translationProvider String? // 翻译服务提供商: google, niutrans, microsoft
-  googleTranslateApiKey String? // Google 翻译 API Key
-  niutransApiKey String? // 小牛翻译 API Key
-  niutransApiSecret String? // 小牛翻译 API Secret
+  id                       String        @id @default(cuid())
+  name                     String?
+  email                    String        @unique
+  emailVerified            DateTime?
+  image                    String?
+  targetLanguage           String?       @default("zh") // 翻译目标语言，默认中文
+  translationProvider      String? // 翻译服务提供商: google, niutrans, microsoft
+  googleTranslateApiKey    String? // Google 翻译 API Key
+  niutransApiKey           String? // 小牛翻译 API Key
+  niutransApiSecret        String? // 小牛翻译 API Secret
   microsoftTranslateApiKey String? // 微软翻译 API Key
   microsoftTranslateRegion String? // 微软翻译服务区域
-  markReadOnScroll Boolean @default(false) // 是否启用滚动标记已读
-  autoRefreshOnLoad Boolean @default(true) // 首次进入页面时自动刷新，默认开启
-  hideImagesAndVideos Boolean @default(false) // 是否隐藏图片和视频
-  lastRefreshRequestAt DateTime? // 用户最后一次刷新请求时间，用于限制刷新频率
-  accounts      Account[]
-  sessions      Session[]
-  feeds         Feed[]
-  readArticles  ReadArticle[]
-  readLater     ReadLater[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  markReadOnScroll         Boolean       @default(false) // 是否启用滚动标记已读
+  autoRefreshOnLoad        Boolean       @default(true) // 首次进入页面时自动刷新，默认开启
+  hideImagesAndVideos      Boolean       @default(false) // 是否隐藏图片和视频
+  lastRefreshRequestAt     DateTime? // 用户最后一次刷新请求时间，用于限制刷新频率
+  accounts                 Account[]
+  sessions                 Session[]
+  feeds                    Feed[]
+  readArticles             ReadArticle[]
+  readLater                ReadLater[]
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
 }
 
 // NextAuth Account模型
@@ -76,38 +76,53 @@ model VerificationToken {
 
 // RSS订阅源模型
 model Feed {
-  id                String    @id @default(cuid())
+  id                String     @id @default(cuid())
   url               String
   title             String
   description       String?
   link              String?
   imageUrl          String?
-  enableTranslation Boolean   @default(false) // 是否启用翻译
+  enableTranslation Boolean    @default(false) // 是否启用翻译
   userId            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   articles          Article[]
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   lastRefreshedAt   DateTime? // 上次刷新时间
+  // 刷新优化相关字段
+  status            FeedStatus @default(ACTIVE) // Feed 状态：ACTIVE, ERROR, DISABLED
+  errorCount        Int        @default(0) // 连续错误次数
+  errorMessage      String? // 最后一次错误信息
+  etag              String? // HTTP ETag（用于条件请求）
+  lastModified      String? // HTTP Last-Modified（用于条件请求）
+  nextFetchAt       DateTime? // 下次抓取计划时间
+  lastEntryAt       DateTime? // 最新文章发布时间
 
   @@unique([userId, url])
 }
 
+// Feed 状态枚举
+enum FeedStatus {
+  ACTIVE // 正常状态
+  ERROR // 错误状态（连续错误达到阈值）
+  DISABLED // 已禁用
+}
+
 // RSS文章模型
 model Article {
-  id          String        @id @default(cuid())
-  feedId      String
-  feed        Feed          @relation(fields: [feedId], references: [id], onDelete: Cascade)
-  title       String
-  link        String
-  content     String?
+  id             String        @id @default(cuid())
+  feedId         String
+  feed           Feed          @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  title          String
+  link           String
+  content        String?
   contentSnippet String?
-  pubDate     DateTime?
-  author      String?
-  guid        String
-  readBy      ReadArticle[]
-  readLaterBy ReadLater[]
-  createdAt   DateTime      @default(now())
+  pubDate        DateTime?
+  author         String?
+  guid           String
+  readBy         ReadArticle[]
+  readLaterBy    ReadLater[]
+  createdAt      DateTime      @default(now())
 
   @@unique([feedId, guid])
 }
@@ -135,4 +150,3 @@ model ReadLater {
 
   @@unique([userId, articleId])
 }
-

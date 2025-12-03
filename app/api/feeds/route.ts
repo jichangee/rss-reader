@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { FeedStatus } from "@/lib/feed-refresh-service"
 
 // 获取用户的所有订阅
 export async function GET() {
@@ -75,9 +76,9 @@ export async function POST(request: Request) {
     }
 
     // 解析RSS feed (10秒超时)
-    let feed
+    let parseResult
     try {
-      feed = await parseRSSWithTimeout(url, 10000)
+      parseResult = await parseRSSWithTimeout(url, 10000)
     } catch (error) {
       console.error("解析RSS失败:", error)
       const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
         : "无效的RSS链接"
       return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
+    const feed = parseResult.feed
 
     const user = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -108,7 +110,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "已订阅此RSS" }, { status: 400 })
     }
 
-    // 创建订阅
+    // 创建订阅（设置初始状态和下次刷新时间）
+    const now = new Date()
     const newFeed = await prisma.feed.create({
       data: {
         url,
@@ -118,6 +121,10 @@ export async function POST(request: Request) {
         imageUrl: feed.image?.url,
         enableTranslation: enableTranslation === true,
         userId: user.id,
+        status: FeedStatus.ACTIVE, // 初始状态为 ACTIVE
+        errorCount: 0,
+        // 设置下次刷新时间为 15 分钟后（允许立即刷新）
+        nextFetchAt: new Date(now.getTime() + 15 * 60 * 1000),
       },
     })
 

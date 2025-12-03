@@ -2,9 +2,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { refreshFeeds, getFeedsToRefresh } from "@/lib/feed-refresh-service"
 
-// 刷新订阅 - 同步版本
+// 刷新订阅 - 优化版本
 export async function POST(req: Request) {
   const startTime = Date.now()
   
@@ -57,126 +57,31 @@ export async function POST(req: Request) {
       data: { lastRefreshRequestAt: new Date() },
     })
 
-    // 获取用户的所有订阅
-    const userWithFeeds = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { 
-        feeds: {
-          where: feedIds ? { id: { in: feedIds } } : undefined
-        } 
-      },
-    })
-
-    if (!userWithFeeds) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 })
+    // 确定需要刷新的 Feed ID 列表
+    let feedsToRefresh: string[]
+    
+    if (feedIds && feedIds.length > 0) {
+      // 如果指定了 feedIds，使用指定的列表（但仍会检查状态和 nextFetchAt，除非强制刷新）
+      feedsToRefresh = feedIds
+    } else {
+      // 如果没有指定，获取用户所有需要刷新的 Feed
+      feedsToRefresh = await getFeedsToRefresh(user.id)
     }
-
-    const minRefreshInterval = 5 * 60 * 1000 // 5分钟
-
-    // 过滤出需要刷新的 feed
-    // 如果 forceRefresh 为 true，则忽略时间限制
-    const feedsToRefresh = userWithFeeds.feeds.filter(feed => {
-      if (forceRefresh) return true // 强制刷新时，忽略时间限制
-      if (!feed.lastRefreshedAt) return true
-      return now - new Date(feed.lastRefreshedAt).getTime() >= minRefreshInterval
-    })
 
     console.log(`同步刷新开始: ${feedsToRefresh.length} 个订阅需要刷新${forceRefresh ? ' (强制刷新)' : ''}`)
 
-    // 并行处理所有 feed 的刷新
-    const refreshResults = await Promise.allSettled(
-      feedsToRefresh.map(async (feed) => {
-        try {
-          // 单个订阅源超时设为 8 秒
-          const parsedFeed = await parseRSSWithTimeout(feed.url, 8000)
-          
-          // 准备更新数据，只在信息真正改变时才更新
-          const updateData: any = {
-            lastRefreshedAt: new Date(),
-          }
-          
-          if (parsedFeed.title && parsedFeed.title !== feed.title) {
-            updateData.title = parsedFeed.title
-          }
-          if (parsedFeed.description !== undefined && parsedFeed.description !== feed.description) {
-            updateData.description = parsedFeed.description
-          }
-          if (parsedFeed.link !== undefined && parsedFeed.link !== feed.link) {
-            updateData.link = parsedFeed.link
-          }
-          const newImageUrl = parsedFeed.image?.url
-          if (newImageUrl !== undefined && newImageUrl !== feed.imageUrl) {
-            updateData.imageUrl = newImageUrl
-          }
-
-          // 批量更新 feed 信息（如果有变化）
-          const feedUpdatePromise = Object.keys(updateData).length > 1
-            ? prisma.feed.update({
-                where: { id: feed.id },
-                data: updateData,
-              })
-            : Promise.resolve(feed)
-
-          // 处理文章
-          let newArticlesCount = 0
-          if (parsedFeed.items && parsedFeed.items.length > 0) {
-            // 先查询已存在的文章 guid，减少重复插入
-            const existingGuids = await prisma.article.findMany({
-              where: { feedId: feed.id },
-              select: { guid: true },
-            })
-            const existingGuidSet = new Set(existingGuids.map(a => a.guid))
-
-            // 过滤出新文章
-            const newArticles = parsedFeed.items
-              .slice(0, 20)
-              .map((item: any) => {
-                const guid = item.guid || item.link || `${feed.id}-${item.pubDate || Date.now()}`
-                return {
-                  feedId: feed.id,
-                  title: item.title || "无标题",
-                  link: item.link || "",
-                  content: item.content,
-                  contentSnippet: item.contentSnippet,
-                  pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
-                  author: item.creator || item.author,
-                  guid,
-                }
-              })
-              .filter((article: any) => !existingGuidSet.has(article.guid))
-
-            // 只在有新文章时插入
-            if (newArticles.length > 0) {
-              await prisma.article.createMany({
-                data: newArticles,
-                skipDuplicates: true,
-              })
-              newArticlesCount = newArticles.length
-            }
-          }
-
-          // 执行 feed 更新
-          await feedUpdatePromise
-
-          return { success: true, feedId: feed.id, newArticlesCount }
-        } catch (error) {
-          console.error(`刷新订阅 ${feed.title} 失败:`, error)
-          throw error
-        }
-      })
-    )
+    // 使用优化的刷新服务刷新所有 Feed
+    const refreshResults = await refreshFeeds(feedsToRefresh, { forceRefresh })
 
     // 统计结果
-    const successCount = refreshResults.filter(r => r.status === 'fulfilled').length
-    const failedCount = refreshResults.filter(r => r.status === 'rejected').length
+    const successCount = refreshResults.filter(r => r.success).length
+    const failedCount = refreshResults.filter(r => !r.success).length
     
     // 统计新增文章总数
-    let totalNewArticlesCount = 0
-    refreshResults.forEach(result => {
-      if (result.status === 'fulfilled' && result.value.newArticlesCount) {
-        totalNewArticlesCount += result.value.newArticlesCount
-      }
-    })
+    const totalNewArticlesCount = refreshResults.reduce(
+      (sum, r) => sum + r.newArticlesCount,
+      0
+    )
 
     const totalTime = Date.now() - startTime
 
@@ -188,13 +93,15 @@ export async function POST(req: Request) {
       newArticlesCount: totalNewArticlesCount,
       failedCount,
       totalTime,
+      results: refreshResults, // 返回详细结果
     })
   } catch (error) {
     console.error("刷新失败:", error)
     const totalTime = Date.now() - startTime
     return NextResponse.json({ 
       error: "刷新失败",
-      totalTime 
+      totalTime,
+      message: error instanceof Error ? error.message : String(error)
     }, { status: 500 })
   }
 }
