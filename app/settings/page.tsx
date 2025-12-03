@@ -45,6 +45,7 @@ export default function SettingsPage() {
   const [microsoftTranslateRegion, setMicrosoftTranslateRegion] = useState("global")
   const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
+  const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -81,6 +82,7 @@ export default function SettingsPage() {
         setMicrosoftTranslateRegion(data.microsoftTranslateRegion || "global")
         setMarkReadOnScroll(data.markReadOnScroll ?? false)
         setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
+        setHideImagesAndVideos(data.hideImagesAndVideos ?? false)
       }
     } catch (error) {
       console.error("加载设置失败:", error)
@@ -107,7 +109,8 @@ export default function SettingsPage() {
           microsoftTranslateApiKey,
           microsoftTranslateRegion,
           markReadOnScroll, 
-          autoRefreshOnLoad 
+          autoRefreshOnLoad,
+          hideImagesAndVideos
         }),
       })
 
@@ -250,6 +253,13 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">首次进入页面时自动刷新订阅内容</p>
                 </div>
                 <Switch checked={autoRefreshOnLoad} onChange={setAutoRefreshOnLoad} disabled={saving} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white">隐藏图片和视频</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">勾选后文章中的图片和视频将被折叠隐藏，点击可展开查看</p>
+                </div>
+                <Switch checked={hideImagesAndVideos} onChange={setHideImagesAndVideos} disabled={saving} />
               </div>
             </div>
           </div>

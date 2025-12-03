@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck } from "lucide-react"
+import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
@@ -30,8 +30,29 @@ interface ArticleDrawerProps {
 export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawerProps) {
   const [isReadLater, setIsReadLater] = useState(false)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
+  const [expandedMedia, setExpandedMedia] = useState<Set<string>>(new Set())
   const articleContentRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, removeToast } = useToast()
+
+  // 加载用户设置
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch("/api/user/settings")
+        if (res.ok) {
+          const data = await res.json()
+          setHideImagesAndVideos(data.hideImagesAndVideos ?? false)
+        }
+      } catch (error) {
+        console.error("加载设置失败:", error)
+      }
+    }
+    if (isOpen) {
+      loadSettings()
+      setExpandedMedia(new Set()) // 重置展开状态
+    }
+  }, [isOpen])
 
   // 初始化稍后读状态
   useEffect(() => {
@@ -73,15 +94,198 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     setPreviewImage(null)
   }, [])
 
-  // 为文章内容中的图片添加点击事件（使用事件委托）
+  // 处理媒体元素展开/折叠
+  const toggleMediaExpansion = useCallback((mediaId: string) => {
+    setExpandedMedia((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(mediaId)) {
+        newSet.delete(mediaId)
+      } else {
+        newSet.add(mediaId)
+      }
+      return newSet
+    })
+  }, [])
+
+  // 处理图片和视频的隐藏/显示
   useEffect(() => {
     if (!articleContentRef.current || !isOpen) return
 
     const contentDiv = articleContentRef.current
 
-    // 使用事件委托，监听整个容器的点击事件
+    const processMediaElements = () => {
+      // 处理图片
+      const images = contentDiv.querySelectorAll('img')
+      images.forEach((img, index) => {
+        const mediaId = `img-${index}`
+        const isExpanded = expandedMedia.has(mediaId)
+        
+        // 检查是否已经有包装器
+        let wrapper = img.parentElement
+        if (!wrapper || !wrapper.classList.contains('media-wrapper')) {
+          // 创建包装器
+          wrapper = document.createElement('div')
+          wrapper.className = 'media-wrapper relative'
+          img.parentNode?.insertBefore(wrapper, img)
+          wrapper.appendChild(img)
+        }
+
+        if (hideImagesAndVideos && !isExpanded) {
+          // 隐藏图片
+          img.style.display = 'none'
+          wrapper.style.display = 'block'
+          
+          // 检查是否已经有展开按钮
+          let toggleBtn = wrapper.querySelector('.media-toggle-btn') as HTMLElement
+          if (!toggleBtn) {
+            toggleBtn = document.createElement('button')
+            toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
+            toggleBtn.innerHTML = `
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <span>点击展开图片</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            `
+            toggleBtn.onclick = (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleMediaExpansion(mediaId)
+            }
+            wrapper.appendChild(toggleBtn)
+          }
+        } else {
+          // 显示图片
+          img.style.display = ''
+          
+          // 移除展开按钮
+          const toggleBtn = wrapper.querySelector('.media-toggle-btn')
+          if (toggleBtn) {
+            toggleBtn.remove()
+          }
+          
+          // 如果展开，添加折叠按钮
+          if (isExpanded) {
+            let collapseBtn = wrapper.querySelector('.media-collapse-btn') as HTMLElement
+            if (!collapseBtn) {
+              collapseBtn = document.createElement('button')
+              collapseBtn.className = 'media-collapse-btn w-full py-2 px-4 mt-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-xs text-gray-600 dark:text-gray-400'
+              collapseBtn.innerHTML = `
+                <span>点击折叠图片</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                </svg>
+              `
+              collapseBtn.onclick = (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleMediaExpansion(mediaId)
+              }
+              wrapper.appendChild(collapseBtn)
+            }
+          } else {
+            const collapseBtn = wrapper.querySelector('.media-collapse-btn')
+            if (collapseBtn) {
+              collapseBtn.remove()
+            }
+          }
+        }
+      })
+
+      // 处理视频
+      const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
+      videos.forEach((videoElement, index) => {
+        const video = videoElement as HTMLElement
+        const mediaId = `video-${index}`
+        const isExpanded = expandedMedia.has(mediaId)
+        
+        // 检查是否已经有包装器
+        let wrapper = video.parentElement
+        if (!wrapper || !wrapper.classList.contains('media-wrapper')) {
+          wrapper = document.createElement('div')
+          wrapper.className = 'media-wrapper relative'
+          video.parentNode?.insertBefore(wrapper, video)
+          wrapper.appendChild(video)
+        }
+
+        if (hideImagesAndVideos && !isExpanded) {
+          // 隐藏视频
+          video.style.display = 'none'
+          wrapper.style.display = 'block'
+          
+          // 检查是否已经有展开按钮
+          let toggleBtn = wrapper.querySelector('.media-toggle-btn') as HTMLElement
+          if (!toggleBtn) {
+            toggleBtn = document.createElement('button')
+            toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
+            toggleBtn.innerHTML = `
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+              </svg>
+              <span>点击展开视频</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            `
+            toggleBtn.onclick = (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleMediaExpansion(mediaId)
+            }
+            wrapper.appendChild(toggleBtn)
+          }
+        } else {
+          // 显示视频
+          video.style.display = ''
+          
+          // 移除展开按钮
+          const toggleBtn = wrapper.querySelector('.media-toggle-btn')
+          if (toggleBtn) {
+            toggleBtn.remove()
+          }
+          
+          // 如果展开，添加折叠按钮
+          if (isExpanded) {
+            let collapseBtn = wrapper.querySelector('.media-collapse-btn') as HTMLElement
+            if (!collapseBtn) {
+              collapseBtn = document.createElement('button')
+              collapseBtn.className = 'media-collapse-btn w-full py-2 px-4 mt-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-xs text-gray-600 dark:text-gray-400'
+              collapseBtn.innerHTML = `
+                <span>点击折叠视频</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                </svg>
+              `
+              collapseBtn.onclick = (e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                toggleMediaExpansion(mediaId)
+              }
+              wrapper.appendChild(collapseBtn)
+            }
+          } else {
+            const collapseBtn = wrapper.querySelector('.media-collapse-btn')
+            if (collapseBtn) {
+              collapseBtn.remove()
+            }
+          }
+        }
+      })
+    }
+
+    // 初始处理
+    processMediaElements()
+
+    // 使用事件委托，监听整个容器的点击事件（用于图片预览）
     const handleContainerClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
+      // 如果点击的是展开/折叠按钮，不处理
+      if (target.closest('.media-toggle-btn') || target.closest('.media-collapse-btn')) {
+        return
+      }
+      
       // 检查点击的是图片，或者是链接内的图片
       const img = target.tagName === 'IMG' ? target as HTMLImageElement : target.closest('img')
       
@@ -107,9 +311,10 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     // 监听容器点击事件
     contentDiv.addEventListener('click', handleContainerClick, true)
 
-    // 使用 MutationObserver 监听 DOM 变化，为新添加的图片设置样式
+    // 使用 MutationObserver 监听 DOM 变化
     const observer = new MutationObserver(() => {
       updateImageStyles()
+      processMediaElements()
     })
 
     observer.observe(contentDiv, {
@@ -121,7 +326,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       contentDiv.removeEventListener('click', handleContainerClick, true)
       observer.disconnect()
     }
-  }, [article?.id, article?.content, handleImageClick, isOpen])
+  }, [article?.id, article?.content, handleImageClick, isOpen, hideImagesAndVideos, expandedMedia, toggleMediaExpansion])
 
   // 按ESC键关闭图片预览
   useEffect(() => {

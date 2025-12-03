@@ -24,6 +24,7 @@ export async function GET() {
         microsoftTranslateRegion: true,
         markReadOnScroll: true,
         autoRefreshOnLoad: true,
+        hideImagesAndVideos: true,
       },
     })
 
@@ -41,6 +42,7 @@ export async function GET() {
       microsoftTranslateRegion: user.microsoftTranslateRegion || "global",
       markReadOnScroll: user.markReadOnScroll ?? false,
       autoRefreshOnLoad: user.autoRefreshOnLoad ?? true,
+      hideImagesAndVideos: user.hideImagesAndVideos ?? false,
     })
   } catch (error) {
     console.error("获取用户设置失败:", error)
@@ -66,7 +68,8 @@ export async function PUT(request: Request) {
       microsoftTranslateApiKey,
       microsoftTranslateRegion,
       markReadOnScroll, 
-      autoRefreshOnLoad 
+      autoRefreshOnLoad,
+      hideImagesAndVideos
     } = await request.json()
 
     if (!targetLanguage) {
@@ -78,6 +81,7 @@ export async function PUT(request: Request) {
       targetLanguage,
       markReadOnScroll,
       autoRefreshOnLoad,
+      hideImagesAndVideos,
     }
 
     // 如果提供了翻译服务配置，则更新
@@ -113,6 +117,7 @@ export async function PUT(request: Request) {
         microsoftTranslateRegion: true,
         markReadOnScroll: true,
         autoRefreshOnLoad: true,
+        hideImagesAndVideos: true,
       },
     })
 
@@ -126,6 +131,7 @@ export async function PUT(request: Request) {
       microsoftTranslateRegion: user.microsoftTranslateRegion || "global",
       markReadOnScroll: user.markReadOnScroll,
       autoRefreshOnLoad: user.autoRefreshOnLoad,
+      hideImagesAndVideos: user.hideImagesAndVideos,
     })
   } catch (error) {
     console.error("更新用户设置失败:", error)
