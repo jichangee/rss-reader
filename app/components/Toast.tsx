@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { CheckCircle2, XCircle, Info, AlertCircle, X } from "lucide-react"
 
 export type ToastType = "success" | "error" | "info" | "warning"
@@ -18,12 +18,20 @@ interface ToastProps {
 }
 
 function ToastItem({ toast, onClose }: ToastProps) {
+  const isMountedRef = useRef(true)
+
   useEffect(() => {
+    isMountedRef.current = true
     const timer = setTimeout(() => {
-      onClose(toast.id)
+      if (isMountedRef.current) {
+        onClose(toast.id)
+      }
     }, toast.duration || 3000)
 
-    return () => clearTimeout(timer)
+    return () => {
+      isMountedRef.current = false
+      clearTimeout(timer)
+    }
   }, [toast.id, toast.duration, onClose])
 
   const icons = {
@@ -43,6 +51,11 @@ function ToastItem({ toast, onClose }: ToastProps) {
   const Icon = icons[toast.type]
   const colorClass = colors[toast.type]
 
+  const handleClose = () => {
+    isMountedRef.current = false
+    onClose(toast.id)
+  }
+
   return (
     <div
       className={`flex items-start gap-3 rounded-lg border p-4 shadow-lg transition-all duration-300 ${colorClass}`}
@@ -54,7 +67,7 @@ function ToastItem({ toast, onClose }: ToastProps) {
       <Icon className="h-5 w-5 flex-shrink-0 mt-0.5" />
       <p className="flex-1 text-sm font-medium">{toast.message}</p>
       <button
-        onClick={() => onClose(toast.id)}
+        onClick={handleClose}
         className="flex-shrink-0 rounded p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
         aria-label="关闭提示"
       >
