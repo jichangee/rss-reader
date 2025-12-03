@@ -47,9 +47,10 @@ export function useMediaProcessor({
       const shouldBeShown = !shouldHide && wasHiddenByUs
 
       if (shouldHide) {
+        // 立即设置隐藏属性，防止闪现
         if (shouldBeHidden) {
-          img.style.display = 'none'
           img.dataset.hiddenByUs = 'true'
+          img.style.display = 'none'
           if (wrapper) {
             wrapper.style.display = 'block'
           }
@@ -78,8 +79,8 @@ export function useMediaProcessor({
         }
       } else {
         if (shouldBeShown) {
-          img.style.display = ''
           delete img.dataset.hiddenByUs
+          img.style.display = ''
           if (wrapper) {
             wrapper.style.display = ''
           }
@@ -145,9 +146,10 @@ export function useMediaProcessor({
       const shouldBeShown = !shouldHide && wasHiddenByUs
 
       if (shouldHide) {
+        // 立即设置隐藏属性，防止闪现
         if (shouldBeHidden) {
-          video.style.display = 'none'
           video.dataset.hiddenByUs = 'true'
+          video.style.display = 'none'
           if (wrapper) {
             wrapper.style.display = 'block'
           }
@@ -176,8 +178,8 @@ export function useMediaProcessor({
         }
       } else {
         if (shouldBeShown) {
-          video.style.display = ''
           delete video.dataset.hiddenByUs
+          video.style.display = ''
           if (wrapper) {
             wrapper.style.display = ''
           }
@@ -243,9 +245,8 @@ export function useMediaProcessor({
       }
     }
 
-    const timeoutId = setTimeout(() => {
-      updateImageStyles()
-    }, 300)
+    // 立即执行一次，不延迟，防止图片闪现
+    updateImageStyles()
 
     const cleanupFunctions: Array<() => void> = []
     
@@ -256,7 +257,7 @@ export function useMediaProcessor({
       }
       updateTimer = setTimeout(() => {
         updateImageStyles()
-      }, 100)
+      }, 50) // 减少延迟时间
     }
     
     articleContentRefs.current.forEach((contentDiv) => {
@@ -267,13 +268,35 @@ export function useMediaProcessor({
         contentDiv.removeEventListener('click', handleContainerClick, true)
       })
       
-      const observer = new MutationObserver(() => {
-        debouncedUpdateImageStyles()
+      const observer = new MutationObserver((mutations) => {
+        // 检查是否有新的图片或视频添加
+        const hasNewMedia = mutations.some(mutation => {
+          return Array.from(mutation.addedNodes).some(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const element = node as HTMLElement
+              return element.tagName === 'IMG' || 
+                     element.tagName === 'VIDEO' || 
+                     element.tagName === 'IFRAME' ||
+                     element.querySelector('img, video, iframe') !== null
+            }
+            return false
+          })
+        })
+        
+        if (hasNewMedia) {
+          // 有新媒体元素时立即处理，不延迟
+          updateImageStyles()
+        } else {
+          // 其他变化使用防抖
+          debouncedUpdateImageStyles()
+        }
       })
       
       observer.observe(contentDiv, {
         childList: true,
         subtree: true,
+        attributes: true,
+        attributeFilter: ['data-hidden-by-us', 'style']
       })
       
       cleanupFunctions.push(() => {
@@ -288,7 +311,6 @@ export function useMediaProcessor({
     })
 
     return () => {
-      clearTimeout(timeoutId)
       cleanupFunctions.forEach(cleanup => cleanup())
     }
   }, [articles, processMediaElements, onImageClick])

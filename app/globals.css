@@ -358,3 +358,15 @@ input[type="range"]::-moz-range-thumb:hover {
   background-color: transparent;
   padding: 0;
 }
+
+/* 隐藏媒体元素的样式 - 防止闪现 */
+.telegram-article-content img[data-hidden-by-us="true"],
+.telegram-article-content video[data-hidden-by-us="true"],
+.telegram-article-content iframe[data-hidden-by-us="true"] {
+  display: none !important;
+}
+
+/* 媒体包装器样式 */
+.media-wrapper {
+  position: relative;
+}

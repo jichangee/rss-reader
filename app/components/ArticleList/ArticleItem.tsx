@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { Bookmark, BookmarkCheck, User, Calendar } from "lucide-react"
@@ -16,6 +17,108 @@ export default function ArticleItem({
   onToggleMediaExpansion,
   contentRef,
 }: ArticleItemProps) {
+  const contentElementRef = useRef<HTMLDivElement | null>(null)
+  
+  // 立即处理媒体元素的函数
+  const processMediaImmediately = (contentDiv: HTMLDivElement) => {
+    if (!contentDiv || !article.content) return
+    
+    const articleExpanded = expandedMedia || new Set<string>()
+    
+    // 处理图片
+    const images = contentDiv.querySelectorAll('img')
+    images.forEach((img, index) => {
+      const mediaId = `img-${index}`
+      const isExpanded = articleExpanded.has(mediaId)
+      const shouldHide = hideImagesAndVideos && !isExpanded
+      
+      if (shouldHide && !img.dataset.hiddenByUs) {
+        img.dataset.hiddenByUs = 'true'
+        img.style.display = 'none'
+      }
+    })
+    
+    // 处理视频
+    const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
+    videos.forEach((video, index) => {
+      const mediaId = `video-${index}`
+      const isExpanded = articleExpanded.has(mediaId)
+      const shouldHide = hideImagesAndVideos && !isExpanded
+      
+      if (shouldHide && !(video as HTMLElement).dataset.hiddenByUs) {
+        (video as HTMLElement).dataset.hiddenByUs = 'true'
+        ;(video as HTMLElement).style.display = 'none'
+      }
+    })
+  }
+  
+  // 合并 refs，并在设置时立即处理图片
+  const setContentRef = (el: HTMLDivElement | null) => {
+    contentElementRef.current = el
+    contentRef(el)
+    
+    // 当 ref 被设置时，立即处理图片（防止闪现）
+    if (el) {
+      // 使用 requestAnimationFrame 确保 DOM 已经渲染
+      requestAnimationFrame(() => {
+        processMediaImmediately(el)
+      })
+    }
+  }
+  
+  // 在内容或设置变化时处理图片
+  useEffect(() => {
+    const contentDiv = contentElementRef.current
+    if (!contentDiv || !article.content) return
+    
+    const articleExpanded = expandedMedia || new Set<string>()
+    
+    // 处理所有图片和视频
+    const processMedia = () => {
+      // 处理图片
+      const images = contentDiv.querySelectorAll('img')
+      images.forEach((img, index) => {
+        const mediaId = `img-${index}`
+        const isExpanded = articleExpanded.has(mediaId)
+        const shouldHide = hideImagesAndVideos && !isExpanded
+        
+        if (shouldHide && !img.dataset.hiddenByUs) {
+          img.dataset.hiddenByUs = 'true'
+          img.style.display = 'none'
+        }
+      })
+      
+      // 处理视频
+      const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
+      videos.forEach((video, index) => {
+        const mediaId = `video-${index}`
+        const isExpanded = articleExpanded.has(mediaId)
+        const shouldHide = hideImagesAndVideos && !isExpanded
+        
+        if (shouldHide && !(video as HTMLElement).dataset.hiddenByUs) {
+          (video as HTMLElement).dataset.hiddenByUs = 'true'
+          ;(video as HTMLElement).style.display = 'none'
+        }
+      })
+    }
+    
+    // 立即执行一次
+    processMedia()
+    
+    // 使用 MutationObserver 监听新添加的图片
+    const observer = new MutationObserver(() => {
+      processMedia()
+    })
+    
+    observer.observe(contentDiv, {
+      childList: true,
+      subtree: true,
+    })
+    
+    return () => {
+      observer.disconnect()
+    }
+  }, [article.content, hideImagesAndVideos, expandedMedia])
   const handleTitleClick = () => {
     if (article.readBy.length === 0) {
       onMarkAsRead(article.id)
@@ -72,7 +175,7 @@ export default function ArticleItem({
       {/* 文章完整内容 */}
       {article.content && (
         <div 
-          ref={contentRef}
+          ref={setContentRef}
           className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
           dangerouslySetInnerHTML={{ __html: article.content }}
         />
