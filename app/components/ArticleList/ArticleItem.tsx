@@ -47,17 +47,50 @@ export default function ArticleItem({
     // 处理视频
     const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
     videos.forEach((video, index) => {
+      const videoEl = video as HTMLElement
       const shouldHide = hideImagesAndVideos && !articleExpanded
       
       if (shouldHide) {
-        if (!(video as HTMLElement).dataset.hiddenByUs) {
-          (video as HTMLElement).dataset.hiddenByUs = 'true'
-          ;(video as HTMLElement).style.display = 'none'
+        if (!videoEl.dataset.hiddenByUs) {
+          videoEl.dataset.hiddenByUs = 'true'
+          videoEl.style.display = 'none'
+          
+          // 对于 video 元素，暂停播放并移除 src 以避免创建 WebMediaPlayer
+          if (video.tagName === 'VIDEO') {
+            const videoElement = video as HTMLVideoElement
+            if (videoElement.src && !videoEl.dataset.originalSrc) {
+              videoEl.dataset.originalSrc = videoElement.src
+            }
+            videoElement.pause()
+            videoElement.src = ''
+            videoElement.srcObject = null
+          }
+          // 对于 iframe 元素，移除 src 以避免创建 WebMediaPlayer
+          else if (video.tagName === 'IFRAME') {
+            const iframeElement = video as HTMLIFrameElement
+            if (iframeElement.src && !videoEl.dataset.originalSrc) {
+              videoEl.dataset.originalSrc = iframeElement.src
+            }
+            iframeElement.src = ''
+          }
         }
       } else {
-        if ((video as HTMLElement).dataset.hiddenByUs === 'true') {
-          delete (video as HTMLElement).dataset.hiddenByUs
-          ;(video as HTMLElement).style.display = ''
+        if (videoEl.dataset.hiddenByUs === 'true') {
+          delete videoEl.dataset.hiddenByUs
+          videoEl.style.display = ''
+          
+          // 恢复视频的 src 属性
+          if (video.tagName === 'VIDEO' && videoEl.dataset.originalSrc) {
+            const videoElement = video as HTMLVideoElement
+            videoElement.src = videoEl.dataset.originalSrc
+            delete videoEl.dataset.originalSrc
+          }
+          // 恢复 iframe 的 src 属性
+          else if (video.tagName === 'IFRAME' && videoEl.dataset.originalSrc) {
+            const iframeElement = video as HTMLIFrameElement
+            iframeElement.src = videoEl.dataset.originalSrc
+            delete videoEl.dataset.originalSrc
+          }
         }
       }
     })
@@ -107,17 +140,50 @@ export default function ArticleItem({
       // 处理视频
       const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
       videos.forEach((video, index) => {
+        const videoEl = video as HTMLElement
         const shouldHide = hideImagesAndVideos && !articleExpanded
         
         if (shouldHide) {
-          if (!(video as HTMLElement).dataset.hiddenByUs) {
-            (video as HTMLElement).dataset.hiddenByUs = 'true'
-            ;(video as HTMLElement).style.display = 'none'
+          if (!videoEl.dataset.hiddenByUs) {
+            videoEl.dataset.hiddenByUs = 'true'
+            videoEl.style.display = 'none'
+            
+            // 对于 video 元素，暂停播放并移除 src 以避免创建 WebMediaPlayer
+            if (video.tagName === 'VIDEO') {
+              const videoElement = video as HTMLVideoElement
+              if (videoElement.src && !videoEl.dataset.originalSrc) {
+                videoEl.dataset.originalSrc = videoElement.src
+              }
+              videoElement.pause()
+              videoElement.src = ''
+              videoElement.srcObject = null
+            }
+            // 对于 iframe 元素，移除 src 以避免创建 WebMediaPlayer
+            else if (video.tagName === 'IFRAME') {
+              const iframeElement = video as HTMLIFrameElement
+              if (iframeElement.src && !videoEl.dataset.originalSrc) {
+                videoEl.dataset.originalSrc = iframeElement.src
+              }
+              iframeElement.src = ''
+            }
           }
         } else {
-          if ((video as HTMLElement).dataset.hiddenByUs === 'true') {
-            delete (video as HTMLElement).dataset.hiddenByUs
-            ;(video as HTMLElement).style.display = ''
+          if (videoEl.dataset.hiddenByUs === 'true') {
+            delete videoEl.dataset.hiddenByUs
+            videoEl.style.display = ''
+            
+            // 恢复视频的 src 属性
+            if (video.tagName === 'VIDEO' && videoEl.dataset.originalSrc) {
+              const videoElement = video as HTMLVideoElement
+              videoElement.src = videoEl.dataset.originalSrc
+              delete videoEl.dataset.originalSrc
+            }
+            // 恢复 iframe 的 src 属性
+            else if (video.tagName === 'IFRAME' && videoEl.dataset.originalSrc) {
+              const iframeElement = video as HTMLIFrameElement
+              iframeElement.src = videoEl.dataset.originalSrc
+              delete videoEl.dataset.originalSrc
+            }
           }
         }
       })

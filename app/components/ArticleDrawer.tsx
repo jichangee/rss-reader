@@ -246,6 +246,25 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           video.style.display = 'none'
           wrapper.style.display = 'block'
           
+          // 对于 video 元素，暂停播放并移除 src 以避免创建 WebMediaPlayer
+          if (video.tagName === 'VIDEO') {
+            const videoEl = video as HTMLVideoElement
+            if (videoEl.src && !video.dataset.originalSrc) {
+              video.dataset.originalSrc = videoEl.src
+            }
+            videoEl.pause()
+            videoEl.src = ''
+            videoEl.srcObject = null
+          }
+          // 对于 iframe 元素，移除 src 以避免创建 WebMediaPlayer
+          else if (video.tagName === 'IFRAME') {
+            const iframeEl = video as HTMLIFrameElement
+            if (iframeEl.src && !video.dataset.originalSrc) {
+              video.dataset.originalSrc = iframeEl.src
+            }
+            iframeEl.src = ''
+          }
+          
           // 检查是否已经有展开按钮
           let toggleBtn = wrapper.querySelector('.media-toggle-btn') as HTMLElement
           if (!toggleBtn) {
@@ -272,6 +291,19 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           video.style.display = ''
           if (wrapper) {
             wrapper.style.display = ''
+          }
+          
+          // 恢复视频的 src 属性
+          if (video.tagName === 'VIDEO' && video.dataset.originalSrc) {
+            const videoEl = video as HTMLVideoElement
+            videoEl.src = video.dataset.originalSrc
+            delete video.dataset.originalSrc
+          }
+          // 恢复 iframe 的 src 属性
+          else if (video.tagName === 'IFRAME' && video.dataset.originalSrc) {
+            const iframeEl = video as HTMLIFrameElement
+            iframeEl.src = video.dataset.originalSrc
+            delete video.dataset.originalSrc
           }
           
           // 移除展开按钮
