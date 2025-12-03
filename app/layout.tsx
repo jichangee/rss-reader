@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "RSS 阅读器",
   description: "一个现代化的 RSS 阅读器，支持 Google 账号登录",
+  icons: {
+    icon: [
+      { url: "/logo.jpg", type: "image/jpeg" },
+      { url: "/favicon.ico", type: "image/x-icon" },
+    ],
+    apple: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({

@@ -31,8 +31,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-10 shadow-2xl dark:bg-gray-800">
         <div className="text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-600">
-            <Rss className="h-10 w-10 text-white" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg overflow-hidden">
+            <img src="/logo.jpg" alt="RSS Reader Logo" className="h-full w-full object-cover" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
             RSS 阅读器

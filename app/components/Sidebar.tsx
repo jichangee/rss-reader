@@ -75,8 +75,8 @@ export default function Sidebar({
       <div className="border-b border-gray-200 p-4 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 flex-shrink-0">
-              <Rss className="h-6 w-6 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden flex-shrink-0">
+              <img src="/logo.jpg" alt="RSS Reader Logo" className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="font-semibold text-gray-900 dark:text-white">
