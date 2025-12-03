@@ -35,11 +35,12 @@ export interface ArticleItemProps {
   article: Article
   isReadLater: boolean
   hideImagesAndVideos: boolean
-  expandedMedia: Set<string>
+  expandedMedia: boolean // 改为布尔值，表示该文章的所有媒体是否展开
+  mediaCount: number // 媒体数量
   onToggleReadLater: (articleId: string) => Promise<void>
   onMarkAsRead: (articleId: string) => void
   onImageClick: (src: string) => void
-  onToggleMediaExpansion: (mediaId: string) => void
+  onToggleMediaExpansion: () => void // 不再需要 mediaId 参数
   contentRef: (el: HTMLDivElement | null) => void
 }
 

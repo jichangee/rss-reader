@@ -1,33 +1,50 @@
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
 
 interface UseMediaProcessorProps {
   articles: Array<{ id: string }>
   hideImagesAndVideos: boolean
-  expandedMedia: Map<string, Set<string>>
-  onToggleMediaExpansion: (articleId: string, mediaId: string) => void
+  expandedArticles: Set<string>
+  onToggleMediaExpansion: (articleId: string) => void
   onImageClick: (src: string) => void
 }
 
 export function useMediaProcessor({
   articles,
   hideImagesAndVideos,
-  expandedMedia,
+  expandedArticles,
   onToggleMediaExpansion,
   onImageClick,
 }: UseMediaProcessorProps) {
   const articleContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [articleMediaCounts, setArticleMediaCounts] = useState<Map<string, number>>(new Map())
 
   const processMediaElements = useCallback((contentDiv: HTMLDivElement, articleId: string) => {
     if (!contentDiv || contentDiv.children.length === 0) return
     
-    const articleExpanded = expandedMedia.get(articleId) || new Set<string>()
+    const isArticleExpanded = expandedArticles.has(articleId)
+    
+    // 统计媒体数量
+    const images = contentDiv.querySelectorAll('img')
+    const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
+    const totalMediaCount = images.length + videos.length
+    
+    // 更新媒体数量
+    setArticleMediaCounts((prev) => {
+      const newMap = new Map(prev)
+      if (totalMediaCount > 0) {
+        newMap.set(articleId, totalMediaCount)
+      }
+      return newMap
+    })
+    
+    // 如果只有0或1个媒体，不需要统一按钮，使用原来的逻辑
+    const needsUnifiedButton = totalMediaCount > 1
     
     // 处理图片
-    const images = contentDiv.querySelectorAll('img')
     images.forEach((img, index) => {
       const mediaId = `img-${index}`
-      const isExpanded = articleExpanded.has(mediaId)
-      const shouldHide = hideImagesAndVideos && !isExpanded
+      // 如果 hideImagesAndVideos 为 true，则根据 isArticleExpanded 决定是否隐藏
+      const shouldHide = hideImagesAndVideos && !isArticleExpanded
       
       // 检查是否已经有包装器
       let wrapper = img.parentElement
@@ -56,26 +73,34 @@ export function useMediaProcessor({
           }
         }
         
-        // 检查是否已经有展开按钮
-        let toggleBtn = wrapper?.querySelector('.media-toggle-btn') as HTMLElement
-        if (!toggleBtn) {
-          toggleBtn = document.createElement('button')
-          toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
-          toggleBtn.innerHTML = `
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-            <span>点击展开图片</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          `
-          toggleBtn.onclick = (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onToggleMediaExpansion(articleId, mediaId)
+        // 如果只有1个媒体，显示单个展开按钮；如果多个媒体，不在这里显示（在ArticleItem中显示统一按钮）
+        if (!needsUnifiedButton) {
+          let toggleBtn = wrapper?.querySelector('.media-toggle-btn') as HTMLElement
+          if (!toggleBtn) {
+            toggleBtn = document.createElement('button')
+            toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
+            toggleBtn.innerHTML = `
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <span>点击展开图片</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            `
+            toggleBtn.onclick = (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleMediaExpansion(articleId)
+            }
+            wrapper?.appendChild(toggleBtn)
           }
-          wrapper?.appendChild(toggleBtn)
+        } else {
+          // 多个媒体时，移除单个按钮（统一按钮在ArticleItem中）
+          const toggleBtn = wrapper?.querySelector('.media-toggle-btn')
+          if (toggleBtn) {
+            toggleBtn.remove()
+          }
         }
       } else {
         if (shouldBeShown) {
@@ -92,8 +117,8 @@ export function useMediaProcessor({
           toggleBtn.remove()
         }
         
-        // 如果展开，添加折叠按钮
-        if (isExpanded) {
+        // 如果展开且只有1个媒体，添加折叠按钮
+        if (isArticleExpanded && !needsUnifiedButton) {
           let collapseBtn = wrapper?.querySelector('.media-collapse-btn') as HTMLElement
           if (!collapseBtn) {
             collapseBtn = document.createElement('button')
@@ -107,7 +132,7 @@ export function useMediaProcessor({
             collapseBtn.onclick = (e) => {
               e.preventDefault()
               e.stopPropagation()
-              onToggleMediaExpansion(articleId, mediaId)
+              onToggleMediaExpansion(articleId)
             }
             wrapper?.appendChild(collapseBtn)
           }
@@ -121,12 +146,11 @@ export function useMediaProcessor({
     })
 
     // 处理视频
-    const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
     videos.forEach((videoElement, index) => {
       const video = videoElement as HTMLElement
       const mediaId = `video-${index}`
-      const isExpanded = articleExpanded.has(mediaId)
-      const shouldHide = hideImagesAndVideos && !isExpanded
+      // 如果 hideImagesAndVideos 为 true，则根据 isArticleExpanded 决定是否隐藏
+      const shouldHide = hideImagesAndVideos && !isArticleExpanded
       
       // 检查是否已经有包装器
       let wrapper = video.parentElement
@@ -155,26 +179,34 @@ export function useMediaProcessor({
           }
         }
         
-        // 检查是否已经有展开按钮
-        let toggleBtn = wrapper?.querySelector('.media-toggle-btn') as HTMLElement
-        if (!toggleBtn) {
-          toggleBtn = document.createElement('button')
-          toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
-          toggleBtn.innerHTML = `
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-            </svg>
-            <span>点击展开视频</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          `
-          toggleBtn.onclick = (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            onToggleMediaExpansion(articleId, mediaId)
+        // 如果只有1个媒体，显示单个展开按钮；如果多个媒体，不在这里显示（在ArticleItem中显示统一按钮）
+        if (!needsUnifiedButton) {
+          let toggleBtn = wrapper?.querySelector('.media-toggle-btn') as HTMLElement
+          if (!toggleBtn) {
+            toggleBtn = document.createElement('button')
+            toggleBtn.className = 'media-toggle-btn w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm text-gray-700 dark:text-gray-300'
+            toggleBtn.innerHTML = `
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+              </svg>
+              <span>点击展开视频</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            `
+            toggleBtn.onclick = (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleMediaExpansion(articleId)
+            }
+            wrapper?.appendChild(toggleBtn)
           }
-          wrapper?.appendChild(toggleBtn)
+        } else {
+          // 多个媒体时，移除单个按钮（统一按钮在ArticleItem中）
+          const toggleBtn = wrapper?.querySelector('.media-toggle-btn')
+          if (toggleBtn) {
+            toggleBtn.remove()
+          }
         }
       } else {
         if (shouldBeShown) {
@@ -191,8 +223,8 @@ export function useMediaProcessor({
           toggleBtn.remove()
         }
         
-        // 如果展开，添加折叠按钮
-        if (isExpanded) {
+        // 如果展开且只有1个媒体，添加折叠按钮
+        if (isArticleExpanded && !needsUnifiedButton) {
           let collapseBtn = wrapper?.querySelector('.media-collapse-btn') as HTMLElement
           if (!collapseBtn) {
             collapseBtn = document.createElement('button')
@@ -206,7 +238,7 @@ export function useMediaProcessor({
             collapseBtn.onclick = (e) => {
               e.preventDefault()
               e.stopPropagation()
-              onToggleMediaExpansion(articleId, mediaId)
+              onToggleMediaExpansion(articleId)
             }
             wrapper?.appendChild(collapseBtn)
           }
@@ -218,7 +250,7 @@ export function useMediaProcessor({
         }
       }
     })
-  }, [hideImagesAndVideos, expandedMedia, onToggleMediaExpansion])
+  }, [hideImagesAndVideos, expandedArticles, onToggleMediaExpansion])
 
   useEffect(() => {
     const updateImageStyles = () => {
@@ -315,6 +347,6 @@ export function useMediaProcessor({
     }
   }, [articles, processMediaElements, onImageClick])
 
-  return { articleContentRefs }
+  return { articleContentRefs, articleMediaCounts }
 }
 

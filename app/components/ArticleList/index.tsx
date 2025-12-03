@@ -29,6 +29,9 @@ export default function ArticleList({
   const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
+  // 改为文章级别的展开状态：Set<articleId> 表示哪些文章的所有媒体是展开的
+  const [expandedArticles, setExpandedArticles] = useState<Set<string>>(new Set())
+  // 保留旧的 expandedMedia 用于向后兼容，但现在改为文章级别
   const [expandedMedia, setExpandedMedia] = useState<Map<string, Set<string>>>(new Map())
   const { toasts, success, error, removeToast } = useToast()
 
@@ -59,21 +62,43 @@ export default function ArticleList({
     setReadLaterArticles(readLaterSet)
   }, [articles])
 
-  // 处理媒体元素展开/折叠
-  const toggleMediaExpansion = useCallback((articleId: string, mediaId: string) => {
+  // 处理文章所有媒体元素的统一展开/折叠
+  const toggleArticleMediaExpansion = useCallback((articleId: string) => {
+    setExpandedArticles((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(articleId)) {
+        newSet.delete(articleId)
+      } else {
+        newSet.add(articleId)
+      }
+      return newSet
+    })
+    // 同步更新 expandedMedia 以保持兼容性
     setExpandedMedia((prev) => {
       const newMap = new Map(prev)
       const articleExpanded = newMap.get(articleId) || new Set<string>()
       const newSet = new Set(articleExpanded)
-      if (newSet.has(mediaId)) {
-        newSet.delete(mediaId)
+      const isExpanded = !expandedArticles.has(articleId)
+      
+      // 获取该文章的所有媒体ID（这里需要从DOM中获取，但为了简化，我们使用一个标记）
+      // 实际使用时，useMediaProcessor 会处理具体的媒体元素
+      if (isExpanded) {
+        // 展开：添加所有媒体ID（使用特殊标记 'all' 表示全部）
+        newSet.add('all')
       } else {
-        newSet.add(mediaId)
+        // 折叠：清除所有媒体ID
+        newSet.clear()
       }
       newMap.set(articleId, newSet)
       return newMap
     })
-  }, [])
+  }, [expandedArticles])
+
+  // 保留旧的单个媒体展开/折叠函数以保持兼容性（但现在不再使用）
+  const toggleMediaExpansion = useCallback((articleId: string, mediaId: string) => {
+    // 现在统一使用文章级别的展开/折叠
+    toggleArticleMediaExpansion(articleId)
+  }, [toggleArticleMediaExpansion])
 
   // 处理图片点击放大
   const handleImageClick = useCallback((src: string) => {
@@ -129,11 +154,11 @@ export default function ArticleList({
   }, [onMarkAsRead])
 
   // 使用自定义 hooks
-  const { articleContentRefs } = useMediaProcessor({
+  const { articleContentRefs, articleMediaCounts } = useMediaProcessor({
     articles,
     hideImagesAndVideos,
-    expandedMedia,
-    onToggleMediaExpansion: toggleMediaExpansion,
+    expandedArticles,
+    onToggleMediaExpansion: toggleArticleMediaExpansion,
     onImageClick: handleImageClick,
   })
 
@@ -271,18 +296,20 @@ export default function ArticleList({
         
         <div className="space-y-6">
           {articles.map((article) => {
-            const articleExpandedMedia = expandedMedia.get(article.id) || new Set<string>()
+            const isArticleMediaExpanded = expandedArticles.has(article.id)
+            const mediaCount = articleMediaCounts.get(article.id) || 0
             return (
               <ArticleItem
                 key={article.id}
                 article={article}
                 isReadLater={readLaterArticles.has(article.id)}
                 hideImagesAndVideos={hideImagesAndVideos}
-                expandedMedia={articleExpandedMedia}
+                expandedMedia={isArticleMediaExpanded}
+                mediaCount={mediaCount}
                 onToggleReadLater={handleToggleReadLater}
                 onMarkAsRead={handleTitleClick}
                 onImageClick={handleImageClick}
-                onToggleMediaExpansion={(mediaId) => toggleMediaExpansion(article.id, mediaId)}
+                onToggleMediaExpansion={() => toggleArticleMediaExpansion(article.id)}
                 contentRef={(el) => {
                   if (el) {
                     articleContentRefs.current.set(article.id, el)

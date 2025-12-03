@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bookmark, BookmarkCheck, User, Calendar } from "lucide-react"
+import { Bookmark, BookmarkCheck, User, Calendar, Image, Video, ChevronDown, ChevronUp } from "lucide-react"
 import type { ArticleItemProps } from "./types"
 
 export default function ArticleItem({
@@ -11,6 +11,7 @@ export default function ArticleItem({
   isReadLater,
   hideImagesAndVideos,
   expandedMedia,
+  mediaCount,
   onToggleReadLater,
   onMarkAsRead,
   onImageClick,
@@ -23,31 +24,41 @@ export default function ArticleItem({
   const processMediaImmediately = (contentDiv: HTMLDivElement) => {
     if (!contentDiv || !article.content) return
     
-    const articleExpanded = expandedMedia || new Set<string>()
+    const articleExpanded = expandedMedia
     
     // 处理图片
     const images = contentDiv.querySelectorAll('img')
     images.forEach((img, index) => {
-      const mediaId = `img-${index}`
-      const isExpanded = articleExpanded.has(mediaId)
-      const shouldHide = hideImagesAndVideos && !isExpanded
+      const shouldHide = hideImagesAndVideos && !articleExpanded
       
-      if (shouldHide && !img.dataset.hiddenByUs) {
-        img.dataset.hiddenByUs = 'true'
-        img.style.display = 'none'
+      if (shouldHide) {
+        if (!img.dataset.hiddenByUs) {
+          img.dataset.hiddenByUs = 'true'
+          img.style.display = 'none'
+        }
+      } else {
+        if (img.dataset.hiddenByUs === 'true') {
+          delete img.dataset.hiddenByUs
+          img.style.display = ''
+        }
       }
     })
     
     // 处理视频
     const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
     videos.forEach((video, index) => {
-      const mediaId = `video-${index}`
-      const isExpanded = articleExpanded.has(mediaId)
-      const shouldHide = hideImagesAndVideos && !isExpanded
+      const shouldHide = hideImagesAndVideos && !articleExpanded
       
-      if (shouldHide && !(video as HTMLElement).dataset.hiddenByUs) {
-        (video as HTMLElement).dataset.hiddenByUs = 'true'
-        ;(video as HTMLElement).style.display = 'none'
+      if (shouldHide) {
+        if (!(video as HTMLElement).dataset.hiddenByUs) {
+          (video as HTMLElement).dataset.hiddenByUs = 'true'
+          ;(video as HTMLElement).style.display = 'none'
+        }
+      } else {
+        if ((video as HTMLElement).dataset.hiddenByUs === 'true') {
+          delete (video as HTMLElement).dataset.hiddenByUs
+          ;(video as HTMLElement).style.display = ''
+        }
       }
     })
   }
@@ -71,33 +82,43 @@ export default function ArticleItem({
     const contentDiv = contentElementRef.current
     if (!contentDiv || !article.content) return
     
-    const articleExpanded = expandedMedia || new Set<string>()
+    const articleExpanded = expandedMedia
     
     // 处理所有图片和视频
     const processMedia = () => {
       // 处理图片
       const images = contentDiv.querySelectorAll('img')
       images.forEach((img, index) => {
-        const mediaId = `img-${index}`
-        const isExpanded = articleExpanded.has(mediaId)
-        const shouldHide = hideImagesAndVideos && !isExpanded
+        const shouldHide = hideImagesAndVideos && !articleExpanded
         
-        if (shouldHide && !img.dataset.hiddenByUs) {
-          img.dataset.hiddenByUs = 'true'
-          img.style.display = 'none'
+        if (shouldHide) {
+          if (!img.dataset.hiddenByUs) {
+            img.dataset.hiddenByUs = 'true'
+            img.style.display = 'none'
+          }
+        } else {
+          if (img.dataset.hiddenByUs === 'true') {
+            delete img.dataset.hiddenByUs
+            img.style.display = ''
+          }
         }
       })
       
       // 处理视频
       const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
       videos.forEach((video, index) => {
-        const mediaId = `video-${index}`
-        const isExpanded = articleExpanded.has(mediaId)
-        const shouldHide = hideImagesAndVideos && !isExpanded
+        const shouldHide = hideImagesAndVideos && !articleExpanded
         
-        if (shouldHide && !(video as HTMLElement).dataset.hiddenByUs) {
-          (video as HTMLElement).dataset.hiddenByUs = 'true'
-          ;(video as HTMLElement).style.display = 'none'
+        if (shouldHide) {
+          if (!(video as HTMLElement).dataset.hiddenByUs) {
+            (video as HTMLElement).dataset.hiddenByUs = 'true'
+            ;(video as HTMLElement).style.display = 'none'
+          }
+        } else {
+          if ((video as HTMLElement).dataset.hiddenByUs === 'true') {
+            delete (video as HTMLElement).dataset.hiddenByUs
+            ;(video as HTMLElement).style.display = ''
+          }
         }
       })
     }
@@ -174,11 +195,38 @@ export default function ArticleItem({
 
       {/* 文章完整内容 */}
       {article.content && (
-        <div 
-          ref={setContentRef}
-          className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
-          dangerouslySetInnerHTML={{ __html: article.content }}
-        />
+        <>
+          <div 
+            ref={setContentRef}
+            className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
+            dangerouslySetInnerHTML={{ __html: article.content }}
+          />
+          
+          {/* 统一的媒体展开/折叠按钮（当有多个媒体时） */}
+          {hideImagesAndVideos && mediaCount > 1 && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleMediaExpansion()
+              }}
+              className="w-full py-3 px-4 mb-4 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors flex items-center justify-center space-x-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {expandedMedia ? (
+                <>
+                  <ChevronUp className="w-5 h-5" />
+                  <span>折叠所有图片和视频 ({mediaCount})</span>
+                </>
+              ) : (
+                <>
+                  <Image className="w-5 h-5" />
+                  <span>展开所有图片和视频 ({mediaCount})</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          )}
+        </>
       )}
 
       {/* 底部：元数据和操作按钮 */}
