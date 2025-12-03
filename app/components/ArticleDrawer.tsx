@@ -506,15 +506,17 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
                   <Bookmark className="h-5 w-5" />
                 )}
               </button>
-              <a
-                href={article.link}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => {
+                  if (article?.link) {
+                    window.open(article.link, '_blank', 'noopener,noreferrer')
+                  }
+                }}
                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
                 title="在新标签页中打开"
               >
                 <ExternalLink className="h-5 w-5" />
-              </a>
+              </button>
               <button
                 onClick={onClose}
                 className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300 transition-colors"
