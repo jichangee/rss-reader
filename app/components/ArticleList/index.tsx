@@ -23,8 +23,6 @@ export default function ArticleList({
   markReadOnScroll = false,
   isRefreshing = false,
   onRefresh,
-  newArticlesCount = 0,
-  onRefreshAndReload,
 }: ArticleListProps) {
   const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<string | null>(null)

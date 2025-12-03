@@ -43,7 +43,6 @@ function DashboardContent() {
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
-  const [newArticlesCount, setNewArticlesCount] = useState(0)
   const hasInitialLoadRef = useRef(false)
   const selectedFeedRef = useRef<string | null>(null)
   const unreadOnlyRef = useRef<boolean>(true)
@@ -178,11 +177,6 @@ function DashboardContent() {
                   setArticles(reset ? articlesData.articles : [...articles, ...articlesData.articles])
                   setNextCursor(articlesData.nextCursor)
                   setHasMore(articlesData.hasNextPage)
-                  
-                  // 如果有新文章，显示通知
-                  if (refreshData.newArticlesCount > 0) {
-                    setNewArticlesCount(refreshData.newArticlesCount)
-                  }
                 }
               } else if (refreshRes.status === 429) {
                 // 刷新过于频繁，仍然加载现有数据
@@ -225,14 +219,6 @@ function DashboardContent() {
       })
       
       if (res.ok) {
-        const data = await res.json()
-        
-        // 如果当前页面有文章数据，不显示横幅，新文章会在下次加载时自动包含
-        // 只有在没有文章数据时才显示横幅
-        if (data.newArticlesCount > 0 && !hasExistingArticles) {
-          setNewArticlesCount(data.newArticlesCount)
-        }
-        
         // 更新订阅列表的未读计数
         await loadFeeds()
       }
@@ -379,7 +365,6 @@ function DashboardContent() {
 
   // 刷新并重新加载函数
   const handleRefreshAndReload = async () => {
-    setNewArticlesCount(0)
     setNextCursor(null)
     setHasMore(true)
     await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
@@ -557,9 +542,6 @@ function DashboardContent() {
         if (articles.length > 0) {
           // 重新加载第一页，新文章会自动出现在列表顶部
           await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
-        } else if (data.newArticlesCount > 0) {
-          // 没有文章数据时，显示横幅通知
-          setNewArticlesCount(data.newArticlesCount)
         }
         
         // 更新订阅列表的未读计数
@@ -679,7 +661,6 @@ function DashboardContent() {
             markReadOnScroll={markReadOnScroll}
             isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
             onRefresh={handleManualRefresh}
-            newArticlesCount={newArticlesCount}
             onRefreshAndReload={handleRefreshAndReload}
           />
         </div>
