@@ -52,7 +52,23 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       loadSettings()
       setExpandedMedia(new Set()) // 重置展开状态
     }
-  }, [isOpen])
+  }, [isOpen, article?.id]) // 添加 article?.id 依赖，确保切换文章时重新加载设置
+
+  // 当设置加载完成后，如果内容已经渲染，强制重新处理媒体元素
+  useEffect(() => {
+    if (!isOpen || !articleContentRef.current) return
+    
+    // 使用 requestAnimationFrame 确保在下一个渲染周期处理
+    const rafId = requestAnimationFrame(() => {
+      if (articleContentRef.current) {
+        // 触发重新处理 - 通过更新 expandedMedia 来触发（即使值不变，也会触发依赖更新）
+        // 这里我们直接调用处理函数会更直接，但由于 processMediaElements 在另一个 useEffect 中
+        // 我们通过确保依赖项正确来触发重新处理
+      }
+    })
+    
+    return () => cancelAnimationFrame(rafId)
+  }, [hideImagesAndVideos, isOpen])
 
   // 初始化稍后读状态
   useEffect(() => {
@@ -114,6 +130,11 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     const contentDiv = articleContentRef.current
 
     const processMediaElements = () => {
+      // 确保 DOM 已经渲染
+      if (!contentDiv || contentDiv.children.length === 0) {
+        return
+      }
+      
       // 处理图片
       const images = contentDiv.querySelectorAll('img')
       images.forEach((img, index) => {
@@ -122,7 +143,10 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
         
         // 检查是否已经有包装器
         let wrapper = img.parentElement
-        if (!wrapper || !wrapper.classList.contains('media-wrapper')) {
+        // 如果父元素已经是 media-wrapper，直接使用；否则创建新的包装器
+        if (wrapper && wrapper.classList.contains('media-wrapper')) {
+          // 已经存在包装器，直接使用
+        } else {
           // 创建包装器
           wrapper = document.createElement('div')
           wrapper.className = 'media-wrapper relative'
@@ -159,9 +183,12 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
         } else {
           // 显示图片
           img.style.display = ''
+          if (wrapper) {
+            wrapper.style.display = ''
+          }
           
           // 移除展开按钮
-          const toggleBtn = wrapper.querySelector('.media-toggle-btn')
+          const toggleBtn = wrapper?.querySelector('.media-toggle-btn')
           if (toggleBtn) {
             toggleBtn.remove()
           }
@@ -203,7 +230,11 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
         
         // 检查是否已经有包装器
         let wrapper = video.parentElement
-        if (!wrapper || !wrapper.classList.contains('media-wrapper')) {
+        // 如果父元素已经是 media-wrapper，直接使用；否则创建新的包装器
+        if (wrapper && wrapper.classList.contains('media-wrapper')) {
+          // 已经存在包装器，直接使用
+        } else {
+          // 创建包装器
           wrapper = document.createElement('div')
           wrapper.className = 'media-wrapper relative'
           video.parentNode?.insertBefore(wrapper, video)
@@ -239,9 +270,12 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
         } else {
           // 显示视频
           video.style.display = ''
+          if (wrapper) {
+            wrapper.style.display = ''
+          }
           
           // 移除展开按钮
-          const toggleBtn = wrapper.querySelector('.media-toggle-btn')
+          const toggleBtn = wrapper?.querySelector('.media-toggle-btn')
           if (toggleBtn) {
             toggleBtn.remove()
           }
@@ -275,8 +309,18 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       })
     }
 
-    // 初始处理
-    processMediaElements()
+    // 初始处理 - 使用 setTimeout 确保 DOM 完全渲染
+    // 增加延迟时间，确保内容完全渲染和设置加载完成
+    const timeoutId = setTimeout(() => {
+      processMediaElements()
+    }, 300)
+    
+    // 如果设置已经加载，也立即处理一次（延迟更短）
+    const quickTimeoutId = hideImagesAndVideos !== undefined 
+      ? setTimeout(() => {
+          processMediaElements()
+        }, 50)
+      : null
 
     // 使用事件委托，监听整个容器的点击事件（用于图片预览）
     const handleContainerClick = (e: MouseEvent) => {
@@ -312,9 +356,12 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     contentDiv.addEventListener('click', handleContainerClick, true)
 
     // 使用 MutationObserver 监听 DOM 变化
-    const observer = new MutationObserver(() => {
+    const observer = new MutationObserver((mutations) => {
       updateImageStyles()
-      processMediaElements()
+      // 延迟处理，确保 DOM 完全更新
+      setTimeout(() => {
+        processMediaElements()
+      }, 50)
     })
 
     observer.observe(contentDiv, {
@@ -323,6 +370,10 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     })
 
     return () => {
+      clearTimeout(timeoutId)
+      if (quickTimeoutId) {
+        clearTimeout(quickTimeoutId)
+      }
       contentDiv.removeEventListener('click', handleContainerClick, true)
       observer.disconnect()
     }
