@@ -149,51 +149,59 @@ function DashboardContent() {
             console.error("静默刷新失败:", err)
           })
         } else {
-          // 如果没有文章数据，先调用刷新接口，然后再返回文章数据
-          try {
-            // 先刷新数据
-            const refreshRes = await fetch("/api/feeds/refresh", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                feedIds: feedId ? [feedId] : undefined,
-                forceRefresh: true 
-              }),
-            })
-            
-            if (refreshRes.ok) {
-              const refreshData = await refreshRes.json()
+          // 如果没有文章数据
+          if (silent) {
+            // 静默模式下，不触发刷新，直接设置空数据
+            setArticles(reset ? [] : [...articles])
+            setNextCursor(null)
+            setHasMore(false)
+          } else {
+            // 非静默模式下，先调用刷新接口，然后再返回文章数据
+            try {
+              // 先刷新数据
+              const refreshRes = await fetch("/api/feeds/refresh", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  feedIds: feedId ? [feedId] : undefined,
+                  forceRefresh: true 
+                }),
+              })
               
-              // 刷新完成后，重新加载文章列表
-              const articlesRes = await fetch(`/api/articles?${params.toString()}`)
-              if (articlesRes.ok) {
-                const articlesData = await articlesRes.json()
-                setArticles(reset ? articlesData.articles : [...articles, ...articlesData.articles])
-                setNextCursor(articlesData.nextCursor)
-                setHasMore(articlesData.hasNextPage)
+              if (refreshRes.ok) {
+                const refreshData = await refreshRes.json()
                 
-                // 如果有新文章，显示通知
-                if (refreshData.newArticlesCount > 0) {
-                  setNewArticlesCount(refreshData.newArticlesCount)
+                // 刷新完成后，重新加载文章列表
+                const articlesRes = await fetch(`/api/articles?${params.toString()}`)
+                if (articlesRes.ok) {
+                  const articlesData = await articlesRes.json()
+                  setArticles(reset ? articlesData.articles : [...articles, ...articlesData.articles])
+                  setNextCursor(articlesData.nextCursor)
+                  setHasMore(articlesData.hasNextPage)
+                  
+                  // 如果有新文章，显示通知
+                  if (refreshData.newArticlesCount > 0) {
+                    setNewArticlesCount(refreshData.newArticlesCount)
+                  }
                 }
+              } else if (refreshRes.status === 429) {
+                // 刷新过于频繁，仍然加载现有数据
+                setArticles(reset ? data.articles : [...articles, ...data.articles])
+                setNextCursor(data.nextCursor)
+                setHasMore(data.hasNextPage)
+              } else {
+                // 刷新失败，仍然加载现有数据
+                setArticles(reset ? data.articles : [...articles, ...data.articles])
+                setNextCursor(data.nextCursor)
+                setHasMore(data.hasNextPage)
               }
-            } else if (refreshRes.status === 429) {
-              // 刷新过于频繁，仍然加载现有数据
-              setArticles(reset ? data.articles : [...articles, ...data.articles])
-              setNextCursor(data.nextCursor)
-              setHasMore(data.hasNextPage)
-            } else {
+            } catch (refreshError) {
+              console.error("刷新失败:", refreshError)
               // 刷新失败，仍然加载现有数据
               setArticles(reset ? data.articles : [...articles, ...data.articles])
               setNextCursor(data.nextCursor)
               setHasMore(data.hasNextPage)
             }
-          } catch (refreshError) {
-            console.error("刷新失败:", refreshError)
-            // 刷新失败，仍然加载现有数据
-            setArticles(reset ? data.articles : [...articles, ...data.articles])
-            setNextCursor(data.nextCursor)
-            setHasMore(data.hasNextPage)
           }
         }
       }
@@ -499,12 +507,19 @@ function DashboardContent() {
       // 使用批量标记已读功能
       await handleMarkAsReadBatch(unreadArticleIds)
 
-      // 重置分页状态
-      setNextCursor(null)
-      setHasMore(true)
-
-      // 重新加载第一页文章数据
-      await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
+      // 如果开启了"仅未读"模式，直接更新本地状态，移除已读文章
+      if (unreadOnly) {
+        setArticles((prevArticles) => 
+          prevArticles.filter((a) => !unreadArticleIds.includes(a.id))
+        )
+        setNextCursor(null)
+        setHasMore(false)
+      } else {
+        // 否则重新加载第一页文章数据（静默模式，避免触发刷新）
+        setNextCursor(null)
+        setHasMore(true)
+        await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+      }
       
       // 更新订阅列表的未读计数
       await loadFeeds()
