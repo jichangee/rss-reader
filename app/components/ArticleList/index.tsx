@@ -195,7 +195,7 @@ export default function ArticleList({
           </div>
           
           {newArticlesCount > 0 && (
-            <div className="sticky top-8 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
+            <div className="sticky top-2 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
               <span className="text-indigo-700 dark:text-indigo-300 font-medium">
                 有 {newArticlesCount} 篇新文章
               </span>
@@ -254,7 +254,7 @@ export default function ArticleList({
         </div>
         
         {newArticlesCount > 0 && (
-          <div className="sticky top-8 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
+          <div className="sticky top-2 z-10 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-3 mb-4 flex items-center justify-between">
             <span className="text-indigo-700 dark:text-indigo-300 font-medium">
               有 {newArticlesCount} 篇新文章
             </span>

@@ -146,8 +146,8 @@ function DashboardContent() {
           setNextCursor(data.nextCursor)
           setHasMore(data.hasNextPage)
           
-          // 静默刷新（不阻塞UI）
-          refreshFeedsSilently(feedId).catch(err => {
+          // 静默刷新（不阻塞UI），传入 hasExistingArticles=true 表示当前有文章数据
+          refreshFeedsSilently(feedId, true).catch(err => {
             console.error("静默刷新失败:", err)
           })
         } else {
@@ -207,7 +207,7 @@ function DashboardContent() {
   }
 
   // 静默刷新订阅源（不阻塞UI，不显示加载状态）
-  const refreshFeedsSilently = async (feedId?: string) => {
+  const refreshFeedsSilently = async (feedId?: string, hasExistingArticles = false) => {
     try {
       const res = await fetch("/api/feeds/refresh", {
         method: "POST",
@@ -221,11 +221,14 @@ function DashboardContent() {
       if (res.ok) {
         const data = await res.json()
         
-        // 如果有新文章，显示通知并更新订阅列表
-        if (data.newArticlesCount > 0) {
+        // 如果当前页面有文章数据，不显示横幅，新文章会在下次加载时自动包含
+        // 只有在没有文章数据时才显示横幅
+        if (data.newArticlesCount > 0 && !hasExistingArticles) {
           setNewArticlesCount(data.newArticlesCount)
-          await loadFeeds()
         }
+        
+        // 更新订阅列表的未读计数
+        await loadFeeds()
       }
       // 429 或其他错误静默处理，不打扰用户
     } catch (error) {
@@ -536,14 +539,18 @@ function DashboardContent() {
       if (res.ok) {
         const data = await res.json()
         
-        // 如果有新文章
-        if (data.newArticlesCount > 0) {
-          // 显示通知
+        // 如果当前页面有文章数据，直接重新加载第一页，新文章会自动包含在列表中
+        // 只有在没有文章数据时才显示横幅
+        if (articles.length > 0) {
+          // 重新加载第一页，新文章会自动出现在列表顶部
+          await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
+        } else if (data.newArticlesCount > 0) {
+          // 没有文章数据时，显示横幅通知
           setNewArticlesCount(data.newArticlesCount)
-          
-          // 更新订阅列表的未读计数
-          await loadFeeds()
         }
+        
+        // 更新订阅列表的未读计数
+        await loadFeeds()
       }
     } catch (error) {
       console.error("手动刷新失败:", error)
