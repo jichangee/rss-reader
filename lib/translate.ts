@@ -4,7 +4,6 @@
  */
 
 import { translate } from '@vitalets/google-translate-api'
-
 export type TranslationProvider = "google" | "niutrans" | "microsoft"
 
 export interface TranslationConfig {
