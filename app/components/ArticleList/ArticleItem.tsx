@@ -26,6 +26,32 @@ export default function ArticleItem({
     setFeedIconError(false)
   }, [article.id])
   
+  // 清理和修复图片 URL
+  const cleanImageUrl = (url: string): string => {
+    if (!url) return url
+    
+    // 移除各种引号字符（包括中文引号、英文引号等）
+    let cleaned = url
+      .replace(/["""""'']/g, '') // 移除各种引号
+      .replace(/^\s+|\s+$/g, '') // 移除首尾空格
+      .trim()
+    
+    // 修复 https:/ 或 http:/ 为 https:// 或 http://
+    cleaned = cleaned.replace(/^(https?):\/(?!\/)/, '$1://')
+    
+    // 如果 URL 不完整（缺少协议），尝试修复
+    if (cleaned.startsWith('//')) {
+      cleaned = 'https:' + cleaned
+    } else if (cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+      // 相对路径，保持原样（浏览器会自动处理）
+    } else if (!cleaned.match(/^https?:\/\//) && cleaned.includes('://')) {
+      // 如果包含 :// 但没有协议，可能是格式错误
+      cleaned = cleaned.replace(/^([^:]+):\/\//, 'https://')
+    }
+    
+    return cleaned
+  }
+  
   // 立即处理媒体元素的函数
   const processMediaImmediately = (contentDiv: HTMLDivElement) => {
     if (!contentDiv || !article.content) return
@@ -35,6 +61,14 @@ export default function ArticleItem({
     // 处理图片
     const images = contentDiv.querySelectorAll('img')
     images.forEach((img, index) => {
+      // 清理和修复图片 URL
+      if (img.src) {
+        const cleanedUrl = cleanImageUrl(img.src)
+        if (cleanedUrl !== img.src) {
+          img.src = cleanedUrl
+        }
+      }
+      
       const shouldHide = hideImagesAndVideos && !articleExpanded
       
       if (shouldHide) {
@@ -128,6 +162,14 @@ export default function ArticleItem({
       // 处理图片
       const images = contentDiv.querySelectorAll('img')
       images.forEach((img, index) => {
+        // 清理和修复图片 URL
+        if (img.src) {
+          const cleanedUrl = cleanImageUrl(img.src)
+          if (cleanedUrl !== img.src) {
+            img.src = cleanedUrl
+          }
+        }
+        
         const shouldHide = hideImagesAndVideos && !articleExpanded
         
         if (shouldHide) {
