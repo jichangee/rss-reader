@@ -48,7 +48,7 @@ export function useScrollToRead({
     
     batchSubmitTimer.current = setTimeout(() => {
       submitBatchRead()
-    }, 2000)
+    }, 10 * 1000)
   }, [submitBatchRead])
 
   useEffect(() => {
