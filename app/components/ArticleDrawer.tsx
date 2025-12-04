@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp } from "lucide-react"
+import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, Rss } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
@@ -32,6 +32,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
   const [expandedMedia, setExpandedMedia] = useState<Set<string>>(new Set())
+  const [feedIconError, setFeedIconError] = useState(false)
   const articleContentRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, removeToast } = useToast()
 
@@ -74,6 +75,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   useEffect(() => {
     if (article) {
       setIsReadLater(article.isReadLater || false)
+      setFeedIconError(false) // 重置图标错误状态
     }
   }, [article])
 
@@ -444,12 +446,15 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <div className="flex items-center space-x-3 flex-1 min-w-0">
-              {article.feed.imageUrl && (
+              {article.feed.imageUrl && !feedIconError ? (
                 <img
                   src={article.feed.imageUrl}
                   alt=""
                   className="h-8 w-8 rounded flex-shrink-0"
+                  onError={() => setFeedIconError(true)}
                 />
+              ) : (
+                <Rss className="h-8 w-8 text-gray-400 flex-shrink-0" />
               )}
               <div className="min-w-0">
                 <h3 className="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">

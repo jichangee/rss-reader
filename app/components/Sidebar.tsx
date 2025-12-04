@@ -2,7 +2,7 @@
 
 import { signOut, useSession } from "next-auth/react"
 import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2 } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface SidebarProps {
@@ -34,6 +34,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const [feedIconErrors, setFeedIconErrors] = useState<Record<string, boolean>>({})
 
   // 防止移动端侧边栏打开时背景滚动
   useEffect(() => {
@@ -159,11 +160,12 @@ export default function Sidebar({
                     className="flex flex-1 items-center justify-between px-3 py-2 text-left min-w-0"
                   >
                     <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden pr-12">
-                      {feed.imageUrl ? (
+                      {feed.imageUrl && !feedIconErrors[feed.id] ? (
                         <img
                           src={feed.imageUrl}
                           alt=""
                           className="h-5 w-5 rounded flex-shrink-0"
+                          onError={() => setFeedIconErrors(prev => ({ ...prev, [feed.id]: true }))}
                         />
                       ) : (
                         <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />

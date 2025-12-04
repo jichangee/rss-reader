@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bookmark, BookmarkCheck, User, Calendar, Image, Video, ChevronDown, ChevronUp } from "lucide-react"
+import { Bookmark, BookmarkCheck, User, Calendar, Image, Video, ChevronDown, ChevronUp, Rss, ExternalLink } from "lucide-react"
 import type { ArticleItemProps } from "./types"
 
 export default function ArticleItem({
@@ -19,6 +19,12 @@ export default function ArticleItem({
   contentRef,
 }: ArticleItemProps) {
   const contentElementRef = useRef<HTMLDivElement | null>(null)
+  const [feedIconError, setFeedIconError] = useState(false)
+  
+  // 当 article 改变时重置图标错误状态
+  useEffect(() => {
+    setFeedIconError(false)
+  }, [article.id])
   
   // 立即处理媒体元素的函数
   const processMediaImmediately = (contentDiv: HTMLDivElement) => {
@@ -227,13 +233,16 @@ export default function ArticleItem({
       {/* 顶部：订阅源信息和标签 */}
       <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {article.feed.imageUrl ? (
+          {article.feed.imageUrl && !feedIconError ? (
             <img
               src={article.feed.imageUrl}
               alt=""
               className="h-5 w-5 rounded-full flex-shrink-0"
+              onError={() => setFeedIconError(true)}
             />
-          ) : null}
+          ) : (
+            <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
+          )}
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
             {article.feed.title}
           </span>
@@ -314,21 +323,33 @@ export default function ArticleItem({
           )}
         </div>
         
-        <button
-          onClick={handleReadLaterClick}
-          className={`rounded-lg p-2 transition-colors flex-shrink-0 ${
-            isReadLater
-              ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
-              : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-          }`}
-          title={isReadLater ? "从稍后读移除" : "添加到稍后读"}
-        >
-          {isReadLater ? (
-            <BookmarkCheck className="h-5 w-5" />
-          ) : (
-            <Bookmark className="h-5 w-5" />
-          )}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={article.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-lg p-2 transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            title="打开原文链接"
+          >
+            <ExternalLink className="h-5 w-5" />
+          </a>
+          <button
+            onClick={handleReadLaterClick}
+            className={`rounded-lg p-2 transition-colors ${
+              isReadLater
+                ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            }`}
+            title={isReadLater ? "从稍后读移除" : "添加到稍后读"}
+          >
+            {isReadLater ? (
+              <BookmarkCheck className="h-5 w-5" />
+            ) : (
+              <Bookmark className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
     </article>
   )

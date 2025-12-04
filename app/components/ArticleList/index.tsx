@@ -180,7 +180,8 @@ export default function ArticleList({
     }
   }, [markAsRead, onMarkAsRead])
 
-  if (loading) {
+  // 只有在没有数据时才显示全屏 loading，有数据时保留列表
+  if (loading && articles.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />

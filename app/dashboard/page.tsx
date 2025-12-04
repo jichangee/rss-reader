@@ -126,7 +126,11 @@ function DashboardContent() {
 
   const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false) => {
     try {
-      if (!silent) setLoading(true)
+      // 如果有现有数据，使用静默模式，不清空列表
+      const hasExistingData = articles.length > 0
+      if (!silent && !hasExistingData) {
+        setLoading(true)
+      }
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread) params.append("unreadOnly", "true")
@@ -256,7 +260,9 @@ function DashboardContent() {
 
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
-    loadArticles(feedId || undefined, unreadOnly)
+    // 切换订阅时，如果有现有数据，使用静默模式
+    const hasExistingData = articles.length > 0
+    loadArticles(feedId || undefined, unreadOnly, true, hasExistingData)
 
     // 更新 URL
     if (feedId) {
@@ -472,7 +478,9 @@ function DashboardContent() {
     if (typeof window !== "undefined") {
       localStorage.setItem("unreadOnly", String(newUnreadOnly))
     }
-    loadArticles(selectedFeed || undefined, newUnreadOnly)
+    // 切换"仅未读"时，如果有现有数据，使用静默模式
+    const hasExistingData = articles.length > 0
+    loadArticles(selectedFeed || undefined, newUnreadOnly, true, hasExistingData)
   }
 
   const handleMarkAllAsRead = async () => {
@@ -537,10 +545,12 @@ function DashboardContent() {
       if (res.ok) {
         const data = await res.json()
         
-        // 如果当前页面有文章数据，直接重新加载第一页，新文章会自动包含在列表中
-        // 只有在没有文章数据时才显示横幅
+        // 如果当前页面有文章数据，使用静默模式重新加载，不清空列表
         if (articles.length > 0) {
-          // 重新加载第一页，新文章会自动出现在列表顶部
+          // 重新加载第一页，新文章会自动出现在列表顶部，使用静默模式
+          await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+        } else {
+          // 没有数据时，正常加载
           await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
         }
         
