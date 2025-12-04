@@ -19,12 +19,6 @@ export default function ArticleItem({
   contentRef,
 }: ArticleItemProps) {
   const contentElementRef = useRef<HTMLDivElement | null>(null)
-  const [feedIconError, setFeedIconError] = useState(false)
-  
-  // 当 article 改变时重置图标错误状态
-  useEffect(() => {
-    setFeedIconError(false)
-  }, [article.id])
   
   // 清理和修复图片 URL
   const cleanImageUrl = (url: string): string => {
@@ -275,12 +269,11 @@ export default function ArticleItem({
       {/* 顶部：订阅源信息和标签 */}
       <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {article.feed.imageUrl && !feedIconError ? (
+          {article.feed.imageUrl ? (
             <img
               src={article.feed.imageUrl}
               alt=""
               className="h-5 w-5 rounded-full flex-shrink-0"
-              onError={() => setFeedIconError(true)}
             />
           ) : (
             <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
