@@ -133,11 +133,11 @@ export default function Sidebar({
           >
             <span className="font-medium">全部文章</span>
             <span className="text-xs">
-              {loading ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
+              {(loading && feeds.length === 0) ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
             </span>
           </button>
 
-          {loading ? (
+          {(loading && feeds.length === 0) ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
             </div>
