@@ -6,7 +6,7 @@ import { ToastContainer, useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
 import CleanupMenu from "./CleanupMenu"
-import { useMediaProcessor } from "./hooks/useMediaProcessor"
+import { useMediaProcessor, countMediaFromHtml } from "./hooks/useMediaProcessor"
 import { useScrollToRead } from "./hooks/useScrollToRead"
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll"
 import type { ArticleListProps, Article } from "./types"
@@ -152,7 +152,7 @@ export default function ArticleList({
   }, [onMarkAsRead])
 
   // 使用自定义 hooks
-  const { articleContentRefs, articleMediaCounts } = useMediaProcessor({
+  const { articleContentRefs } = useMediaProcessor({
     articles,
     hideImagesAndVideos,
     expandedArticles,
@@ -264,7 +264,8 @@ export default function ArticleList({
         <div className="space-y-6">
           {articles.map((article) => {
             const isArticleMediaExpanded = expandedArticles.has(article.id)
-            const mediaCount = articleMediaCounts.get(article.id) || 0
+            // 直接从 HTML 内容计算媒体数量，不需要 DOM 查询
+            const mediaCount = countMediaFromHtml(article.content)
             return (
               <ArticleItem
                 key={article.id}
