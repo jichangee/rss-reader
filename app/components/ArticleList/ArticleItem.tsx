@@ -188,8 +188,8 @@ export default function ArticleItem({
             dangerouslySetInnerHTML={{ __html: processedContent }}
           />
           
-          {/* 统一的媒体展开/折叠按钮（当有多个媒体时） */}
-          {hideImagesAndVideos && mediaCount > 1 && (
+          {/* 统一的媒体展开/折叠按钮（当有媒体时） */}
+          {hideImagesAndVideos && mediaCount > 0 && (
             <button
               onClick={(e) => {
                 e.preventDefault()
@@ -201,12 +201,12 @@ export default function ArticleItem({
               {expandedMedia ? (
                 <>
                   <ChevronUp className="w-5 h-5" />
-                  <span>折叠所有图片和视频 ({mediaCount})</span>
+                  <span>{mediaCount > 1 ? `折叠所有图片和视频 (${mediaCount})` : '折叠视频'}</span>
                 </>
               ) : (
                 <>
                   <Image className="w-5 h-5" />
-                  <span>展开所有图片和视频 ({mediaCount})</span>
+                  <span>{mediaCount > 1 ? `展开所有图片和视频 (${mediaCount})` : '展开视频'}</span>
                   <ChevronDown className="w-4 h-4" />
                 </>
               )}
