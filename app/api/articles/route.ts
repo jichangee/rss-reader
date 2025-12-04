@@ -292,6 +292,35 @@ export async function GET(request: Request) {
       }
     }
 
+    // 自动移除已经在返回列表中的稍后读文章状态
+    // 这样稍后读的文章只在第一次刷新时显示在第一个，之后就不会再显示了
+    const articlesToRemoveReadLater = articlesWithReadLater
+      .filter((article) => article.readLaterBy && article.readLaterBy.length > 0)
+      .map((article) => article.id)
+
+    if (articlesToRemoveReadLater.length > 0) {
+      try {
+        // 批量删除稍后读记录
+        await prisma.readLater.deleteMany({
+          where: {
+            userId: user.id,
+            articleId: { in: articlesToRemoveReadLater },
+          },
+        })
+
+        // 更新文章的 isReadLater 标记
+        articlesWithReadLater.forEach((article) => {
+          if (articlesToRemoveReadLater.includes(article.id)) {
+            article.isReadLater = false
+            article.readLaterBy = []
+          }
+        })
+      } catch (error) {
+        console.error("自动移除稍后读状态失败:", error)
+        // 失败时不影响返回结果，继续返回文章列表
+      }
+    }
+
     return NextResponse.json({
       articles: articlesWithReadLater,
       nextCursor,
