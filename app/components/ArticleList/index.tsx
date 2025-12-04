@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Loader2, BookOpen, CheckCheck, RotateCw } from "lucide-react"
 import { ToastContainer, useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
@@ -49,8 +49,17 @@ export default function ArticleList({
     loadSettings()
   }, [])
 
-  // 初始化稍后读状态
+  // 追踪是否已完成首次初始化
+  const isReadLaterInitializedRef = useRef(false)
+
+  // 初始化稍后读状态（只在第一次进入页面时执行）
   useEffect(() => {
+    // 如果已经初始化过，不再从后端数据更新稍后读状态
+    if (isReadLaterInitializedRef.current) {
+      return
+    }
+    
+    // 首次初始化
     const readLaterSet = new Set<string>()
     articles.forEach(article => {
       if (article.isReadLater) {
@@ -58,6 +67,11 @@ export default function ArticleList({
       }
     })
     setReadLaterArticles(readLaterSet)
+    
+    // 标记为已初始化（只有在有文章数据时才标记）
+    if (articles.length > 0) {
+      isReadLaterInitializedRef.current = true
+    }
   }, [articles])
 
   // 处理文章所有媒体元素的统一展开/折叠
