@@ -29,6 +29,8 @@ export interface ArticleListProps {
   onRefresh?: () => void
   newArticlesCount?: number
   onRefreshAndReload?: () => void
+  isReadLaterView?: boolean
+  onReadLaterChange?: (articleId: string, isReadLater: boolean) => void
 }
 
 export interface ArticleItemProps {

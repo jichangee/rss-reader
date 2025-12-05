@@ -16,6 +16,8 @@ function DashboardContent() {
   const [feeds, setFeeds] = useState<any[]>([])
   const [articles, setArticles] = useState<any[]>([])
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
+  const [isReadLaterView, setIsReadLaterView] = useState(false)
+  const [readLaterCount, setReadLaterCount] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showAddFeed, setShowAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
@@ -53,12 +55,17 @@ function DashboardContent() {
     unreadOnlyRef.current = unreadOnly
   }, [selectedFeed, unreadOnly])
 
-  // 从 URL 读取选中的订阅
+  // 从 URL 读取选中的订阅或稍后读视图
   useEffect(() => {
     if (!isInitialized) {
       const feedId = searchParams.get("feed")
-      if (feedId) {
+      const view = searchParams.get("view")
+      if (view === "read-later") {
+        setIsReadLaterView(true)
+        setSelectedFeed(null)
+      } else if (feedId) {
         setSelectedFeed(feedId)
+        setIsReadLaterView(false)
       }
       setIsInitialized(true)
     }
@@ -88,7 +95,11 @@ function DashboardContent() {
 
       const performInitialLoad = async () => {
         // 加载现有数据
-        await loadArticles(selectedFeed || undefined, unreadOnly)
+        if (isReadLaterView) {
+          await loadArticles(undefined, false, true, false, true)
+        } else {
+          await loadArticles(selectedFeed || undefined, unreadOnly)
+        }
         await loadFeeds()
       }
 
@@ -102,7 +113,8 @@ function DashboardContent() {
       const res = await fetch("/api/feeds")
       if (res.ok) {
         const data = await res.json()
-        setFeeds(data)
+        setFeeds(data.feeds || [])
+        setReadLaterCount(data.readLaterCount || 0)
       }
     } catch (error) {
       console.error("加载订阅失败:", error)
@@ -124,7 +136,7 @@ function DashboardContent() {
     }
   }
 
-  const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false) => {
+  const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false, readLaterOnly = false) => {
     try {
       // 如果有现有数据，使用静默模式，不清空列表
       const hasExistingData = articles.length > 0
@@ -133,7 +145,8 @@ function DashboardContent() {
       }
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
-      if (unread) params.append("unreadOnly", "true")
+      if (unread && !readLaterOnly) params.append("unreadOnly", "true")
+      if (readLaterOnly) params.append("readLaterOnly", "true")
       params.append("limit", "10")
 
       const res = await fetch(`/api/articles?${params.toString()}`)
@@ -240,7 +253,11 @@ function DashboardContent() {
       setIsLoadingMore(true)
       const params = new URLSearchParams()
       if (selectedFeed) params.append("feedId", selectedFeed)
-      if (unreadOnly) params.append("unreadOnly", "true")
+      if (isReadLaterView) {
+        params.append("readLaterOnly", "true")
+      } else if (unreadOnly) {
+        params.append("unreadOnly", "true")
+      }
       params.append("limit", "10")
       params.append("cursor", nextCursor)
 
@@ -260,9 +277,10 @@ function DashboardContent() {
 
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
+    setIsReadLaterView(false)
     // 切换订阅时，如果有现有数据，使用静默模式
     const hasExistingData = articles.length > 0
-    loadArticles(feedId || undefined, unreadOnly, true, hasExistingData)
+    loadArticles(feedId || undefined, unreadOnly, true, hasExistingData, false)
 
     // 更新 URL
     if (feedId) {
@@ -270,6 +288,25 @@ function DashboardContent() {
     } else {
       router.push("/dashboard")
     }
+  }
+
+  const handleSelectReadLater = () => {
+    setSelectedFeed(null)
+    setIsReadLaterView(true)
+    // 切换到稍后读视图
+    const hasExistingData = articles.length > 0
+    loadArticles(undefined, false, true, hasExistingData, true)
+    router.push("/dashboard?view=read-later")
+  }
+
+  // 处理稍后读状态变化
+  const handleReadLaterChange = (articleId: string, isReadLater: boolean) => {
+    if (isReadLaterView && !isReadLater) {
+      // 在稍后读视图中移除文章，从列表中删除该文章
+      setArticles(prevArticles => prevArticles.filter(a => a.id !== articleId))
+    }
+    // 更新稍后读计数
+    setReadLaterCount(prev => isReadLater ? prev + 1 : Math.max(0, prev - 1))
   }
 
   const handleAddFeed = async (url: string, enableTranslation: boolean) => {
@@ -637,16 +674,19 @@ function DashboardContent() {
       <Sidebar
         feeds={feeds}
         selectedFeed={selectedFeed}
+        isReadLaterView={isReadLaterView}
+        readLaterCount={readLaterCount}
         onSelectFeed={handleFeedSelect}
+        onSelectReadLater={handleSelectReadLater}
         onAddFeed={() => setShowAddFeed(true)}
         onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
-          unreadOnly={unreadOnly}
+        unreadOnly={unreadOnly}
         onToggleUnreadOnly={toggleUnreadOnly}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         loading={feedsLoading}
-        />
+      />
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}
         <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
@@ -672,6 +712,8 @@ function DashboardContent() {
             isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
             onRefresh={handleManualRefresh}
             onRefreshAndReload={handleRefreshAndReload}
+            isReadLaterView={isReadLaterView}
+            onReadLaterChange={handleReadLaterChange}
           />
         </div>
       </main>
