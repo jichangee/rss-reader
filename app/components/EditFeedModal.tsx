@@ -8,18 +8,48 @@ interface Feed {
   title: string
   url: string
   enableTranslation?: boolean
+  webhookUrl?: string | null
+  webhookMethod?: string | null
+  webhookField?: string | null
+  webhookParamName?: string | null
+  webhookRemote?: boolean | null
 }
 
 interface EditFeedModalProps {
   feed: Feed
   onClose: () => void
-  onUpdate: (feedId: string, data: { title?: string; url?: string; enableTranslation?: boolean }) => Promise<{ success: boolean; error?: string }>
+  onUpdate: (feedId: string, data: { 
+    title?: string
+    url?: string
+    enableTranslation?: boolean
+    webhookUrl?: string | null
+    webhookMethod?: string
+    webhookField?: string
+    webhookParamName?: string
+    webhookRemote?: boolean
+  }) => Promise<{ success: boolean; error?: string }>
 }
+
+// Webhook 可发送的字段选项
+const WEBHOOK_FIELD_OPTIONS = [
+  { value: 'link', label: '文章链接' },
+  { value: 'title', label: '文章标题' },
+  { value: 'content', label: '文章内容' },
+  { value: 'guid', label: '文章 GUID' },
+  { value: 'author', label: '作者' },
+  { value: 'feedUrl', label: '订阅源 URL' },
+  { value: 'feedTitle', label: '订阅源标题' },
+]
 
 export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModalProps) {
   const [title, setTitle] = useState(feed?.title ?? "")
   const [url, setUrl] = useState(feed?.url ?? "")
   const [enableTranslation, setEnableTranslation] = useState(Boolean(feed?.enableTranslation ?? false))
+  const [webhookUrl, setWebhookUrl] = useState(feed?.webhookUrl ?? "")
+  const [webhookMethod, setWebhookMethod] = useState(feed?.webhookMethod ?? "POST")
+  const [webhookField, setWebhookField] = useState(feed?.webhookField ?? "link")
+  const [webhookParamName, setWebhookParamName] = useState(feed?.webhookParamName ?? "url")
+  const [webhookRemote, setWebhookRemote] = useState(feed?.webhookRemote ?? true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -27,6 +57,11 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
     setTitle(feed?.title ?? "")
     setUrl(feed?.url ?? "")
     setEnableTranslation(Boolean(feed?.enableTranslation ?? false))
+    setWebhookUrl(feed?.webhookUrl ?? "")
+    setWebhookMethod(feed?.webhookMethod ?? "POST")
+    setWebhookField(feed?.webhookField ?? "link")
+    setWebhookParamName(feed?.webhookParamName ?? "url")
+    setWebhookRemote(feed?.webhookRemote ?? true)
   }, [feed])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,6 +85,11 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
         title: title.trim(),
         url: url.trim(),
         enableTranslation,
+        webhookUrl: webhookUrl.trim() || null,
+        webhookMethod,
+        webhookField,
+        webhookParamName: webhookParamName.trim() || 'url',
+        webhookRemote,
       })
       if (result.success) {
         onClose()
@@ -126,6 +166,104 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               启用后，此订阅的文章标题和内容将自动翻译为你设置的目标语言
             </p>
+          </div>
+
+          {/* Webhook 配置 */}
+          <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              Webhook 推送配置
+            </h3>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Webhook URL
+                </label>
+                <input
+                  type="url"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="https://example.com/webhook"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  disabled={loading}
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  配置后，文章卡片会显示推送按钮。留空则禁用推送功能
+                </p>
+              </div>
+
+              {webhookUrl && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        请求方式
+                      </label>
+                      <select
+                        value={webhookMethod}
+                        onChange={(e) => setWebhookMethod(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        disabled={loading}
+                      >
+                        <option value="POST">POST</option>
+                        <option value="GET">GET</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        发送字段
+                      </label>
+                      <select
+                        value={webhookField}
+                        onChange={(e) => setWebhookField(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        disabled={loading}
+                      >
+                        {WEBHOOK_FIELD_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      参数名
+                    </label>
+                    <input
+                      type="text"
+                      value={webhookParamName}
+                      onChange={(e) => setWebhookParamName(e.target.value)}
+                      placeholder="url"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      disabled={loading}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {webhookMethod === 'GET' ? 'URL 查询参数名' : 'JSON 请求体的字段名'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={webhookRemote}
+                        onChange={(e) => setWebhookRemote(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        disabled={loading}
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        远程发起
+                      </span>
+                    </label>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      勾选后由服务器端发起请求（避免 CORS 问题），未勾选时由浏览器直接发起请求
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {error && (

@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bookmark, BookmarkCheck, User, Calendar, Image, ChevronDown, ChevronUp, Rss, ExternalLink } from "lucide-react"
+import { Bookmark, BookmarkCheck, User, Calendar, Image, ChevronDown, ChevronUp, Rss, ExternalLink, Send, Loader2 } from "lucide-react"
 import type { ArticleItemProps } from "./types"
 
 // 清理和修复图片 URL
@@ -114,10 +114,17 @@ export default function ArticleItem({
   onMarkAsRead,
   onImageClick,
   onToggleMediaExpansion,
+  onWebhookPush,
   contentRef,
 }: ArticleItemProps) {
+  const [webhookLoading, setWebhookLoading] = useState(false)
+  const [webhookStatus, setWebhookStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  
   // 计算是否应该隐藏媒体
   const shouldHideMedia = hideImagesAndVideos && !expandedMedia
+  
+  // 检查是否配置了 Webhook
+  const hasWebhook = Boolean(article.feed.webhookUrl)
   
   // 使用 useMemo 预处理 HTML 内容，避免每次渲染都重新处理
   const processedContent = useMemo(() => {
@@ -133,6 +140,123 @@ export default function ArticleItem({
   const handleReadLaterClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
     await onToggleReadLater(article.id)
+  }
+
+  const handleWebhookClick = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (webhookLoading) return
+    
+    setWebhookLoading(true)
+    setWebhookStatus('idle')
+    
+    try {
+      const { webhookUrl, webhookMethod, webhookField, webhookParamName, webhookRemote } = article.feed
+      
+      if (!webhookUrl) {
+        setWebhookStatus('error')
+        setTimeout(() => setWebhookStatus('idle'), 3000)
+        return
+      }
+
+      // 根据配置获取要发送的字段值
+      let fieldValue: string | null = null
+      switch (webhookField || 'link') {
+        case 'link':
+          fieldValue = article.link
+          break
+        case 'title':
+          fieldValue = article.title
+          break
+        case 'content':
+          fieldValue = article.content || null
+          break
+        case 'guid':
+          fieldValue = article.id // 使用文章 ID 作为 GUID
+          break
+        case 'author':
+          fieldValue = article.author || null
+          break
+        case 'feedUrl':
+          fieldValue = article.feed.url || null
+          break
+        case 'feedTitle':
+          fieldValue = article.feed.title
+          break
+        default:
+          fieldValue = article.link
+      }
+
+      if (!fieldValue) {
+        setWebhookStatus('error')
+        setTimeout(() => setWebhookStatus('idle'), 3000)
+        return
+      }
+
+      const paramName = webhookParamName || 'url'
+      const method = webhookMethod || 'POST'
+      const isRemote = webhookRemote !== false // 默认为 true（服务器端）
+
+      let result: { success: boolean; message?: string; error?: string }
+
+      if (isRemote) {
+        // 服务器端发起：调用 API
+        if (!onWebhookPush) {
+          setWebhookStatus('error')
+          setTimeout(() => setWebhookStatus('idle'), 3000)
+          return
+        }
+        result = await onWebhookPush(article.id)
+      } else {
+        // 客户端直接发起请求
+        try {
+          let response: Response
+          
+          if (method === 'GET') {
+            // GET 请求：将参数添加到 URL
+            const url = new URL(webhookUrl)
+            url.searchParams.set(paramName, fieldValue)
+            response = await fetch(url.toString(), {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'RSS-Reader-Webhook/1.0',
+              },
+              signal: AbortSignal.timeout(10000), // 10秒超时
+            })
+          } else {
+            // POST 请求：将参数放入请求体
+            response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'RSS-Reader-Webhook/1.0',
+              },
+              body: JSON.stringify({
+                [paramName]: fieldValue,
+              }),
+              signal: AbortSignal.timeout(10000), // 10秒超时
+            })
+          }
+
+          if (response.ok) {
+            result = { success: true, message: '推送成功' }
+          } else {
+            result = { success: false, error: `推送失败: HTTP ${response.status}` }
+          }
+        } catch (fetchError) {
+          const errorMessage = fetchError instanceof Error ? fetchError.message : '未知错误'
+          result = { success: false, error: `推送失败: ${errorMessage}` }
+        }
+      }
+
+      setWebhookStatus(result.success ? 'success' : 'error')
+      // 3秒后重置状态
+      setTimeout(() => setWebhookStatus('idle'), 3000)
+    } catch {
+      setWebhookStatus('error')
+      setTimeout(() => setWebhookStatus('idle'), 3000)
+    } finally {
+      setWebhookLoading(false)
+    }
   }
 
   return (
@@ -245,6 +369,27 @@ export default function ArticleItem({
           >
             <ExternalLink className="h-5 w-5" />
           </a>
+          {/* Webhook 推送按钮：仅当配置了 Webhook 时显示 */}
+          {hasWebhook && onWebhookPush && (
+            <button
+              onClick={handleWebhookClick}
+              disabled={webhookLoading}
+              className={`rounded-lg p-2 transition-colors ${
+                webhookStatus === 'success'
+                  ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20"
+                  : webhookStatus === 'error'
+                  ? "text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20"
+                  : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              } ${webhookLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title="推送到 Webhook"
+            >
+              {webhookLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </button>
+          )}
           <button
             onClick={handleReadLaterClick}
             className={`rounded-lg p-2 transition-colors ${

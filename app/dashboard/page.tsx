@@ -363,7 +363,16 @@ function DashboardContent() {
 
   const handleEditFeed = async (
     feedId: string,
-    data: { title?: string; url?: string; enableTranslation?: boolean }
+    data: { 
+      title?: string
+      url?: string
+      enableTranslation?: boolean
+      webhookUrl?: string | null
+      webhookMethod?: string
+      webhookField?: string
+      webhookParamName?: string
+      webhookRemote?: boolean
+    }
   ) => {
     try {
       const res = await fetch(`/api/feeds/${feedId}`, {
