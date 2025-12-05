@@ -32,12 +32,22 @@ export async function GET() {
       return NextResponse.json({ error: "用户不存在" }, { status: 404 })
     }
 
-    // 为每个 feed 计算未读文章数
+    // 获取用户的稍后读文章ID列表
+    const readLaterRecords = await prisma.readLater.findMany({
+      where: { userId: user.id },
+      select: { articleId: true },
+    })
+    const readLaterArticleIds = new Set(readLaterRecords.map(r => r.articleId))
+
+    // 为每个 feed 计算未读文章数（排除稍后读文章）
     const feedsWithUnreadCount = await Promise.all(
       user.feeds.map(async (feed) => {
         const unreadCount = await prisma.article.count({
           where: {
             feedId: feed.id,
+            id: readLaterArticleIds.size > 0 
+              ? { notIn: Array.from(readLaterArticleIds) } 
+              : undefined,
             readBy: {
               none: {
                 userId: user.id,
@@ -53,7 +63,13 @@ export async function GET() {
       })
     )
 
-    return NextResponse.json(feedsWithUnreadCount)
+    // 计算稍后读文章数量
+    const readLaterCount = readLaterArticleIds.size
+
+    return NextResponse.json({
+      feeds: feedsWithUnreadCount,
+      readLaterCount,
+    })
   } catch (error) {
     console.error("获取订阅失败:", error)
     return NextResponse.json({ error: "获取订阅失败" }, { status: 500 })

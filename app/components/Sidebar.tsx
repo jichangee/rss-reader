@@ -1,14 +1,17 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2 } from "lucide-react"
-import { useEffect } from "react"
+import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmark } from "lucide-react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
 interface SidebarProps {
   feeds: any[]
   selectedFeed: string | null
+  isReadLaterView: boolean
+  readLaterCount: number
   onSelectFeed: (feedId: string | null) => void
+  onSelectReadLater: () => void
   onAddFeed: () => void
   onEditFeed: (feed: any) => void
   onDeleteFeed: (feedId: string) => void
@@ -22,7 +25,10 @@ interface SidebarProps {
 export default function Sidebar({
   feeds,
   selectedFeed,
+  isReadLaterView,
+  readLaterCount,
   onSelectFeed,
+  onSelectReadLater,
   onAddFeed,
   onEditFeed,
   onDeleteFeed,
@@ -34,6 +40,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const [feedIconErrors, setFeedIconErrors] = useState<Record<string, boolean>>({})
 
   // 防止移动端侧边栏打开时背景滚动
   useEffect(() => {
@@ -125,18 +132,41 @@ export default function Sidebar({
           <button
             onClick={() => handleFeedSelect(null)}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-              selectedFeed === null
+              selectedFeed === null && !isReadLaterView
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
                 : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             }`}
           >
             <span className="font-medium">全部文章</span>
             <span className="text-xs">
-              {loading ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
+              {(loading && feeds.length === 0) ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
             </span>
           </button>
 
-          {loading ? (
+          {/* 稍后读入口 */}
+          <button
+            onClick={() => {
+              onSelectReadLater()
+              if (window.innerWidth < 768) {
+                onClose()
+              }
+            }}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+              isReadLaterView
+                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Bookmark className={`h-4 w-4 ${isReadLaterView ? "text-yellow-600 dark:text-yellow-400" : "text-gray-400"}`} />
+              <span className="font-medium">稍后读</span>
+            </div>
+            <span className="text-xs">
+              {(loading && feeds.length === 0) ? "-" : readLaterCount}
+            </span>
+          </button>
+
+          {(loading && feeds.length === 0) ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
             </div>
@@ -149,7 +179,7 @@ export default function Sidebar({
                 <div
                   key={feed.id}
                   className={`group relative flex items-center rounded-lg transition-colors ${
-                    selectedFeed === feed.id
+                    selectedFeed === feed.id && !isReadLaterView
                       ? "bg-indigo-100 dark:bg-indigo-900"
                       : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
@@ -159,18 +189,19 @@ export default function Sidebar({
                     className="flex flex-1 items-center justify-between px-3 py-2 text-left min-w-0"
                   >
                     <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden pr-12">
-                      {feed.imageUrl ? (
+                      {feed.imageUrl && !feedIconErrors[feed.id] ? (
                         <img
                           src={feed.imageUrl}
                           alt=""
                           className="h-5 w-5 rounded flex-shrink-0"
+                          onError={() => setFeedIconErrors(prev => ({ ...prev, [feed.id]: true }))}
                         />
                       ) : (
                         <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
                       )}
                       <span
                         className={`truncate text-sm min-w-0 ${
-                          selectedFeed === feed.id
+                          selectedFeed === feed.id && !isReadLaterView
                             ? "font-medium text-indigo-700 dark:text-indigo-300"
                             : "text-gray-700 dark:text-gray-300"
                         }`}

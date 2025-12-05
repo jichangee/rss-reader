@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const feedId = searchParams.get("feedId")
     const unreadOnly = searchParams.get("unreadOnly") === "true"
+    const readLaterOnly = searchParams.get("readLaterOnly") === "true"
     const cursor = searchParams.get("cursor")
     const limit = parseInt(searchParams.get("limit") || "20", 10)
 
@@ -48,11 +49,32 @@ export async function GET(request: Request) {
 
     const feedIds = user.feeds?.map((f) => f.id) || []
 
+    // 获取用户的所有稍后读文章ID
+    const readLaterRecords = await prisma.readLater.findMany({
+      where: {
+        userId: user.id,
+      },
+      select: { articleId: true },
+      orderBy: { addedAt: "desc" },
+    })
+    const readLaterArticleIds = new Set(readLaterRecords.map(rl => rl.articleId))
+
+    // 构建查询条件
     const where: any = {
       feedId: feedId || { in: feedIds },
     }
 
-    if (unreadOnly) {
+    if (readLaterOnly) {
+      // 稍后读模式：只获取稍后读文章
+      where.id = { in: Array.from(readLaterArticleIds) }
+    } else {
+      // 普通模式：排除稍后读文章
+      if (readLaterArticleIds.size > 0) {
+        where.id = { notIn: Array.from(readLaterArticleIds) }
+      }
+    }
+
+    if (unreadOnly && !readLaterOnly) {
       where.readBy = {
         none: {
           userId: user.id,
@@ -60,43 +82,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // 先获取所有符合条件的文章ID（用于获取稍后读文章）
-    const allArticleIds = await prisma.article.findMany({
-      where: {
-        feedId: feedId || { in: feedIds },
-      },
-      select: { id: true },
-    })
-
-    const articleIds = allArticleIds.map(a => a.id)
-
-    // 获取用户的所有稍后读文章ID（不受 unreadOnly 限制）
-    const readLaterArticles = await prisma.readLater.findMany({
-      where: {
-        userId: user.id,
-        articleId: { in: articleIds },
-      },
-      select: { articleId: true },
-      orderBy: { addedAt: "desc" },
-    })
-
-    const readLaterArticleIds = new Set(readLaterArticles.map(rl => rl.articleId))
-
-    // 分别获取稍后读文章和其他文章
-    // 稍后读文章应该始终显示，不受 unreadOnly 限制
-    const readLaterWhere = {
-      feedId: feedId || { in: feedIds },
-      id: { in: Array.from(readLaterArticleIds) },
-    }
-
-    const otherWhere = {
-      ...where,
-      id: { notIn: Array.from(readLaterArticleIds) },
-    }
-
-    // 获取稍后读文章
-    const readLaterArticlesData = readLaterArticleIds.size > 0 ? await prisma.article.findMany({
-      where: readLaterWhere,
+    // 获取文章
+    const articles = await prisma.article.findMany({
+      where,
       include: {
         feed: true,
         readBy: {
@@ -106,35 +94,39 @@ export async function GET(request: Request) {
           where: { userId: user.id },
         },
       },
-      orderBy: { pubDate: "desc" },
-    }) : []
-
-    // 计算还需要获取多少其他文章
-    const remainingLimit = limit + 1 - readLaterArticlesData.length
-    const otherArticles = remainingLimit > 0 ? await prisma.article.findMany({
-      where: otherWhere,
-      include: {
-        feed: true,
-        readBy: {
-          where: { userId: user.id },
-        },
-        readLaterBy: {
-          where: { userId: user.id },
-        },
-      },
-      orderBy: { pubDate: "desc" },
-      take: remainingLimit,
+      orderBy: readLaterOnly 
+        ? { readLaterBy: { _count: "desc" } } // 稍后读按添加时间排序（通过关联表）
+        : { pubDate: "desc" },
+      take: limit + 1,
       ...(cursor && {
         cursor: { id: cursor },
-        skip: 1, // 跳过 cursor 本身
+        skip: 1,
       }),
-    }) : []
+    })
 
-    // 合并结果：稍后读文章在前，其他文章在后
-    const articles = [...readLaterArticlesData, ...otherArticles]
+    // 如果是稍后读模式，按添加时间重新排序
+    let sortedArticles = articles
+    if (readLaterOnly && articles.length > 0) {
+      // 获取稍后读记录的添加时间
+      const readLaterWithTime = await prisma.readLater.findMany({
+        where: {
+          userId: user.id,
+          articleId: { in: articles.map(a => a.id) },
+        },
+        select: { articleId: true, addedAt: true },
+      })
+      const addedAtMap = new Map(readLaterWithTime.map(r => [r.articleId, r.addedAt]))
+      
+      // 按添加时间降序排序
+      sortedArticles = [...articles].sort((a, b) => {
+        const timeA = addedAtMap.get(a.id)?.getTime() || 0
+        const timeB = addedAtMap.get(b.id)?.getTime() || 0
+        return timeB - timeA
+      })
+    }
 
-    const hasNextPage = articles.length > limit
-    const returnArticles = hasNextPage ? articles.slice(0, limit) : articles
+    const hasNextPage = sortedArticles.length > limit
+    const returnArticles = hasNextPage ? sortedArticles.slice(0, limit) : sortedArticles
     const nextCursor = hasNextPage ? returnArticles[returnArticles.length - 1].id : null
 
     // 获取用户的翻译配置
@@ -151,7 +143,7 @@ export async function GET(request: Request) {
     // 为每篇文章添加 isReadLater 标记
     const articlesWithReadLater = returnArticles.map((article) => ({
       ...article,
-      isReadLater: article.readLaterBy && article.readLaterBy.length > 0,
+      isReadLater: readLaterArticleIds.has(article.id),
     }))
 
     // 收集需要翻译的文章

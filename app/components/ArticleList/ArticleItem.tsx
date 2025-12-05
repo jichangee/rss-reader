@@ -1,10 +1,108 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useMemo } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { Bookmark, BookmarkCheck, User, Calendar, Image, Video, ChevronDown, ChevronUp } from "lucide-react"
+import { Bookmark, BookmarkCheck, User, Calendar, Image, ChevronDown, ChevronUp, Rss, ExternalLink } from "lucide-react"
 import type { ArticleItemProps } from "./types"
+
+// 清理和修复图片 URL
+const cleanImageUrl = (url: string): string => {
+  if (!url) return url
+  
+  // 移除各种引号字符（包括中文引号、英文引号等）
+  let cleaned = url
+    .replace(/["""""'']/g, '') // 移除各种引号
+    .replace(/^\s+|\s+$/g, '') // 移除首尾空格
+    .trim()
+  
+  // 修复 https:/ 或 http:/ 为 https:// 或 http://
+  cleaned = cleaned.replace(/^(https?):\/(?!\/)/, '$1://')
+  
+  // 如果 URL 不完整（缺少协议），尝试修复
+  if (cleaned.startsWith('//')) {
+    cleaned = 'https:' + cleaned
+  } else if (cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+    // 相对路径，保持原样（浏览器会自动处理）
+  } else if (!cleaned.match(/^https?:\/\//) && cleaned.includes('://')) {
+    // 如果包含 :// 但没有协议，可能是格式错误
+    cleaned = cleaned.replace(/^([^:]+):\/\//, 'https://')
+  }
+  
+  return cleaned
+}
+
+// 处理 HTML 内容中的媒体元素（在渲染前预处理）
+const processHtmlContent = (html: string | undefined, shouldHide: boolean): string => {
+  if (!html) return ''
+  
+  let processedHtml = html
+  
+  // 修复图片 URL 中的问题
+  processedHtml = processedHtml.replace(
+    /<img([^>]*)\s+src=["']([^"']+)["']([^>]*)>/gi,
+    (match, before, src, after) => {
+      const cleanedSrc = cleanImageUrl(src)
+      return `<img${before} src="${cleanedSrc}"${after}>`
+    }
+  )
+  
+  if (shouldHide) {
+    // 隐藏 img 元素：添加 display:none 样式
+    processedHtml = processedHtml.replace(
+      /<img([^>]*)>/gi,
+      (match, attrs) => {
+        // 如果已有 style 属性，追加 display:none
+        if (/style\s*=/i.test(attrs)) {
+          return `<img${attrs.replace(/style\s*=\s*["']([^"']*)["']/i, 'style="$1;display:none"')}>`
+        }
+        return `<img${attrs} style="display:none">`
+      }
+    )
+    
+    // 隐藏 video 元素：添加 display:none 样式并移除 src
+    processedHtml = processedHtml.replace(
+      /<video([^>]*)>/gi,
+      (match, attrs) => {
+        let newAttrs = attrs
+        // 保存原始 src 到 data-original-src，并移除 src
+        newAttrs = newAttrs.replace(
+          /\s+src\s*=\s*["']([^"']+)["']/gi,
+          ' data-original-src="$1"'
+        )
+        // 添加 display:none 样式
+        if (/style\s*=/i.test(newAttrs)) {
+          newAttrs = newAttrs.replace(/style\s*=\s*["']([^"']*)["']/i, 'style="$1;display:none"')
+        } else {
+          newAttrs += ' style="display:none"'
+        }
+        return `<video${newAttrs}>`
+      }
+    )
+    
+    // 隐藏 iframe 元素：添加 display:none 样式并移除 src
+    processedHtml = processedHtml.replace(
+      /<iframe([^>]*)>/gi,
+      (match, attrs) => {
+        let newAttrs = attrs
+        // 保存原始 src 到 data-original-src，并移除 src
+        newAttrs = newAttrs.replace(
+          /\s+src\s*=\s*["']([^"']+)["']/gi,
+          ' data-original-src="$1"'
+        )
+        // 添加 display:none 样式
+        if (/style\s*=/i.test(newAttrs)) {
+          newAttrs = newAttrs.replace(/style\s*=\s*["']([^"']*)["']/i, 'style="$1;display:none"')
+        } else {
+          newAttrs += ' style="display:none"'
+        }
+        return `<iframe${newAttrs}>`
+      }
+    )
+  }
+  
+  return processedHtml
+}
 
 export default function ArticleItem({
   article,
@@ -18,194 +116,14 @@ export default function ArticleItem({
   onToggleMediaExpansion,
   contentRef,
 }: ArticleItemProps) {
-  const contentElementRef = useRef<HTMLDivElement | null>(null)
+  // 计算是否应该隐藏媒体
+  const shouldHideMedia = hideImagesAndVideos && !expandedMedia
   
-  // 立即处理媒体元素的函数
-  const processMediaImmediately = (contentDiv: HTMLDivElement) => {
-    if (!contentDiv || !article.content) return
-    
-    const articleExpanded = expandedMedia
-    
-    // 处理图片
-    const images = contentDiv.querySelectorAll('img')
-    images.forEach((img, index) => {
-      const shouldHide = hideImagesAndVideos && !articleExpanded
-      
-      if (shouldHide) {
-        if (!img.dataset.hiddenByUs) {
-          img.dataset.hiddenByUs = 'true'
-          img.style.display = 'none'
-        }
-      } else {
-        if (img.dataset.hiddenByUs === 'true') {
-          delete img.dataset.hiddenByUs
-          img.style.display = ''
-        }
-      }
-    })
-    
-    // 处理视频
-    const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
-    videos.forEach((video, index) => {
-      const videoEl = video as HTMLElement
-      const shouldHide = hideImagesAndVideos && !articleExpanded
-      
-      if (shouldHide) {
-        if (!videoEl.dataset.hiddenByUs) {
-          videoEl.dataset.hiddenByUs = 'true'
-          videoEl.style.display = 'none'
-          
-          // 对于 video 元素，暂停播放并移除 src 以避免创建 WebMediaPlayer
-          if (video.tagName === 'VIDEO') {
-            const videoElement = video as HTMLVideoElement
-            if (videoElement.src && !videoEl.dataset.originalSrc) {
-              videoEl.dataset.originalSrc = videoElement.src
-            }
-            videoElement.pause()
-            videoElement.src = ''
-            videoElement.srcObject = null
-          }
-          // 对于 iframe 元素，移除 src 以避免创建 WebMediaPlayer
-          else if (video.tagName === 'IFRAME') {
-            const iframeElement = video as HTMLIFrameElement
-            if (iframeElement.src && !videoEl.dataset.originalSrc) {
-              videoEl.dataset.originalSrc = iframeElement.src
-            }
-            iframeElement.src = ''
-          }
-        }
-      } else {
-        if (videoEl.dataset.hiddenByUs === 'true') {
-          delete videoEl.dataset.hiddenByUs
-          videoEl.style.display = ''
-          
-          // 恢复视频的 src 属性
-          if (video.tagName === 'VIDEO' && videoEl.dataset.originalSrc) {
-            const videoElement = video as HTMLVideoElement
-            videoElement.src = videoEl.dataset.originalSrc
-            delete videoEl.dataset.originalSrc
-          }
-          // 恢复 iframe 的 src 属性
-          else if (video.tagName === 'IFRAME' && videoEl.dataset.originalSrc) {
-            const iframeElement = video as HTMLIFrameElement
-            iframeElement.src = videoEl.dataset.originalSrc
-            delete videoEl.dataset.originalSrc
-          }
-        }
-      }
-    })
-  }
-  
-  // 合并 refs，并在设置时立即处理图片
-  const setContentRef = (el: HTMLDivElement | null) => {
-    contentElementRef.current = el
-    contentRef(el)
-    
-    // 当 ref 被设置时，立即处理图片（防止闪现）
-    if (el) {
-      // 使用 requestAnimationFrame 确保 DOM 已经渲染
-      requestAnimationFrame(() => {
-        processMediaImmediately(el)
-      })
-    }
-  }
-  
-  // 在内容或设置变化时处理图片
-  useEffect(() => {
-    const contentDiv = contentElementRef.current
-    if (!contentDiv || !article.content) return
-    
-    const articleExpanded = expandedMedia
-    
-    // 处理所有图片和视频
-    const processMedia = () => {
-      // 处理图片
-      const images = contentDiv.querySelectorAll('img')
-      images.forEach((img, index) => {
-        const shouldHide = hideImagesAndVideos && !articleExpanded
-        
-        if (shouldHide) {
-          if (!img.dataset.hiddenByUs) {
-            img.dataset.hiddenByUs = 'true'
-            img.style.display = 'none'
-          }
-        } else {
-          if (img.dataset.hiddenByUs === 'true') {
-            delete img.dataset.hiddenByUs
-            img.style.display = ''
-          }
-        }
-      })
-      
-      // 处理视频
-      const videos = contentDiv.querySelectorAll('video, iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="bilibili"]')
-      videos.forEach((video, index) => {
-        const videoEl = video as HTMLElement
-        const shouldHide = hideImagesAndVideos && !articleExpanded
-        
-        if (shouldHide) {
-          if (!videoEl.dataset.hiddenByUs) {
-            videoEl.dataset.hiddenByUs = 'true'
-            videoEl.style.display = 'none'
-            
-            // 对于 video 元素，暂停播放并移除 src 以避免创建 WebMediaPlayer
-            if (video.tagName === 'VIDEO') {
-              const videoElement = video as HTMLVideoElement
-              if (videoElement.src && !videoEl.dataset.originalSrc) {
-                videoEl.dataset.originalSrc = videoElement.src
-              }
-              videoElement.pause()
-              videoElement.src = ''
-              videoElement.srcObject = null
-            }
-            // 对于 iframe 元素，移除 src 以避免创建 WebMediaPlayer
-            else if (video.tagName === 'IFRAME') {
-              const iframeElement = video as HTMLIFrameElement
-              if (iframeElement.src && !videoEl.dataset.originalSrc) {
-                videoEl.dataset.originalSrc = iframeElement.src
-              }
-              iframeElement.src = ''
-            }
-          }
-        } else {
-          if (videoEl.dataset.hiddenByUs === 'true') {
-            delete videoEl.dataset.hiddenByUs
-            videoEl.style.display = ''
-            
-            // 恢复视频的 src 属性
-            if (video.tagName === 'VIDEO' && videoEl.dataset.originalSrc) {
-              const videoElement = video as HTMLVideoElement
-              videoElement.src = videoEl.dataset.originalSrc
-              delete videoEl.dataset.originalSrc
-            }
-            // 恢复 iframe 的 src 属性
-            else if (video.tagName === 'IFRAME' && videoEl.dataset.originalSrc) {
-              const iframeElement = video as HTMLIFrameElement
-              iframeElement.src = videoEl.dataset.originalSrc
-              delete videoEl.dataset.originalSrc
-            }
-          }
-        }
-      })
-    }
-    
-    // 立即执行一次
-    processMedia()
-    
-    // 使用 MutationObserver 监听新添加的图片
-    const observer = new MutationObserver(() => {
-      processMedia()
-    })
-    
-    observer.observe(contentDiv, {
-      childList: true,
-      subtree: true,
-    })
-    
-    return () => {
-      observer.disconnect()
-    }
-  }, [article.content, hideImagesAndVideos, expandedMedia])
+  // 使用 useMemo 预处理 HTML 内容，避免每次渲染都重新处理
+  const processedContent = useMemo(() => {
+    return processHtmlContent(article.content, shouldHideMedia)
+  }, [article.content, shouldHideMedia])
+
   const handleTitleClick = () => {
     if (article.readBy.length === 0) {
       onMarkAsRead(article.id)
@@ -233,7 +151,9 @@ export default function ArticleItem({
               alt=""
               className="h-5 w-5 rounded-full flex-shrink-0"
             />
-          ) : null}
+          ) : (
+            <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
+          )}
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
             {article.feed.title}
           </span>
@@ -263,13 +183,13 @@ export default function ArticleItem({
       {article.content && (
         <>
           <div 
-            ref={setContentRef}
+            ref={contentRef}
             className="telegram-article-content prose prose-sm sm:prose-base dark:prose-invert max-w-none mb-4"
-            dangerouslySetInnerHTML={{ __html: article.content }}
+            dangerouslySetInnerHTML={{ __html: processedContent }}
           />
           
-          {/* 统一的媒体展开/折叠按钮（当有多个媒体时） */}
-          {hideImagesAndVideos && mediaCount > 1 && (
+          {/* 统一的媒体展开/折叠按钮（当有媒体时） */}
+          {hideImagesAndVideos && mediaCount > 0 && (
             <button
               onClick={(e) => {
                 e.preventDefault()
@@ -281,12 +201,12 @@ export default function ArticleItem({
               {expandedMedia ? (
                 <>
                   <ChevronUp className="w-5 h-5" />
-                  <span>折叠所有图片和视频 ({mediaCount})</span>
+                  <span>{mediaCount > 1 ? `折叠所有图片和视频 (${mediaCount})` : '折叠视频'}</span>
                 </>
               ) : (
                 <>
                   <Image className="w-5 h-5" />
-                  <span>展开所有图片和视频 ({mediaCount})</span>
+                  <span>{mediaCount > 1 ? `展开所有图片和视频 (${mediaCount})` : '展开视频'}</span>
                   <ChevronDown className="w-4 h-4" />
                 </>
               )}
@@ -314,21 +234,33 @@ export default function ArticleItem({
           )}
         </div>
         
-        <button
-          onClick={handleReadLaterClick}
-          className={`rounded-lg p-2 transition-colors flex-shrink-0 ${
-            isReadLater
-              ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
-              : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-          }`}
-          title={isReadLater ? "从稍后读移除" : "添加到稍后读"}
-        >
-          {isReadLater ? (
-            <BookmarkCheck className="h-5 w-5" />
-          ) : (
-            <Bookmark className="h-5 w-5" />
-          )}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href={article.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="rounded-lg p-2 transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            title="打开原文链接"
+          >
+            <ExternalLink className="h-5 w-5" />
+          </a>
+          <button
+            onClick={handleReadLaterClick}
+            className={`rounded-lg p-2 transition-colors ${
+              isReadLater
+                ? "text-yellow-600 hover:bg-yellow-50 dark:text-yellow-400 dark:hover:bg-yellow-900/20"
+                : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            }`}
+            title={isReadLater ? "从稍后读移除" : "添加到稍后读"}
+          >
+            {isReadLater ? (
+              <BookmarkCheck className="h-5 w-5" />
+            ) : (
+              <Bookmark className="h-5 w-5" />
+            )}
+          </button>
+        </div>
       </div>
     </article>
   )

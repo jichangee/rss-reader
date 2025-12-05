@@ -1,6 +1,6 @@
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
-import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp } from "lucide-react"
+import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, Rss } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { ToastContainer, useToast } from "./Toast"
 
@@ -32,6 +32,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
   const [expandedMedia, setExpandedMedia] = useState<Set<string>>(new Set())
+  const [feedIconError, setFeedIconError] = useState(false)
   const articleContentRef = useRef<HTMLDivElement>(null)
   const { toasts, success, error, removeToast } = useToast()
 
@@ -74,6 +75,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   useEffect(() => {
     if (article) {
       setIsReadLater(article.isReadLater || false)
+      setFeedIconError(false) // 重置图标错误状态
     }
   }, [article])
 
@@ -99,6 +101,32 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       document.body.style.overflow = "unset"
     }
   }, [isOpen])
+
+  // 清理和修复图片 URL
+  const cleanImageUrl = useCallback((url: string): string => {
+    if (!url) return url
+    
+    // 移除各种引号字符（包括中文引号、英文引号等）
+    let cleaned = url
+      .replace(/["""""'']/g, '') // 移除各种引号
+      .replace(/^\s+|\s+$/g, '') // 移除首尾空格
+      .trim()
+    
+    // 修复 https:/ 或 http:/ 为 https:// 或 http://
+    cleaned = cleaned.replace(/^(https?):\/(?!\/)/, '$1://')
+    
+    // 如果 URL 不完整（缺少协议），尝试修复
+    if (cleaned.startsWith('//')) {
+      cleaned = 'https:' + cleaned
+    } else if (cleaned.startsWith('/') && !cleaned.startsWith('//')) {
+      // 相对路径，保持原样（浏览器会自动处理）
+    } else if (!cleaned.match(/^https?:\/\//) && cleaned.includes('://')) {
+      // 如果包含 :// 但没有协议，可能是格式错误
+      cleaned = cleaned.replace(/^([^:]+):\/\//, 'https://')
+    }
+    
+    return cleaned
+  }, [])
 
   // 处理图片点击放大
   const handleImageClick = useCallback((src: string) => {
@@ -138,6 +166,14 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       // 处理图片
       const images = contentDiv.querySelectorAll('img')
       images.forEach((img, index) => {
+        // 清理和修复图片 URL
+        if (img.src) {
+          const cleanedUrl = cleanImageUrl(img.src)
+          if (cleanedUrl !== img.src) {
+            img.src = cleanedUrl
+          }
+        }
+        
         const mediaId = `img-${index}`
         const isExpanded = expandedMedia.has(mediaId)
         
@@ -444,12 +480,15 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <div className="flex items-center space-x-3 flex-1 min-w-0">
-              {article.feed.imageUrl && (
+              {article.feed.imageUrl && !feedIconError ? (
                 <img
                   src={article.feed.imageUrl}
                   alt=""
                   className="h-8 w-8 rounded flex-shrink-0"
+                  onError={() => setFeedIconError(true)}
                 />
+              ) : (
+                <Rss className="h-8 w-8 text-gray-400 flex-shrink-0" />
               )}
               <div className="min-w-0">
                 <h3 className="text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">
