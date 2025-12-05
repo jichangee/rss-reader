@@ -66,7 +66,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { title, url, enableTranslation } = await request.json()
+    const { title, url, enableTranslation, webhookUrl, webhookMethod, webhookField, webhookParamName, webhookRemote } = await request.json()
 
     const feed = await prisma.feed.findUnique({
       where: { id },
@@ -85,6 +85,11 @@ export async function PUT(
       title?: string
       url?: string
       enableTranslation?: boolean
+      webhookUrl?: string | null
+      webhookMethod?: string
+      webhookField?: string
+      webhookParamName?: string
+      webhookRemote?: boolean
     } = {}
 
     // 如果提供了新的标题，则更新
@@ -141,6 +146,26 @@ export async function PUT(
     // 如果提供了翻译设置，则更新
     if (enableTranslation !== undefined) {
       updateData.enableTranslation = enableTranslation === true
+    }
+
+    // 如果提供了 Webhook 配置，则更新
+    if (webhookUrl !== undefined) {
+      // 允许清空 webhookUrl（设为 null 或空字符串）
+      updateData.webhookUrl = webhookUrl?.trim() || null
+    }
+    if (webhookMethod !== undefined) {
+      updateData.webhookMethod = webhookMethod === 'GET' ? 'GET' : 'POST'
+    }
+    if (webhookField !== undefined) {
+      // 验证字段名是否有效
+      const validFields = ['link', 'title', 'content', 'guid', 'author', 'feedUrl', 'feedTitle']
+      updateData.webhookField = validFields.includes(webhookField) ? webhookField : 'link'
+    }
+    if (webhookParamName !== undefined) {
+      updateData.webhookParamName = webhookParamName?.trim() || 'url'
+    }
+    if (webhookRemote !== undefined) {
+      updateData.webhookRemote = webhookRemote === true
     }
 
     // 如果没有任何更新，直接返回原数据

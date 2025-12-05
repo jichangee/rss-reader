@@ -89,14 +89,13 @@ model Feed {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   lastRefreshedAt   DateTime? // 上次刷新时间
-  // 刷新优化相关字段
-  status            FeedStatus @default(ACTIVE) // Feed 状态：ACTIVE, ERROR, DISABLED
-  errorCount        Int        @default(0) // 连续错误次数
-  errorMessage      String? // 最后一次错误信息
-  etag              String? // HTTP ETag（用于条件请求）
-  lastModified      String? // HTTP Last-Modified（用于条件请求）
-  nextFetchAt       DateTime? // 下次抓取计划时间
-  lastEntryAt       DateTime? // 最新文章发布时间
+  
+  // Webhook 配置
+  webhookUrl        String?   // 目标 URL
+  webhookMethod     String?   @default("POST") // 请求方法: GET 或 POST
+  webhookField      String?   @default("link") // 要发送的字段: link, title, content, guid 等
+  webhookParamName  String?   @default("url")  // GET请求的参数名或POST请求body的字段名
+  webhookRemote     Boolean?  @default(true)   // 是否由服务器端发起请求，true=服务器端，false=客户端
 
   @@unique([userId, url])
 }

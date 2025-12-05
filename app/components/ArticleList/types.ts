@@ -7,9 +7,16 @@ export interface Article {
   pubDate?: string
   author?: string
   feed: {
+    id?: string
     title: string
+    url?: string
     imageUrl?: string
     enableTranslation?: boolean
+    webhookUrl?: string | null
+    webhookMethod?: string | null
+    webhookField?: string | null
+    webhookParamName?: string | null
+    webhookRemote?: boolean | null
   }
   readBy: any[]
   isReadLater?: boolean
@@ -43,6 +50,7 @@ export interface ArticleItemProps {
   onMarkAsRead: (articleId: string) => void
   onImageClick: (src: string) => void
   onToggleMediaExpansion: () => void // 不再需要 mediaId 参数
+  onWebhookPush?: (articleId: string) => Promise<{ success: boolean; message?: string; error?: string }>
   contentRef: (el: HTMLDivElement | null) => void
 }
 

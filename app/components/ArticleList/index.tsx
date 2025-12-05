@@ -200,6 +200,29 @@ export default function ArticleList({
     }
   }, [markAsRead, onMarkAsRead])
 
+  // 处理 Webhook 推送
+  const handleWebhookPush = useCallback(async (articleId: string) => {
+    try {
+      const res = await fetch(`/api/articles/${articleId}/webhook`, {
+        method: "POST",
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        success("推送成功")
+        return { success: true, message: data.message }
+      } else {
+        error(data.error || "推送失败")
+        return { success: false, error: data.error }
+      }
+    } catch (err) {
+      console.error("Webhook 推送失败:", err)
+      error("推送失败，请重试")
+      return { success: false, error: "推送失败" }
+    }
+  }, [success, error])
+
   // 只有在没有数据时才显示全屏 loading，有数据时保留列表
   if (loading && articles.length === 0) {
     return (
@@ -298,6 +321,7 @@ export default function ArticleList({
                 onMarkAsRead={handleTitleClick}
                 onImageClick={handleImageClick}
                 onToggleMediaExpansion={() => toggleArticleMediaExpansion(article.id)}
+                onWebhookPush={handleWebhookPush}
                 contentRef={(el) => {
                   if (el) {
                     articleContentRefs.current.set(article.id, el)
