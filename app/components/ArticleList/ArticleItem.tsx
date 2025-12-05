@@ -180,7 +180,7 @@ export default function ArticleItem({
     field?: string  // 向后兼容：旧格式的字段名
   }
 
-  const parseCustomFields = (customFieldsJson: string | null): CustomFieldConfig[] | null => {
+  const parseCustomFields = (customFieldsJson: string | null | undefined): CustomFieldConfig[] | null => {
     if (!customFieldsJson) return null
     
     try {
