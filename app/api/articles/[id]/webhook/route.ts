@@ -36,8 +36,8 @@ function getFieldValue(field: string, article: any): string | null {
 // 解析自定义字段配置
 interface CustomFieldConfig {
   name: string
-  type?: 'field' | 'custom' | 'fixed'  // 类型：预定义字段、自定义值（可含变量）、固定值
-  value: string  // 值：字段名、自定义值（可含变量如 {link}）、固定值
+  value: string  // 值：可以是固定值或包含变量（如 {link}, {title}）
+  type?: 'field' | 'custom' | 'fixed'  // 向后兼容：旧格式的类型字段
   field?: string  // 向后兼容：旧格式的字段名
 }
 
@@ -48,22 +48,26 @@ function parseCustomFields(customFieldsJson: string | null): CustomFieldConfig[]
     const parsed = JSON.parse(customFieldsJson)
     
     if (Array.isArray(parsed)) {
-      // 新格式：数组，每个元素包含 name, type, value
+      // 新格式：数组，每个元素包含 name, value
       const result: CustomFieldConfig[] = []
       for (const item of parsed) {
-        if (item.name && item.value) {
-          // 新格式
+        if (item.name && item.value !== undefined) {
+          // 新格式（只有 name 和 value）
           result.push({
             name: item.name,
-            type: item.type || 'field',  // 默认为 field 类型
             value: item.value
           })
         } else if (item.name && item.field) {
-          // 旧格式：向后兼容
+          // 旧格式：向后兼容（有 field 字段）
           result.push({
             name: item.name,
-            type: 'field',
-            value: item.field
+            value: `{${item.field}}`  // 转换为变量格式
+          })
+        } else if (item.name && item.type) {
+          // 旧格式：向后兼容（有 type 字段）
+          result.push({
+            name: item.name,
+            value: item.value || ''
           })
         }
       }
@@ -72,10 +76,13 @@ function parseCustomFields(customFieldsJson: string | null): CustomFieldConfig[]
       // 旧格式：对象格式转换为数组
       const result: CustomFieldConfig[] = []
       for (const [name, value] of Object.entries(parsed)) {
+        // 如果值是字段名（如 'link'），转换为变量格式
+        const fieldValue = typeof value === 'string' 
+          ? (WEBHOOK_FIELD_OPTIONS.find(opt => opt.value === value) ? `{${value}}` : value)
+          : `{${value}}`
         result.push({
           name,
-          type: 'field',
-          value: value as string
+          value: fieldValue
         })
       }
       return result.length > 0 ? result : null
@@ -86,6 +93,21 @@ function parseCustomFields(customFieldsJson: string | null): CustomFieldConfig[]
     return null
   }
 }
+
+// Webhook 可发送的字段选项（用于向后兼容）
+const WEBHOOK_FIELD_OPTIONS = [
+  { value: 'link', label: '文章链接' },
+  { value: 'title', label: '文章标题' },
+  { value: 'content', label: '文章内容' },
+  { value: 'contentSnippet', label: '文章摘要' },
+  { value: 'guid', label: '文章 GUID' },
+  { value: 'author', label: '作者' },
+  { value: 'pubDate', label: '发布日期' },
+  { value: 'articleId', label: '文章 ID' },
+  { value: 'feedUrl', label: '订阅源 URL' },
+  { value: 'feedTitle', label: '订阅源标题' },
+  { value: 'feedDescription', label: '订阅源描述' },
+]
 
 // 替换自定义值中的变量
 function replaceVariables(template: string, article: any): string {
@@ -156,22 +178,13 @@ export async function POST(
     if (customFields && customFields.length > 0) {
       // 使用自定义字段映射
       for (const fieldConfig of customFields) {
-        const { name, type = 'field', value } = fieldConfig
+        const { name, value } = fieldConfig
         
         if (!name.trim()) continue
         
-        let fieldValue: string | null = null
-        
-        if (type === 'field') {
-          // 预定义字段：直接获取字段值
-          fieldValue = getFieldValue(value, article)
-        } else if (type === 'custom') {
-          // 自定义值：替换变量后返回
-          fieldValue = replaceVariables(value, article)
-        } else if (type === 'fixed') {
-          // 固定值：直接使用
-          fieldValue = value
-        }
+        // 统一处理：所有值都通过变量替换处理
+        // 如果值中包含变量（如 {link}），则替换；否则直接使用
+        const fieldValue = replaceVariables(value, article)
         
         if (fieldValue !== null && fieldValue !== '') {
           payload[name] = fieldValue

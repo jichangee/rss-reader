@@ -175,9 +175,9 @@ export default function ArticleItem({
   // 解析自定义字段配置
   interface CustomFieldConfig {
     name: string
-    type?: 'field' | 'custom' | 'fixed'
-    value: string
-    field?: string  // 向后兼容
+    value: string  // 值：可以是固定值或包含变量（如 {link}, {title}）
+    type?: 'field' | 'custom' | 'fixed'  // 向后兼容：旧格式的类型字段
+    field?: string  // 向后兼容：旧格式的字段名
   }
 
   const parseCustomFields = (customFieldsJson: string | null): CustomFieldConfig[] | null => {
@@ -187,22 +187,26 @@ export default function ArticleItem({
       const parsed = JSON.parse(customFieldsJson)
       
       if (Array.isArray(parsed)) {
-        // 新格式：数组，每个元素包含 name, type, value
+        // 新格式：数组，每个元素包含 name, value
         const result: CustomFieldConfig[] = []
         for (const item of parsed) {
-          if (item.name && item.value) {
-            // 新格式
+          if (item.name && item.value !== undefined) {
+            // 新格式（只有 name 和 value）
             result.push({
               name: item.name,
-              type: item.type || 'field',
               value: item.value
             })
           } else if (item.name && item.field) {
-            // 旧格式：向后兼容
+            // 旧格式：向后兼容（有 field 字段）
             result.push({
               name: item.name,
-              type: 'field',
-              value: item.field
+              value: `{${item.field}}`  // 转换为变量格式
+            })
+          } else if (item.name && item.type) {
+            // 旧格式：向后兼容（有 type 字段）
+            result.push({
+              name: item.name,
+              value: item.value || ''
             })
           }
         }
@@ -211,10 +215,11 @@ export default function ArticleItem({
         // 旧格式：对象格式转换为数组
         const result: CustomFieldConfig[] = []
         for (const [name, value] of Object.entries(parsed)) {
+          // 如果值是字段名（如 'link'），转换为变量格式
+          const fieldValue = typeof value === 'string' ? `{${value}}` : `{${value}}`
           result.push({
             name,
-            type: 'field',
-            value: value as string
+            value: fieldValue
           })
         }
         return result.length > 0 ? result : null
@@ -266,22 +271,13 @@ export default function ArticleItem({
       if (customFields && customFields.length > 0) {
         // 使用自定义字段映射
         for (const fieldConfig of customFields) {
-          const { name, type = 'field', value } = fieldConfig
+          const { name, value } = fieldConfig
           
           if (!name.trim()) continue
           
-          let fieldValue: string | null = null
-          
-          if (type === 'field') {
-            // 预定义字段：直接获取字段值
-            fieldValue = getFieldValue(value)
-          } else if (type === 'custom') {
-            // 自定义值：替换变量后返回
-            fieldValue = replaceVariables(value)
-          } else if (type === 'fixed') {
-            // 固定值：直接使用
-            fieldValue = value
-          }
+          // 统一处理：所有值都通过变量替换处理
+          // 如果值中包含变量（如 {link}），则替换；否则直接使用
+          const fieldValue = replaceVariables(value)
           
           if (fieldValue !== null && fieldValue !== '') {
             payload[name] = fieldValue

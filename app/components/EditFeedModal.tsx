@@ -49,8 +49,7 @@ const WEBHOOK_FIELD_OPTIONS = [
 
 interface CustomFieldMapping {
   name: string  // 参数名
-  type: 'field' | 'custom' | 'fixed'  // 类型：预定义字段、自定义值（可含变量）、固定值
-  value: string  // 值：字段名、自定义值（可含变量如 {link}）、固定值
+  value: string  // 值：可以是固定值或包含变量（如 {link}, {title}）
 }
 
 export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModalProps) {
@@ -82,17 +81,25 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
       try {
         const parsed = JSON.parse(feed.webhookCustomFields)
         if (Array.isArray(parsed)) {
-          // 检查是否为旧格式（只有 name 和 field）
+          // 检查是否为旧格式（有 type 字段）
           const fields: CustomFieldMapping[] = parsed.map((item: any) => {
             if (item.type) {
-              // 新格式，直接使用
-              return item
-            } else {
-              // 旧格式，转换为新格式
+              // 旧格式（有 type），提取 value
               return {
                 name: item.name || '',
-                type: 'field' as const,
-                value: item.field || item.value || ''
+                value: item.value || ''
+              }
+            } else if (item.field) {
+              // 旧格式（只有 field），转换为变量格式
+              return {
+                name: item.name || '',
+                value: `{${item.field}}`
+              }
+            } else {
+              // 新格式，直接使用
+              return {
+                name: item.name || '',
+                value: item.value || ''
               }
             }
           })
@@ -102,24 +109,23 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
           // 对象格式转换为数组格式
           const fields: CustomFieldMapping[] = Object.entries(parsed).map(([name, value]) => ({
             name,
-            type: 'field' as const,
-            value: value as string
+            value: typeof value === 'string' ? value : `{${value}}`
           }))
           setCustomFields(fields)
           setUseCustomFields(true)
         } else {
           // 如果没有配置，默认添加一个字段
-          setCustomFields([{ name: 'url', type: 'field', value: 'link' }])
+          setCustomFields([{ name: 'url', value: '{link}' }])
           setUseCustomFields(true)
         }
       } catch {
         // 解析失败，使用默认值
-        setCustomFields([{ name: 'url', type: 'field', value: 'link' }])
+        setCustomFields([{ name: 'url', value: '{link}' }])
         setUseCustomFields(true)
       }
     } else {
       // 如果没有配置，默认添加一个字段
-      setCustomFields([{ name: 'url', type: 'field', value: 'link' }])
+      setCustomFields([{ name: 'url', value: '{link}' }])
       setUseCustomFields(true)
     }
   }, [feed])
@@ -287,92 +293,49 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
                   {useCustomFields ? (
                     <div className="space-y-2">
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-                        自定义字段映射
-                      </label>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                          自定义字段映射
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                          可使用变量: {WEBHOOK_FIELD_OPTIONS.map(opt => `{${opt.value}}`).join(', ')}
+                        </p>
+                      </div>
                       {customFields.map((field, index) => (
                         <div key={index} className="space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={field.name}
-                              onChange={(e) => {
-                                const newFields = [...customFields]
-                                newFields[index].name = e.target.value
-                                setCustomFields(newFields)
-                              }}
-                              placeholder="参数名"
-                              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                              disabled={loading}
-                            />
-                            <select
-                              value={field.type}
-                              onChange={(e) => {
-                                const newFields = [...customFields]
-                                const newType = e.target.value as 'field' | 'custom' | 'fixed'
-                                newFields[index].type = newType
-                                // 设置默认值
-                                if (newType === 'field' && !WEBHOOK_FIELD_OPTIONS.find(opt => opt.value === newFields[index].value)) {
-                                  newFields[index].value = 'link'
-                                } else if (newType === 'custom') {
-                                  newFields[index].value = '{link}'
-                                } else if (newType === 'fixed') {
-                                  newFields[index].value = ''
-                                }
-                                setCustomFields(newFields)
-                              }}
-                              className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                              disabled={loading}
-                            >
-                              <option value="field">预定义字段</option>
-                              <option value="custom">自定义值</option>
-                              <option value="fixed">固定值</option>
-                            </select>
+                          <div className="flex gap-2 items-end">
+                            <div className="flex-1">
+                              <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                                参数名
+                              </label>
+                              <input
+                                type="text"
+                                value={field.name}
+                                onChange={(e) => {
+                                  const newFields = [...customFields]
+                                  newFields[index].name = e.target.value
+                                  setCustomFields(newFields)
+                                }}
+                                placeholder="参数名"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                disabled={loading}
+                              />
+                            </div>
                             <button
                               type="button"
                               onClick={() => {
                                 setCustomFields(customFields.filter((_, i) => i !== index))
                               }}
-                              className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                              className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 h-[42px]"
                               disabled={loading || customFields.length === 1}
                             >
                               删除
                             </button>
                           </div>
-                          {field.type === 'field' ? (
-                            <select
-                              value={field.value}
-                              onChange={(e) => {
-                                const newFields = [...customFields]
-                                newFields[index].value = e.target.value
-                                setCustomFields(newFields)
-                              }}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                              disabled={loading}
-                            >
-                              {WEBHOOK_FIELD_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>{opt.label}</option>
-                              ))}
-                            </select>
-                          ) : field.type === 'custom' ? (
-                            <div>
-                              <input
-                                type="text"
-                                value={field.value}
-                                onChange={(e) => {
-                                  const newFields = [...customFields]
-                                  newFields[index].value = e.target.value
-                                  setCustomFields(newFields)
-                                }}
-                                placeholder="例如: 文章链接: {link}, 标题: {title}"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                disabled={loading}
-                              />
-                              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                可使用变量: {WEBHOOK_FIELD_OPTIONS.map(opt => `{${opt.value}}`).join(', ')}
-                              </p>
-                            </div>
-                          ) : (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                              字段值
+                            </label>
                             <input
                               type="text"
                               value={field.value}
@@ -381,17 +344,17 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
                                 newFields[index].value = e.target.value
                                 setCustomFields(newFields)
                               }}
-                              placeholder="固定值"
+                              placeholder="例如: {link} 或 文章链接: {link}, 标题: {title}"
                               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                               disabled={loading}
                             />
-                          )}
+                          </div>
                         </div>
                       ))}
                       <button
                         type="button"
                         onClick={() => {
-                          setCustomFields([...customFields, { name: '', type: 'field', value: 'link' }])
+                          setCustomFields([...customFields, { name: '', value: '{link}' }])
                         }}
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                         disabled={loading}
