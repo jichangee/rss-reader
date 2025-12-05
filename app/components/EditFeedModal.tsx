@@ -176,20 +176,23 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            编辑订阅
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
+      <div className="w-full max-w-2xl max-h-[90vh] rounded-lg bg-white shadow-xl dark:bg-gray-800 flex flex-col">
+        <div className="flex-shrink-0 p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              编辑订阅
+            </h2>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-6">
           <div className="mb-4">
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
               订阅名称
@@ -460,13 +463,15 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </div>
           </div>
 
-          {error && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                {error}
+              </div>
+            )}
+          </div>
 
-          <div className="flex space-x-3">
+          <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex space-x-3">
             <button
               type="button"
               onClick={onClose}
@@ -489,6 +494,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
                 "保存"
               )}
             </button>
+            </div>
           </div>
         </form>
       </div>

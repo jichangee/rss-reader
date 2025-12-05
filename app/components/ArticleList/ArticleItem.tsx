@@ -173,34 +173,71 @@ export default function ArticleItem({
   }
 
   // 解析自定义字段配置
-  const parseCustomFields = (customFieldsJson: string | null): Record<string, string> | null => {
+  interface CustomFieldConfig {
+    name: string
+    type?: 'field' | 'custom' | 'fixed'
+    value: string
+    field?: string  // 向后兼容
+  }
+
+  const parseCustomFields = (customFieldsJson: string | null): CustomFieldConfig[] | null => {
     if (!customFieldsJson) return null
     
     try {
       const parsed = JSON.parse(customFieldsJson)
       
-      // 支持两种格式：
-      // 1. 对象格式: {"param1": "link", "param2": "title"}
-      // 2. 数组格式: [{"name": "url", "field": "link"}, {"name": "title", "field": "title"}]
-      
       if (Array.isArray(parsed)) {
-        // 数组格式转换为对象
-        const result: Record<string, string> = {}
+        // 新格式：数组，每个元素包含 name, type, value
+        const result: CustomFieldConfig[] = []
         for (const item of parsed) {
-          if (item.name && item.field) {
-            result[item.name] = item.field
+          if (item.name && item.value) {
+            // 新格式
+            result.push({
+              name: item.name,
+              type: item.type || 'field',
+              value: item.value
+            })
+          } else if (item.name && item.field) {
+            // 旧格式：向后兼容
+            result.push({
+              name: item.name,
+              type: 'field',
+              value: item.field
+            })
           }
         }
-        return Object.keys(result).length > 0 ? result : null
+        return result.length > 0 ? result : null
       } else if (typeof parsed === 'object' && parsed !== null) {
-        // 对象格式直接使用
-        return parsed
+        // 旧格式：对象格式转换为数组
+        const result: CustomFieldConfig[] = []
+        for (const [name, value] of Object.entries(parsed)) {
+          result.push({
+            name,
+            type: 'field',
+            value: value as string
+          })
+        }
+        return result.length > 0 ? result : null
       }
       
       return null
     } catch {
       return null
     }
+  }
+
+  // 替换自定义值中的变量
+  const replaceVariables = (template: string): string => {
+    let result = template
+    
+    // 替换所有变量 {fieldName}
+    const variableRegex = /\{(\w+)\}/g
+    result = result.replace(variableRegex, (match, fieldName) => {
+      const fieldValue = getFieldValue(fieldName)
+      return fieldValue !== null ? fieldValue : match
+    })
+    
+    return result
   }
 
   const handleWebhookClick = async (e: React.MouseEvent) => {
@@ -226,12 +263,28 @@ export default function ArticleItem({
       // 优先使用自定义字段配置
       const customFields = parseCustomFields(webhookCustomFields)
       
-      if (customFields) {
+      if (customFields && customFields.length > 0) {
         // 使用自定义字段映射
-        for (const [paramName, fieldName] of Object.entries(customFields)) {
-          const fieldValue = getFieldValue(fieldName)
-          if (fieldValue !== null) {
-            payload[paramName] = fieldValue
+        for (const fieldConfig of customFields) {
+          const { name, type = 'field', value } = fieldConfig
+          
+          if (!name.trim()) continue
+          
+          let fieldValue: string | null = null
+          
+          if (type === 'field') {
+            // 预定义字段：直接获取字段值
+            fieldValue = getFieldValue(value)
+          } else if (type === 'custom') {
+            // 自定义值：替换变量后返回
+            fieldValue = replaceVariables(value)
+          } else if (type === 'fixed') {
+            // 固定值：直接使用
+            fieldValue = value
+          }
+          
+          if (fieldValue !== null && fieldValue !== '') {
+            payload[name] = fieldValue
           }
         }
         
