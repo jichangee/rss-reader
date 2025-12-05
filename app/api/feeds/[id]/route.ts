@@ -66,7 +66,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { title, url, enableTranslation, webhookUrl, webhookMethod, webhookField, webhookParamName, webhookRemote } = await request.json()
+    const { title, url, enableTranslation, webhookUrl, webhookMethod, webhookField, webhookParamName, webhookCustomFields, webhookRemote } = await request.json()
 
     const feed = await prisma.feed.findUnique({
       where: { id },
@@ -89,6 +89,7 @@ export async function PUT(
       webhookMethod?: string
       webhookField?: string
       webhookParamName?: string
+      webhookCustomFields?: string | null
       webhookRemote?: boolean
     } = {}
 
@@ -157,11 +158,31 @@ export async function PUT(
     }
     if (webhookField !== undefined) {
       // 验证字段名是否有效
-      const validFields = ['link', 'title', 'content', 'guid', 'author', 'feedUrl', 'feedTitle']
+      const validFields = ['link', 'title', 'content', 'contentSnippet', 'guid', 'author', 'pubDate', 'feedUrl', 'feedTitle', 'feedDescription', 'articleId']
       updateData.webhookField = validFields.includes(webhookField) ? webhookField : 'link'
     }
     if (webhookParamName !== undefined) {
       updateData.webhookParamName = webhookParamName?.trim() || 'url'
+    }
+    if (webhookCustomFields !== undefined) {
+      // 验证并保存自定义字段配置
+      if (webhookCustomFields === null || webhookCustomFields === '') {
+        updateData.webhookCustomFields = null
+      } else {
+        try {
+          // 验证 JSON 格式
+          const parsed = JSON.parse(webhookCustomFields)
+          // 验证是否为对象或数组
+          if (typeof parsed === 'object' && parsed !== null) {
+            updateData.webhookCustomFields = webhookCustomFields
+          } else {
+            updateData.webhookCustomFields = null
+          }
+        } catch {
+          // JSON 格式错误，设为 null
+          updateData.webhookCustomFields = null
+        }
+      }
     }
     if (webhookRemote !== undefined) {
       updateData.webhookRemote = webhookRemote === true

@@ -371,6 +371,7 @@ function DashboardContent() {
       webhookMethod?: string
       webhookField?: string
       webhookParamName?: string
+      webhookCustomFields?: string | null
       webhookRemote?: boolean
     }
   ) => {

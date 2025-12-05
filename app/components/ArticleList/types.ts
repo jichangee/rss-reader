@@ -16,6 +16,7 @@ export interface Article {
     webhookMethod?: string | null
     webhookField?: string | null
     webhookParamName?: string | null
+    webhookCustomFields?: string | null
     webhookRemote?: boolean | null
   }
   readBy: any[]

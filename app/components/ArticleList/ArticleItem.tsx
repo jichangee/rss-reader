@@ -142,6 +142,67 @@ export default function ArticleItem({
     await onToggleReadLater(article.id)
   }
 
+  // 获取字段值的辅助函数
+  const getFieldValue = (field: string): string | null => {
+    switch (field) {
+      case 'link':
+        return article.link
+      case 'title':
+        return article.title
+      case 'content':
+        return article.content || null
+      case 'contentSnippet':
+        return article.contentSnippet || null
+      case 'guid':
+        return article.id // 使用文章 ID 作为 GUID
+      case 'author':
+        return article.author || null
+      case 'pubDate':
+        return article.pubDate ? new Date(article.pubDate).toISOString() : null
+      case 'feedUrl':
+        return article.feed.url || null
+      case 'feedTitle':
+        return article.feed.title
+      case 'feedDescription':
+        return null // feed.description 不在类型中
+      case 'articleId':
+        return article.id
+      default:
+        return null
+    }
+  }
+
+  // 解析自定义字段配置
+  const parseCustomFields = (customFieldsJson: string | null): Record<string, string> | null => {
+    if (!customFieldsJson) return null
+    
+    try {
+      const parsed = JSON.parse(customFieldsJson)
+      
+      // 支持两种格式：
+      // 1. 对象格式: {"param1": "link", "param2": "title"}
+      // 2. 数组格式: [{"name": "url", "field": "link"}, {"name": "title", "field": "title"}]
+      
+      if (Array.isArray(parsed)) {
+        // 数组格式转换为对象
+        const result: Record<string, string> = {}
+        for (const item of parsed) {
+          if (item.name && item.field) {
+            result[item.name] = item.field
+          }
+        }
+        return Object.keys(result).length > 0 ? result : null
+      } else if (typeof parsed === 'object' && parsed !== null) {
+        // 对象格式直接使用
+        return parsed
+      }
+      
+      return null
+    } catch {
+      return null
+    }
+  }
+
   const handleWebhookClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (webhookLoading) return
@@ -150,7 +211,7 @@ export default function ArticleItem({
     setWebhookStatus('idle')
     
     try {
-      const { webhookUrl, webhookMethod, webhookField, webhookParamName, webhookRemote } = article.feed
+      const { webhookUrl, webhookMethod, webhookField, webhookParamName, webhookCustomFields, webhookRemote } = article.feed
       
       if (!webhookUrl) {
         setWebhookStatus('error')
@@ -158,43 +219,38 @@ export default function ArticleItem({
         return
       }
 
-      // 根据配置获取要发送的字段值
-      let fieldValue: string | null = null
-      switch (webhookField || 'link') {
-        case 'link':
-          fieldValue = article.link
-          break
-        case 'title':
-          fieldValue = article.title
-          break
-        case 'content':
-          fieldValue = article.content || null
-          break
-        case 'guid':
-          fieldValue = article.id // 使用文章 ID 作为 GUID
-          break
-        case 'author':
-          fieldValue = article.author || null
-          break
-        case 'feedUrl':
-          fieldValue = article.feed.url || null
-          break
-        case 'feedTitle':
-          fieldValue = article.feed.title
-          break
-        default:
-          fieldValue = article.link
-      }
-
-      if (!fieldValue) {
-        setWebhookStatus('error')
-        setTimeout(() => setWebhookStatus('idle'), 3000)
-        return
-      }
-
-      const paramName = webhookParamName || 'url'
       const method = webhookMethod || 'POST'
       const isRemote = webhookRemote !== false // 默认为 true（服务器端）
+      let payload: Record<string, string> = {}
+
+      // 优先使用自定义字段配置
+      const customFields = parseCustomFields(webhookCustomFields)
+      
+      if (customFields) {
+        // 使用自定义字段映射
+        for (const [paramName, fieldName] of Object.entries(customFields)) {
+          const fieldValue = getFieldValue(fieldName)
+          if (fieldValue !== null) {
+            payload[paramName] = fieldValue
+          }
+        }
+        
+        if (Object.keys(payload).length === 0) {
+          setWebhookStatus('error')
+          setTimeout(() => setWebhookStatus('idle'), 3000)
+          return
+        }
+      } else {
+        // 向后兼容：使用单个字段配置
+        const fieldValue = getFieldValue(webhookField || 'link')
+        if (!fieldValue) {
+          setWebhookStatus('error')
+          setTimeout(() => setWebhookStatus('idle'), 3000)
+          return
+        }
+        const paramName = webhookParamName || 'url'
+        payload[paramName] = fieldValue
+      }
 
       let result: { success: boolean; message?: string; error?: string }
 
@@ -214,7 +270,9 @@ export default function ArticleItem({
           if (method === 'GET') {
             // GET 请求：将参数添加到 URL
             const url = new URL(webhookUrl)
-            url.searchParams.set(paramName, fieldValue)
+            for (const [key, value] of Object.entries(payload)) {
+              url.searchParams.set(key, value)
+            }
             response = await fetch(url.toString(), {
               method: 'GET',
               headers: {
@@ -230,9 +288,7 @@ export default function ArticleItem({
                 'Content-Type': 'application/json',
                 'User-Agent': 'RSS-Reader-Webhook/1.0',
               },
-              body: JSON.stringify({
-                [paramName]: fieldValue,
-              }),
+              body: JSON.stringify(payload),
               signal: AbortSignal.timeout(10000), // 10秒超时
             })
           }
