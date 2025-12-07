@@ -295,10 +295,27 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 .telegram-article-content img {
-  max-width: 100%;
+  max-width: 300px;
   height: auto;
   border-radius: 0.5rem;
   margin: 1rem 0;
+}
+
+.telegram-article-content video {
+  max-width: 300px;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.telegram-article-content iframe {
+  max-width: 300px !important;
+  width: 300px !important;
+  aspect-ratio: 16 / 9 !important;
+  height: auto !important;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  box-sizing: border-box !important;
 }
 
 .telegram-article-content ul,
