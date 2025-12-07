@@ -86,7 +86,25 @@ export async function GET(request: Request) {
     const articles = await prisma.article.findMany({
       where,
       include: {
-        feed: true,
+        feed: {
+          include: {
+            webhooks: {
+              include: {
+                webhook: {
+                  select: {
+                    id: true,
+                    name: true,
+                    url: true,
+                    method: true,
+                    customFields: true,
+                    remote: true,
+                    enabled: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         readBy: {
           where: { userId: user.id },
         },
@@ -140,10 +158,14 @@ export async function GET(request: Request) {
       microsoftRegion: user.microsoftTranslateRegion || undefined,
     }
 
-    // 为每篇文章添加 isReadLater 标记
+    // 为每篇文章添加 isReadLater 标记，并格式化 webhooks
     const articlesWithReadLater = returnArticles.map((article) => ({
       ...article,
       isReadLater: readLaterArticleIds.has(article.id),
+      feed: {
+        ...article.feed,
+        webhooks: article.feed.webhooks?.map((fw: any) => fw.webhook) || [],
+      },
     }))
 
     // 收集需要翻译的文章

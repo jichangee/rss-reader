@@ -28,6 +28,23 @@ export async function GET(
 
     const feed = await prisma.feed.findUnique({
       where: { id },
+      include: {
+        webhooks: {
+          include: {
+            webhook: {
+              select: {
+                id: true,
+                name: true,
+                url: true,
+                method: true,
+                customFields: true,
+                remote: true,
+                enabled: true,
+              },
+            },
+          },
+        },
+      },
     })
 
     if (!feed) {
@@ -38,7 +55,13 @@ export async function GET(
       return NextResponse.json({ error: "无权限访问此订阅" }, { status: 403 })
     }
 
-    return NextResponse.json(feed)
+    // 格式化返回数据
+    const formattedFeed = {
+      ...feed,
+      webhooks: feed.webhooks.map(fw => fw.webhook),
+    }
+
+    return NextResponse.json(formattedFeed)
   } catch (error) {
     console.error("获取订阅失败:", error)
     return NextResponse.json({ error: "获取订阅失败" }, { status: 500 })
@@ -66,7 +89,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { title, url, enableTranslation, webhookUrl, webhookMethod, webhookField, webhookParamName, webhookCustomFields, webhookRemote } = await request.json()
+    const { title, url, enableTranslation } = await request.json()
 
     const feed = await prisma.feed.findUnique({
       where: { id },
@@ -85,12 +108,6 @@ export async function PUT(
       title?: string
       url?: string
       enableTranslation?: boolean
-      webhookUrl?: string | null
-      webhookMethod?: string
-      webhookField?: string
-      webhookParamName?: string
-      webhookCustomFields?: string | null
-      webhookRemote?: boolean
     } = {}
 
     // 如果提供了新的标题，则更新
@@ -148,57 +165,60 @@ export async function PUT(
       updateData.enableTranslation = enableTranslation === true
     }
 
-    // 如果提供了 Webhook 配置，则更新
-    if (webhookUrl !== undefined) {
-      // 允许清空 webhookUrl（设为 null 或空字符串）
-      updateData.webhookUrl = webhookUrl?.trim() || null
-    }
-    if (webhookMethod !== undefined) {
-      updateData.webhookMethod = webhookMethod === 'GET' ? 'GET' : 'POST'
-    }
-    if (webhookField !== undefined) {
-      // 验证字段名是否有效
-      const validFields = ['link', 'title', 'content', 'contentSnippet', 'guid', 'author', 'pubDate', 'feedUrl', 'feedTitle', 'feedDescription', 'articleId']
-      updateData.webhookField = validFields.includes(webhookField) ? webhookField : 'link'
-    }
-    if (webhookParamName !== undefined) {
-      updateData.webhookParamName = webhookParamName?.trim() || 'url'
-    }
-    if (webhookCustomFields !== undefined) {
-      // 验证并保存自定义字段配置
-      if (webhookCustomFields === null || webhookCustomFields === '') {
-        updateData.webhookCustomFields = null
-      } else {
-        try {
-          // 验证 JSON 格式
-          const parsed = JSON.parse(webhookCustomFields)
-          // 验证是否为对象或数组
-          if (typeof parsed === 'object' && parsed !== null) {
-            updateData.webhookCustomFields = webhookCustomFields
-          } else {
-            updateData.webhookCustomFields = null
-          }
-        } catch {
-          // JSON 格式错误，设为 null
-          updateData.webhookCustomFields = null
-        }
-      }
-    }
-    if (webhookRemote !== undefined) {
-      updateData.webhookRemote = webhookRemote === true
-    }
-
     // 如果没有任何更新，直接返回原数据
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(feed)
+      const feedWithWebhooks = await prisma.feed.findUnique({
+        where: { id },
+        include: {
+          webhooks: {
+            include: {
+              webhook: {
+                select: {
+                  id: true,
+                  name: true,
+                  url: true,
+                  method: true,
+                  customFields: true,
+                  remote: true,
+                  enabled: true,
+                },
+              },
+            },
+          },
+        },
+      })
+      return NextResponse.json({
+        ...feedWithWebhooks,
+        webhooks: feedWithWebhooks?.webhooks.map(fw => fw.webhook) || [],
+      })
     }
 
     const updatedFeed = await prisma.feed.update({
       where: { id },
       data: updateData,
+      include: {
+        webhooks: {
+          include: {
+            webhook: {
+              select: {
+                id: true,
+                name: true,
+                url: true,
+                method: true,
+                customFields: true,
+                remote: true,
+                enabled: true,
+              },
+            },
+          },
+        },
+      },
     })
 
-    return NextResponse.json(updatedFeed)
+    return NextResponse.json({
+      ...updatedFeed,
+      webhooks: updatedFeed.webhooks.map(fw => fw.webhook),
+    })
   } catch (error) {
     console.error("更新订阅失败:", error)
     return NextResponse.json({ error: "更新订阅失败" }, { status: 500 })

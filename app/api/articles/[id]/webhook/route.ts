@@ -123,7 +123,115 @@ function replaceVariables(template: string, article: any): string {
   return result
 }
 
-// 触发 Webhook 推送
+// 执行单个 Webhook 推送
+async function executeWebhook(webhook: any, article: any): Promise<{
+  webhookId: string
+  webhookName: string
+  success: boolean
+  message?: string
+  error?: string
+  status?: number
+}> {
+  try {
+    // 构建 payload
+    const customFields = parseCustomFields(webhook.customFields)
+    let payload: Record<string, string> = {}
+
+    if (customFields && customFields.length > 0) {
+      // 使用自定义字段映射
+      for (const fieldConfig of customFields) {
+        const { name, value } = fieldConfig
+        
+        if (!name.trim()) continue
+        
+        const fieldValue = replaceVariables(value, article)
+        
+        if (fieldValue !== null && fieldValue !== '') {
+          payload[name] = fieldValue
+        }
+      }
+      
+      if (Object.keys(payload).length === 0) {
+        return {
+          webhookId: webhook.id,
+          webhookName: webhook.name,
+          success: false,
+          error: "所有自定义字段值都为空"
+        }
+      }
+    } else {
+      // 默认配置
+      const fieldValue = getFieldValue('link', article)
+      if (!fieldValue) {
+        return {
+          webhookId: webhook.id,
+          webhookName: webhook.name,
+          success: false,
+          error: "字段值为空"
+        }
+      }
+      payload['url'] = fieldValue
+    }
+
+    const method = webhook.method || 'POST'
+    let response: Response
+
+    if (method === 'GET') {
+      // GET 请求：将参数添加到 URL
+      const url = new URL(webhook.url)
+      for (const [key, value] of Object.entries(payload)) {
+        url.searchParams.set(key, value)
+      }
+      response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'RSS-Reader-Webhook/1.0',
+        },
+        signal: AbortSignal.timeout(10000), // 10秒超时
+      })
+    } else {
+      // POST 请求：将参数放入请求体
+      response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'RSS-Reader-Webhook/1.0',
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000), // 10秒超时
+      })
+    }
+
+    if (response.ok) {
+      return {
+        webhookId: webhook.id,
+        webhookName: webhook.name,
+        success: true,
+        message: "推送成功",
+        status: response.status
+      }
+    } else {
+      return {
+        webhookId: webhook.id,
+        webhookName: webhook.name,
+        success: false,
+        error: `推送失败: HTTP ${response.status}`,
+        status: response.status
+      }
+    }
+  } catch (fetchError) {
+    console.error(`Webhook ${webhook.id} 请求失败:`, fetchError)
+    const errorMessage = fetchError instanceof Error ? fetchError.message : "未知错误"
+    return {
+      webhookId: webhook.id,
+      webhookName: webhook.name,
+      success: false,
+      error: `推送失败: ${errorMessage}`
+    }
+  }
+}
+
+// 批量触发 Webhook 推送
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -149,7 +257,15 @@ export async function POST(
     const article = await prisma.article.findUnique({
       where: { id },
       include: {
-        feed: true,
+        feed: {
+          include: {
+            webhooks: {
+              include: {
+                webhook: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -162,98 +278,37 @@ export async function POST(
       return NextResponse.json({ error: "无权限访问此文章" }, { status: 403 })
     }
 
-    // 检查 Feed 是否配置了 Webhook
-    const { webhookUrl, webhookMethod, webhookField, webhookParamName, webhookCustomFields } = article.feed
+    // 获取所有启用的 webhook
+    const enabledWebhooks = article.feed.webhooks
+      .map(fw => fw.webhook)
+      .filter(wh => wh.enabled)
 
-    if (!webhookUrl) {
-      return NextResponse.json({ error: "该订阅未配置 Webhook" }, { status: 400 })
-    }
-
-    const method = webhookMethod || 'POST'
-    let payload: Record<string, string> = {}
-
-    // 优先使用自定义字段配置
-    const customFields = parseCustomFields(webhookCustomFields)
-    
-    if (customFields && customFields.length > 0) {
-      // 使用自定义字段映射
-      for (const fieldConfig of customFields) {
-        const { name, value } = fieldConfig
-        
-        if (!name.trim()) continue
-        
-        // 统一处理：所有值都通过变量替换处理
-        // 如果值中包含变量（如 {link}），则替换；否则直接使用
-        const fieldValue = replaceVariables(value, article)
-        
-        if (fieldValue !== null && fieldValue !== '') {
-          payload[name] = fieldValue
-        }
-      }
-      
-      if (Object.keys(payload).length === 0) {
-        return NextResponse.json({ error: "所有自定义字段值都为空" }, { status: 400 })
-      }
-    } else {
-      // 向后兼容：使用单个字段配置
-      const fieldValue = getFieldValue(webhookField || 'link', article)
-      if (!fieldValue) {
-        return NextResponse.json({ error: "字段值为空" }, { status: 400 })
-      }
-      const paramName = webhookParamName || 'url'
-      payload[paramName] = fieldValue
-    }
-
-    let response: Response
-
-    try {
-      if (method === 'GET') {
-        // GET 请求：将参数添加到 URL
-        const url = new URL(webhookUrl)
-        for (const [key, value] of Object.entries(payload)) {
-          url.searchParams.set(key, value)
-        }
-        response = await fetch(url.toString(), {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'RSS-Reader-Webhook/1.0',
-          },
-          signal: AbortSignal.timeout(10000), // 10秒超时
-        })
-      } else {
-        // POST 请求：将参数放入请求体
-        response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'RSS-Reader-Webhook/1.0',
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(10000), // 10秒超时
-        })
-      }
-
-      if (response.ok) {
-        return NextResponse.json({ 
-          success: true, 
-          message: "推送成功",
-          status: response.status 
-        })
-      } else {
-        return NextResponse.json({ 
-          success: false, 
-          error: `推送失败: HTTP ${response.status}`,
-          status: response.status 
-        }, { status: 200 }) // 返回 200 但 success 为 false
-      }
-    } catch (fetchError) {
-      console.error("Webhook 请求失败:", fetchError)
-      const errorMessage = fetchError instanceof Error ? fetchError.message : "未知错误"
+    if (enabledWebhooks.length === 0) {
       return NextResponse.json({ 
-        success: false, 
-        error: `推送失败: ${errorMessage}` 
-      }, { status: 200 })
+        success: false,
+        error: "该订阅未配置启用的 Webhook",
+        results: []
+      }, { status: 400 })
     }
+
+    // 并行执行所有 webhook（一个失败不影响其他）
+    const results = await Promise.all(
+      enabledWebhooks.map(webhook => executeWebhook(webhook, article))
+    )
+
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.filter(r => !r.success).length
+
+    return NextResponse.json({
+      success: failCount === 0, // 全部成功才算成功
+      message: `成功: ${successCount}, 失败: ${failCount}`,
+      results: results,
+      summary: {
+        total: results.length,
+        success: successCount,
+        failed: failCount
+      }
+    })
   } catch (error) {
     console.error("Webhook 处理失败:", error)
     return NextResponse.json({ error: "Webhook 处理失败" }, { status: 500 })

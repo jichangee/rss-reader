@@ -123,8 +123,9 @@ export default function ArticleItem({
   // 计算是否应该隐藏媒体
   const shouldHideMedia = hideImagesAndVideos && !expandedMedia
   
-  // 检查是否配置了 Webhook
-  const hasWebhook = Boolean(article.feed.webhookUrl)
+  // 检查是否配置了 Webhook（检查是否有启用的webhook）
+  const hasWebhook = article.feed.webhooks && article.feed.webhooks.length > 0 && 
+    article.feed.webhooks.some((wh: any) => wh.enabled)
   
   // 使用 useMemo 预处理 HTML 内容，避免每次渲染都重新处理
   const processedContent = useMemo(() => {
@@ -142,217 +143,17 @@ export default function ArticleItem({
     await onToggleReadLater(article.id)
   }
 
-  // 获取字段值的辅助函数
-  const getFieldValue = (field: string): string | null => {
-    switch (field) {
-      case 'link':
-        return article.link
-      case 'title':
-        return article.title
-      case 'content':
-        return article.content || null
-      case 'contentSnippet':
-        return article.contentSnippet || null
-      case 'guid':
-        return article.id // 使用文章 ID 作为 GUID
-      case 'author':
-        return article.author || null
-      case 'pubDate':
-        return article.pubDate ? new Date(article.pubDate).toISOString() : null
-      case 'feedUrl':
-        return article.feed.url || null
-      case 'feedTitle':
-        return article.feed.title
-      case 'feedDescription':
-        return null // feed.description 不在类型中
-      case 'articleId':
-        return article.id
-      default:
-        return null
-    }
-  }
-
-  // 解析自定义字段配置
-  interface CustomFieldConfig {
-    name: string
-    value: string  // 值：可以是固定值或包含变量（如 {link}, {title}）
-    type?: 'field' | 'custom' | 'fixed'  // 向后兼容：旧格式的类型字段
-    field?: string  // 向后兼容：旧格式的字段名
-  }
-
-  const parseCustomFields = (customFieldsJson: string | null | undefined): CustomFieldConfig[] | null => {
-    if (!customFieldsJson) return null
-    
-    try {
-      const parsed = JSON.parse(customFieldsJson)
-      
-      if (Array.isArray(parsed)) {
-        // 新格式：数组，每个元素包含 name, value
-        const result: CustomFieldConfig[] = []
-        for (const item of parsed) {
-          if (item.name && item.value !== undefined) {
-            // 新格式（只有 name 和 value）
-            result.push({
-              name: item.name,
-              value: item.value
-            })
-          } else if (item.name && item.field) {
-            // 旧格式：向后兼容（有 field 字段）
-            result.push({
-              name: item.name,
-              value: `{${item.field}}`  // 转换为变量格式
-            })
-          } else if (item.name && item.type) {
-            // 旧格式：向后兼容（有 type 字段）
-            result.push({
-              name: item.name,
-              value: item.value || ''
-            })
-          }
-        }
-        return result.length > 0 ? result : null
-      } else if (typeof parsed === 'object' && parsed !== null) {
-        // 旧格式：对象格式转换为数组
-        const result: CustomFieldConfig[] = []
-        for (const [name, value] of Object.entries(parsed)) {
-          // 如果值是字段名（如 'link'），转换为变量格式
-          const fieldValue = typeof value === 'string' ? `{${value}}` : `{${value}}`
-          result.push({
-            name,
-            value: fieldValue
-          })
-        }
-        return result.length > 0 ? result : null
-      }
-      
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  // 替换自定义值中的变量
-  const replaceVariables = (template: string): string => {
-    let result = template
-    
-    // 替换所有变量 {fieldName}
-    const variableRegex = /\{(\w+)\}/g
-    result = result.replace(variableRegex, (match, fieldName) => {
-      const fieldValue = getFieldValue(fieldName)
-      return fieldValue !== null ? fieldValue : match
-    })
-    
-    return result
-  }
-
   const handleWebhookClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (webhookLoading) return
+    if (webhookLoading || !onWebhookPush) return
     
     setWebhookLoading(true)
     setWebhookStatus('idle')
     
     try {
-      const { webhookUrl, webhookMethod, webhookField, webhookParamName, webhookCustomFields, webhookRemote } = article.feed
+      // 调用批量webhook API
+      const result = await onWebhookPush(article.id)
       
-      if (!webhookUrl) {
-        setWebhookStatus('error')
-        setTimeout(() => setWebhookStatus('idle'), 3000)
-        return
-      }
-
-      const method = webhookMethod || 'POST'
-      const isRemote = webhookRemote !== false // 默认为 true（服务器端）
-      let payload: Record<string, string> = {}
-
-      // 优先使用自定义字段配置
-      const customFields = parseCustomFields(webhookCustomFields)
-      
-      if (customFields && customFields.length > 0) {
-        // 使用自定义字段映射
-        for (const fieldConfig of customFields) {
-          const { name, value } = fieldConfig
-          
-          if (!name.trim()) continue
-          
-          // 统一处理：所有值都通过变量替换处理
-          // 如果值中包含变量（如 {link}），则替换；否则直接使用
-          const fieldValue = replaceVariables(value)
-          
-          if (fieldValue !== null && fieldValue !== '') {
-            payload[name] = fieldValue
-          }
-        }
-        
-        if (Object.keys(payload).length === 0) {
-          setWebhookStatus('error')
-          setTimeout(() => setWebhookStatus('idle'), 3000)
-          return
-        }
-      } else {
-        // 向后兼容：使用单个字段配置
-        const fieldValue = getFieldValue(webhookField || 'link')
-        if (!fieldValue) {
-          setWebhookStatus('error')
-          setTimeout(() => setWebhookStatus('idle'), 3000)
-          return
-        }
-        const paramName = webhookParamName || 'url'
-        payload[paramName] = fieldValue
-      }
-
-      let result: { success: boolean; message?: string; error?: string }
-
-      if (isRemote) {
-        // 服务器端发起：调用 API
-        if (!onWebhookPush) {
-          setWebhookStatus('error')
-          setTimeout(() => setWebhookStatus('idle'), 3000)
-          return
-        }
-        result = await onWebhookPush(article.id)
-      } else {
-        // 客户端直接发起请求
-        try {
-          let response: Response
-          
-          if (method === 'GET') {
-            // GET 请求：将参数添加到 URL
-            const url = new URL(webhookUrl)
-            for (const [key, value] of Object.entries(payload)) {
-              url.searchParams.set(key, value)
-            }
-            response = await fetch(url.toString(), {
-              method: 'GET',
-              headers: {
-                'User-Agent': 'RSS-Reader-Webhook/1.0',
-              },
-              signal: AbortSignal.timeout(10000), // 10秒超时
-            })
-          } else {
-            // POST 请求：将参数放入请求体
-            response = await fetch(webhookUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'RSS-Reader-Webhook/1.0',
-              },
-              body: JSON.stringify(payload),
-              signal: AbortSignal.timeout(10000), // 10秒超时
-            })
-          }
-
-          if (response.ok) {
-            result = { success: true, message: '推送成功' }
-          } else {
-            result = { success: false, error: `推送失败: HTTP ${response.status}` }
-          }
-        } catch (fetchError) {
-          const errorMessage = fetchError instanceof Error ? fetchError.message : '未知错误'
-          result = { success: false, error: `推送失败: ${errorMessage}` }
-        }
-      }
-
       setWebhookStatus(result.success ? 'success' : 'error')
       // 3秒后重置状态
       setTimeout(() => setWebhookStatus('idle'), 3000)
@@ -441,6 +242,7 @@ export default function ArticleItem({
               )}
             </button>
           )}
+          
         </>
       )}
 

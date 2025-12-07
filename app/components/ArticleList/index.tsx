@@ -200,7 +200,7 @@ export default function ArticleList({
     }
   }, [markAsRead, onMarkAsRead])
 
-  // 处理 Webhook 推送
+  // 处理 Webhook 推送（批量触发）
   const handleWebhookPush = useCallback(async (articleId: string) => {
     try {
       const res = await fetch(`/api/articles/${articleId}/webhook`, {
@@ -210,11 +210,17 @@ export default function ArticleList({
       const data = await res.json()
       
       if (data.success) {
-        success("推送成功")
-        return { success: true, message: data.message }
+        const message = data.summary 
+          ? `推送成功: ${data.summary.success}/${data.summary.total}`
+          : data.message || "推送成功"
+        success(message)
+        return { success: true, message, results: data.results }
       } else {
-        error(data.error || "推送失败")
-        return { success: false, error: data.error }
+        const errorMsg = data.summary
+          ? `推送完成: 成功 ${data.summary.success}，失败 ${data.summary.failed}/${data.summary.total}`
+          : data.error || "推送失败"
+        error(errorMsg)
+        return { success: false, error: errorMsg, results: data.results }
       }
     } catch (err) {
       console.error("Webhook 推送失败:", err)

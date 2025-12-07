@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, ArrowLeft, Save, Download, Upload } from "lucide-react"
+import WebhookManager from "@/app/components/WebhookManager"
 
 const LANGUAGES = [
   { code: "zh", name: "中文" },
@@ -311,6 +312,10 @@ export default function SettingsPage() {
                 </select>
               </div>
             </div>
+          </div>
+
+          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+            <WebhookManager />
           </div>
 
           <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">

@@ -12,12 +12,13 @@ export interface Article {
     url?: string
     imageUrl?: string
     enableTranslation?: boolean
-    webhookUrl?: string | null
-    webhookMethod?: string | null
-    webhookField?: string | null
-    webhookParamName?: string | null
-    webhookCustomFields?: string | null
-    webhookRemote?: boolean | null
+    webhooks?: Array<{
+      id: string
+      name: string
+      url: string
+      method: string
+      enabled: boolean
+    }>
   }
   readBy: any[]
   isReadLater?: boolean

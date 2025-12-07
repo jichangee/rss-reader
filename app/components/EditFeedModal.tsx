@@ -1,19 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader2 } from "lucide-react"
+import { X, Loader2, XCircle } from "lucide-react"
+
+interface Webhook {
+  id: string
+  name: string
+  url: string
+  method: string
+  enabled: boolean
+}
 
 interface Feed {
   id: string
   title: string
   url: string
   enableTranslation?: boolean
-  webhookUrl?: string | null
-  webhookMethod?: string | null
-  webhookField?: string | null
-  webhookParamName?: string | null
-  webhookCustomFields?: string | null
-  webhookRemote?: boolean | null
+  webhooks?: Webhook[]
 }
 
 interface EditFeedModalProps {
@@ -23,112 +26,49 @@ interface EditFeedModalProps {
     title?: string
     url?: string
     enableTranslation?: boolean
-    webhookUrl?: string | null
-    webhookMethod?: string
-    webhookField?: string
-    webhookParamName?: string
-    webhookCustomFields?: string | null
-    webhookRemote?: boolean
   }) => Promise<{ success: boolean; error?: string }>
-}
-
-// Webhook 可发送的字段选项
-const WEBHOOK_FIELD_OPTIONS = [
-  { value: 'link', label: '文章链接' },
-  { value: 'title', label: '文章标题' },
-  { value: 'content', label: '文章内容' },
-  { value: 'contentSnippet', label: '文章摘要' },
-  { value: 'guid', label: '文章 GUID' },
-  { value: 'author', label: '作者' },
-  { value: 'pubDate', label: '发布日期' },
-  { value: 'articleId', label: '文章 ID' },
-  { value: 'feedUrl', label: '订阅源 URL' },
-  { value: 'feedTitle', label: '订阅源标题' },
-  { value: 'feedDescription', label: '订阅源描述' },
-]
-
-interface CustomFieldMapping {
-  name: string  // 参数名
-  value: string  // 值：可以是固定值或包含变量（如 {link}, {title}）
 }
 
 export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModalProps) {
   const [title, setTitle] = useState(feed?.title ?? "")
   const [url, setUrl] = useState(feed?.url ?? "")
   const [enableTranslation, setEnableTranslation] = useState(Boolean(feed?.enableTranslation ?? false))
-  const [webhookUrl, setWebhookUrl] = useState(feed?.webhookUrl ?? "")
-  const [webhookMethod, setWebhookMethod] = useState(feed?.webhookMethod ?? "POST")
-  const [webhookField, setWebhookField] = useState(feed?.webhookField ?? "link")
-  const [webhookParamName, setWebhookParamName] = useState(feed?.webhookParamName ?? "url")
-  const [webhookRemote, setWebhookRemote] = useState(feed?.webhookRemote ?? true)
-  const [useCustomFields, setUseCustomFields] = useState(true)  // 默认使用自定义字段
-  const [customFields, setCustomFields] = useState<CustomFieldMapping[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  
+  // Webhook 相关状态
+  const [allWebhooks, setAllWebhooks] = useState<Webhook[]>([])
+  const [selectedWebhookIds, setSelectedWebhookIds] = useState<string[]>([])
+  const [loadingWebhooks, setLoadingWebhooks] = useState(false)
 
   useEffect(() => {
     setTitle(feed?.title ?? "")
     setUrl(feed?.url ?? "")
     setEnableTranslation(Boolean(feed?.enableTranslation ?? false))
-    setWebhookUrl(feed?.webhookUrl ?? "")
-    setWebhookMethod(feed?.webhookMethod ?? "POST")
-    setWebhookField(feed?.webhookField ?? "link")
-    setWebhookParamName(feed?.webhookParamName ?? "url")
-    setWebhookRemote(feed?.webhookRemote ?? true)
     
-    // 解析自定义字段配置
-    if (feed?.webhookCustomFields) {
-      try {
-        const parsed = JSON.parse(feed.webhookCustomFields)
-        if (Array.isArray(parsed)) {
-          // 检查是否为旧格式（有 type 字段）
-          const fields: CustomFieldMapping[] = parsed.map((item: any) => {
-            if (item.type) {
-              // 旧格式（有 type），提取 value
-              return {
-                name: item.name || '',
-                value: item.value || ''
-              }
-            } else if (item.field) {
-              // 旧格式（只有 field），转换为变量格式
-              return {
-                name: item.name || '',
-                value: `{${item.field}}`
-              }
-            } else {
-              // 新格式，直接使用
-              return {
-                name: item.name || '',
-                value: item.value || ''
-              }
-            }
-          })
-          setCustomFields(fields)
-          setUseCustomFields(true)
-        } else if (typeof parsed === 'object' && parsed !== null) {
-          // 对象格式转换为数组格式
-          const fields: CustomFieldMapping[] = Object.entries(parsed).map(([name, value]) => ({
-            name,
-            value: typeof value === 'string' ? value : `{${value}}`
-          }))
-          setCustomFields(fields)
-          setUseCustomFields(true)
-        } else {
-          // 如果没有配置，默认添加一个字段
-          setCustomFields([{ name: 'url', value: '{link}' }])
-          setUseCustomFields(true)
-        }
-      } catch {
-        // 解析失败，使用默认值
-        setCustomFields([{ name: 'url', value: '{link}' }])
-        setUseCustomFields(true)
-      }
-    } else {
-      // 如果没有配置，默认添加一个字段
-      setCustomFields([{ name: 'url', value: '{link}' }])
-      setUseCustomFields(true)
+    // 加载当前Feed关联的webhooks
+    if (feed?.webhooks) {
+      setSelectedWebhookIds(feed.webhooks.map(wh => wh.id))
     }
+    
+    // 加载所有可用的webhooks
+    loadAllWebhooks()
   }, [feed])
+
+  const loadAllWebhooks = async () => {
+    try {
+      setLoadingWebhooks(true)
+      const res = await fetch("/api/webhooks")
+      if (res.ok) {
+        const data = await res.json()
+        setAllWebhooks(data)
+      }
+    } catch (error) {
+      console.error("加载 Webhook 列表失败:", error)
+    } finally {
+      setLoadingWebhooks(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -147,28 +87,16 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
     setLoading(true)
     try {
-      // 准备自定义字段配置
-      let webhookCustomFields: string | null = null
-      if (useCustomFields && customFields.length > 0) {
-        // 验证自定义字段
-        const validFields = customFields.filter(f => f.name.trim() && f.value.trim())
-        if (validFields.length > 0) {
-          webhookCustomFields = JSON.stringify(validFields)
-        }
-      }
-      
+      // 更新Feed基本信息
       const result = await onUpdate(feed.id, {
         title: title.trim(),
         url: url.trim(),
         enableTranslation,
-        webhookUrl: webhookUrl.trim() || null,
-        webhookMethod,
-        webhookField: useCustomFields ? undefined : webhookField,
-        webhookParamName: useCustomFields ? undefined : (webhookParamName.trim() || 'url'),
-        webhookCustomFields,
-        webhookRemote,
       })
+      
       if (result.success) {
+        // 更新Webhook关联
+        await updateWebhookAssociations()
         onClose()
       } else {
         setError(result.error || "更新失败")
@@ -179,6 +107,45 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
       setLoading(false)
     }
   }
+
+  const updateWebhookAssociations = async () => {
+    // 获取当前Feed关联的webhooks
+    const currentRes = await fetch(`/api/feeds/${feed.id}/webhooks`)
+    if (!currentRes.ok) return
+    
+    const currentWebhooks = await currentRes.json()
+    const currentWebhookIds = currentWebhooks.map((wh: Webhook) => wh.id)
+    
+    // 计算需要添加和删除的webhooks
+    const toAdd = selectedWebhookIds.filter(id => !currentWebhookIds.includes(id))
+    const toRemove = currentWebhookIds.filter((id: string) => !selectedWebhookIds.includes(id))
+    
+    // 添加新的关联
+    for (const webhookId of toAdd) {
+      await fetch(`/api/feeds/${feed.id}/webhooks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookId }),
+      })
+    }
+    
+    // 删除旧的关联
+    for (const webhookId of toRemove) {
+      await fetch(`/api/feeds/${feed.id}/webhooks?webhookId=${webhookId}`, {
+        method: "DELETE",
+      })
+    }
+  }
+
+  const handleWebhookToggle = (webhookId: string) => {
+    if (selectedWebhookIds.includes(webhookId)) {
+      setSelectedWebhookIds(selectedWebhookIds.filter(id => id !== webhookId))
+    } else {
+      setSelectedWebhookIds([...selectedWebhookIds, webhookId])
+    }
+  }
+
+  const selectedWebhooks = allWebhooks.filter(wh => selectedWebhookIds.includes(wh.id))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -199,232 +166,137 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto p-6">
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              订阅名称
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="输入订阅名称"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              disabled={loading}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              RSS 链接
-            </label>
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-              disabled={loading}
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              修改RSS链接将验证新链接的有效性
-            </p>
-          </div>
-
-          <div className="mb-4">
-            <label className="flex items-center space-x-2">
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                订阅名称
+              </label>
               <input
-                type="checkbox"
-                checked={enableTranslation}
-                onChange={(e) => setEnableTranslation(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="输入订阅名称"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={loading}
               />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                启用翻译
-              </span>
-            </label>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              启用后，此订阅的文章标题和内容将自动翻译为你设置的目标语言
-            </p>
-          </div>
+            </div>
 
-          {/* Webhook 配置 */}
-          <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-              Webhook 推送配置
-            </h3>
-            
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Webhook URL
-                </label>
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                RSS 链接
+              </label>
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://example.com/feed.xml"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                disabled={loading}
+              />
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                修改RSS链接将验证新链接的有效性
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="flex items-center space-x-2">
                 <input
-                  type="url"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://example.com/webhook"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  type="checkbox"
+                  checked={enableTranslation}
+                  onChange={(e) => setEnableTranslation(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   disabled={loading}
                 />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  配置后，文章卡片会显示推送按钮。留空则禁用推送功能
-                </p>
-              </div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  启用翻译
+                </span>
+              </label>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                启用后，此订阅的文章标题和内容将自动翻译为你设置的目标语言
+              </p>
+            </div>
 
-              {webhookUrl && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                        请求方式
-                      </label>
-                      <select
-                        value={webhookMethod}
-                        onChange={(e) => setWebhookMethod(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                        disabled={loading}
-                      >
-                        <option value="POST">POST</option>
-                        <option value="GET">GET</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {useCustomFields ? (
-                    <div className="space-y-2">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                          自定义字段映射
-                        </label>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                          可使用变量: {WEBHOOK_FIELD_OPTIONS.map(opt => `{${opt.value}}`).join(', ')}
-                        </p>
-                      </div>
-                      {customFields.map((field, index) => (
-                        <div key={index} className="space-y-2 rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-                          <div className="flex gap-2 items-end">
-                            <div className="flex-1">
-                              <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                                参数名
-                              </label>
-                              <input
-                                type="text"
-                                value={field.name}
-                                onChange={(e) => {
-                                  const newFields = [...customFields]
-                                  newFields[index].name = e.target.value
-                                  setCustomFields(newFields)
-                                }}
-                                placeholder="参数名"
-                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                disabled={loading}
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCustomFields(customFields.filter((_, i) => i !== index))
-                              }}
-                              className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20 h-[42px]"
-                              disabled={loading || customFields.length === 1}
-                            >
-                              删除
-                            </button>
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                              字段值
-                            </label>
-                            <input
-                              type="text"
-                              value={field.value}
-                              onChange={(e) => {
-                                const newFields = [...customFields]
-                                newFields[index].value = e.target.value
-                                setCustomFields(newFields)
-                              }}
-                              placeholder="例如: {link} 或 文章链接: {link}, 标题: {title}"
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                              disabled={loading}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomFields([...customFields, { name: '', value: '{link}' }])
-                        }}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                        disabled={loading}
-                      >
-                        + 添加字段
-                      </button>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {webhookMethod === 'GET' ? '参数名将作为 URL 查询参数名' : '参数名将作为 JSON 请求体的字段名'}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                            发送字段
-                          </label>
-                          <select
-                            value={webhookField}
-                            onChange={(e) => setWebhookField(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            disabled={loading}
-                          >
-                            {WEBHOOK_FIELD_OPTIONS.map(opt => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                            参数名
-                          </label>
-                          <input
-                            type="text"
-                            value={webhookParamName}
-                            onChange={(e) => setWebhookParamName(e.target.value)}
-                            placeholder="url"
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            disabled={loading}
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {webhookMethod === 'GET' ? 'URL 查询参数名' : 'JSON 请求体的字段名'}
-                      </p>
-                    </>
-                  )}
-
-                  <div>
-                    <label className="flex items-center space-x-2">
+            {/* Webhook 选择 */}
+            <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                Webhook 推送配置
+              </h3>
+              
+              {loadingWebhooks ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                </div>
+              ) : allWebhooks.length === 0 ? (
+                <div className="rounded-lg bg-gray-50 p-4 text-center dark:bg-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    还没有创建任何 Webhook
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    请在设置页面创建 Webhook
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {allWebhooks.map((webhook) => (
+                    <label
+                      key={webhook.id}
+                      className="flex items-center space-x-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 cursor-pointer"
+                    >
                       <input
                         type="checkbox"
-                        checked={webhookRemote}
-                        onChange={(e) => setWebhookRemote(e.target.checked)}
+                        checked={selectedWebhookIds.includes(webhook.id)}
+                        onChange={() => handleWebhookToggle(webhook.id)}
                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        disabled={loading}
+                        disabled={loading || !webhook.enabled}
                       />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        远程发起
-                      </span>
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {webhook.name}
+                          </span>
+                          {!webhook.enabled && (
+                            <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-600 dark:text-gray-400">
+                              已禁用
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                          {webhook.url} · {webhook.method}
+                        </p>
+                      </div>
                     </label>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      勾选后由服务器端发起请求（避免 CORS 问题），未勾选时由浏览器直接发起请求
-                    </p>
-                  </div>
-                </>
+                  ))}
+                  
+                  {selectedWebhooks.length > 0 && (
+                    <div className="mt-3 rounded-lg bg-indigo-50 p-3 dark:bg-indigo-900/20">
+                      <p className="text-xs font-medium text-indigo-900 dark:text-indigo-300">
+                        已选择 {selectedWebhooks.length} 个 Webhook
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {selectedWebhooks.map((webhook) => (
+                          <span
+                            key={webhook.id}
+                            className="inline-flex items-center space-x-1 rounded bg-indigo-100 px-2 py-1 text-xs text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200"
+                          >
+                            <span>{webhook.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleWebhookToggle(webhook.id)}
+                              className="hover:text-indigo-600"
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
+              
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                选择要关联到此订阅的 Webhook。文章推送时会触发所有关联的 Webhook。
+              </p>
             </div>
-          </div>
 
             {error && (
               <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
@@ -435,28 +307,28 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
           <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
             <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-              disabled={loading}
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  保存中...
-                </>
-              ) : (
-                "保存"
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={loading}
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    保存中...
+                  </>
+                ) : (
+                  "保存"
+                )}
+              </button>
             </div>
           </div>
         </form>
@@ -464,4 +336,3 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
     </div>
   )
 }
-

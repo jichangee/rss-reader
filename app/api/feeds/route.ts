@@ -22,6 +22,21 @@ export async function GET() {
               orderBy: { pubDate: "desc" },
               take: 10,
             },
+            webhooks: {
+              include: {
+                webhook: {
+                  select: {
+                    id: true,
+                    name: true,
+                    url: true,
+                    method: true,
+                    customFields: true,
+                    remote: true,
+                    enabled: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -58,6 +73,7 @@ export async function GET() {
         return {
           ...feed,
           unreadCount,
+          webhooks: feed.webhooks.map(fw => fw.webhook),
         }
       })
     )
