@@ -18,6 +18,8 @@ export interface Article {
       url: string
       method: string
       enabled: boolean
+      remote: boolean
+      customFields: string | null
     }>
   }
   readBy: any[]

@@ -200,34 +200,244 @@ export default function ArticleList({
     }
   }, [markAsRead, onMarkAsRead])
 
-  // 处理 Webhook 推送（批量触发）
+  // 获取字段值的辅助函数（客户端）
+  const getFieldValue = (field: string, article: Article): string | null => {
+    switch (field) {
+      case 'link':
+        return article.link
+      case 'title':
+        return article.title
+      case 'content':
+        return article.content || null
+      case 'contentSnippet':
+        return article.contentSnippet || null
+      case 'guid':
+        return article.id
+      case 'author':
+        return article.author || null
+      case 'pubDate':
+        return article.pubDate ? new Date(article.pubDate).toISOString() : null
+      case 'feedUrl':
+        return article.feed.url || null
+      case 'feedTitle':
+        return article.feed.title
+      case 'feedDescription':
+        return null
+      case 'articleId':
+        return article.id
+      default:
+        return null
+    }
+  }
+
+  // 替换自定义值中的变量（客户端）
+  const replaceVariables = (template: string, article: Article): string => {
+    let result = template
+    const variableRegex = /\{(\w+)\}/g
+    result = result.replace(variableRegex, (match, fieldName) => {
+      const fieldValue = getFieldValue(fieldName, article)
+      return fieldValue !== null ? fieldValue : match
+    })
+    return result
+  }
+
+  // 解析自定义字段配置（客户端）
+  const parseCustomFields = (customFieldsJson: string | null): Array<{name: string, value: string}> | null => {
+    if (!customFieldsJson) return null
+    try {
+      const parsed = JSON.parse(customFieldsJson)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item: any) => item.name && item.value !== undefined)
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  // 客户端执行单个 Webhook
+  const executeWebhookClient = async (webhook: any, article: Article): Promise<{
+    webhookId: string
+    webhookName: string
+    success: boolean
+    message?: string
+    error?: string
+    status?: number
+  }> => {
+    try {
+      const customFields = parseCustomFields(webhook.customFields)
+      let payload: Record<string, string> = {}
+
+      if (customFields && customFields.length > 0) {
+        for (const fieldConfig of customFields) {
+          const { name, value } = fieldConfig
+          if (!name.trim()) continue
+          const fieldValue = replaceVariables(value, article)
+          if (fieldValue !== null && fieldValue !== '') {
+            payload[name] = fieldValue
+          }
+        }
+        if (Object.keys(payload).length === 0) {
+          return {
+            webhookId: webhook.id,
+            webhookName: webhook.name,
+            success: false,
+            error: "所有自定义字段值都为空"
+          }
+        }
+      } else {
+        const fieldValue = getFieldValue('link', article)
+        if (!fieldValue) {
+          return {
+            webhookId: webhook.id,
+            webhookName: webhook.name,
+            success: false,
+            error: "字段值为空"
+          }
+        }
+        payload['url'] = fieldValue
+      }
+
+      const method = webhook.method || 'POST'
+      let response: Response
+
+      if (method === 'GET') {
+        const url = new URL(webhook.url)
+        for (const [key, value] of Object.entries(payload)) {
+          url.searchParams.set(key, value)
+        }
+        response = await fetch(url.toString(), {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'RSS-Reader-Webhook/1.0',
+          },
+          signal: AbortSignal.timeout(10000),
+        })
+      } else {
+        response = await fetch(webhook.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'RSS-Reader-Webhook/1.0',
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(10000),
+        })
+      }
+
+      if (response.ok) {
+        return {
+          webhookId: webhook.id,
+          webhookName: webhook.name,
+          success: true,
+          message: "推送成功",
+          status: response.status
+        }
+      } else {
+        return {
+          webhookId: webhook.id,
+          webhookName: webhook.name,
+          success: false,
+          error: `推送失败: HTTP ${response.status}`,
+          status: response.status
+        }
+      }
+    } catch (fetchError) {
+      const errorMessage = fetchError instanceof Error ? fetchError.message : "未知错误"
+      return {
+        webhookId: webhook.id,
+        webhookName: webhook.name,
+        success: false,
+        error: `推送失败: ${errorMessage}`
+      }
+    }
+  }
+
+  // 处理 Webhook 推送（批量触发，根据remote属性决定执行位置）
   const handleWebhookPush = useCallback(async (articleId: string) => {
     try {
-      const res = await fetch(`/api/articles/${articleId}/webhook`, {
-        method: "POST",
-      })
-      
-      const data = await res.json()
-      
-      if (data.success) {
-        const message = data.summary 
-          ? `推送成功: ${data.summary.success}/${data.summary.total}`
-          : data.message || "推送成功"
+      // 找到对应的文章
+      const article = articles.find(a => a.id === articleId)
+      if (!article || !article.feed.webhooks) {
+        error("文章不存在或未配置 Webhook")
+        return { success: false, error: "文章不存在或未配置 Webhook" }
+      }
+
+      // 获取所有启用的 webhook
+      const enabledWebhooks = article.feed.webhooks.filter((wh: any) => wh.enabled)
+      if (enabledWebhooks.length === 0) {
+        error("该订阅未配置启用的 Webhook")
+        return { success: false, error: "该订阅未配置启用的 Webhook" }
+      }
+
+      // 分离远程和本地 webhook
+      const remoteWebhooks = enabledWebhooks.filter((wh: any) => wh.remote !== false)
+      const localWebhooks = enabledWebhooks.filter((wh: any) => wh.remote === false)
+
+      const results: Array<{
+        webhookId: string
+        webhookName: string
+        success: boolean
+        message?: string
+        error?: string
+        status?: number
+      }> = []
+
+      // 执行远程 webhook（通过服务端API）
+      if (remoteWebhooks.length > 0) {
+        try {
+          const res = await fetch(`/api/articles/${articleId}/webhook`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ webhookIds: remoteWebhooks.map((wh: any) => wh.id) }),
+          })
+          
+          const data = await res.json()
+          if (data.results) {
+            results.push(...data.results)
+          }
+        } catch (err) {
+          console.error("远程 Webhook 推送失败:", err)
+          // 为每个远程webhook添加失败结果
+          remoteWebhooks.forEach((wh: any) => {
+            results.push({
+              webhookId: wh.id,
+              webhookName: wh.name,
+              success: false,
+              error: "远程推送失败"
+            })
+          })
+        }
+      }
+
+      // 执行本地 webhook（客户端直接请求）
+      if (localWebhooks.length > 0) {
+        const localResults = await Promise.all(
+          localWebhooks.map((webhook: any) => executeWebhookClient(webhook, article))
+        )
+        results.push(...localResults)
+      }
+
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.filter(r => !r.success).length
+
+      if (failCount === 0) {
+        const message = `推送成功: ${successCount}/${results.length}`
         success(message)
-        return { success: true, message, results: data.results }
+        return { success: true, message, results }
       } else {
-        const errorMsg = data.summary
-          ? `推送完成: 成功 ${data.summary.success}，失败 ${data.summary.failed}/${data.summary.total}`
-          : data.error || "推送失败"
+        const errorMsg = `推送完成: 成功 ${successCount}，失败 ${failCount}/${results.length}`
         error(errorMsg)
-        return { success: false, error: errorMsg, results: data.results }
+        return { success: false, error: errorMsg, results }
       }
     } catch (err) {
       console.error("Webhook 推送失败:", err)
       error("推送失败，请重试")
       return { success: false, error: "推送失败" }
     }
-  }, [success, error])
+  }, [articles, success, error])
 
   // 只有在没有数据时才显示全屏 loading，有数据时保留列表
   if (loading && articles.length === 0) {

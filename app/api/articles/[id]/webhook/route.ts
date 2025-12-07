@@ -278,22 +278,39 @@ export async function POST(
       return NextResponse.json({ error: "无权限访问此文章" }, { status: 403 })
     }
 
+    // 获取请求体中的webhookIds（如果指定了）
+    let requestedWebhookIds: string[] | undefined
+    try {
+      const body = await request.json()
+      requestedWebhookIds = body.webhookIds
+    } catch {
+      // 没有请求体或解析失败，忽略
+    }
+
     // 获取所有启用的 webhook
-    const enabledWebhooks = article.feed.webhooks
+    let enabledWebhooks = article.feed.webhooks
       .map(fw => fw.webhook)
       .filter(wh => wh.enabled)
 
-    if (enabledWebhooks.length === 0) {
+    // 如果指定了webhookIds，只执行指定的webhook
+    if (requestedWebhookIds && requestedWebhookIds.length > 0) {
+      enabledWebhooks = enabledWebhooks.filter(wh => requestedWebhookIds.includes(wh.id))
+    }
+
+    // 只执行 remote 为 true 的 webhook（服务端执行）
+    const remoteWebhooks = enabledWebhooks.filter(wh => wh.remote !== false)
+
+    if (remoteWebhooks.length === 0) {
       return NextResponse.json({ 
         success: false,
-        error: "该订阅未配置启用的 Webhook",
+        error: "没有需要服务端执行的 Webhook",
         results: []
       }, { status: 400 })
     }
 
-    // 并行执行所有 webhook（一个失败不影响其他）
+    // 并行执行所有远程 webhook（一个失败不影响其他）
     const results = await Promise.all(
-      enabledWebhooks.map(webhook => executeWebhook(webhook, article))
+      remoteWebhooks.map(webhook => executeWebhook(webhook, article))
     )
 
     const successCount = results.filter(r => r.success).length
