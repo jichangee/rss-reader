@@ -708,7 +708,7 @@ function DashboardContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-screen bg-background">
       <Sidebar
         feeds={feeds}
         selectedFeed={selectedFeed}

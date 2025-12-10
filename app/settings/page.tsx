@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Loader2, ArrowLeft, Save, Download, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
 import WebhookManager from "@/app/components/WebhookManager"
 import {
@@ -27,6 +28,8 @@ const LANGUAGES = [
 export default function SettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [targetLanguage, setTargetLanguage] = useState("zh")
   const [translationProvider, setTranslationProvider] = useState<"google" | "niutrans" | "microsoft">("google")
   const [googleTranslateApiKey, setGoogleTranslateApiKey] = useState("")
@@ -52,6 +55,10 @@ export default function SettingsPage() {
       router.push("/login")
     }
   }, [status, router])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -232,6 +239,17 @@ export default function SettingsPage() {
               阅读设置
             </h2>
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-medium text-gray-900 dark:text-white">夜间模式</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">切换到深色主题以保护眼睛</p>
+                </div>
+                <Switch 
+                  checked={mounted && theme === "dark"} 
+                  onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} 
+                  disabled={!mounted}
+                />
+              </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
