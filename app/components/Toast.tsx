@@ -58,14 +58,14 @@ function ToastItem({ toast, onClose }: ToastProps) {
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-lg border p-4 shadow-lg transition-all duration-300 ${colorClass}`}
+      className={`flex items-start gap-2 sm:gap-3 rounded-lg border p-3 sm:p-4 shadow-lg transition-all duration-300 ${colorClass}`}
       style={{
         animation: 'slideIn 0.3s ease-out',
       }}
       role="alert"
     >
       <Icon className="h-5 w-5 flex-shrink-0 mt-0.5" />
-      <p className="flex-1 text-sm font-medium">{toast.message}</p>
+      <p className="flex-1 text-sm font-medium break-words min-w-0">{toast.message}</p>
       <button
         onClick={handleClose}
         className="flex-shrink-0 rounded p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
@@ -86,7 +86,7 @@ export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md w-full sm:w-auto pointer-events-none">
+    <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 flex flex-col gap-2 max-w-md sm:w-auto w-full pointer-events-none">
       {toasts.map((toast) => (
         <div key={toast.id} className="pointer-events-auto">
           <ToastItem toast={toast} onClose={onClose} />
