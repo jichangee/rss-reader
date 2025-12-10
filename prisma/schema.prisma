@@ -16,6 +16,7 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
+  role          String    @default("user") // 用户角色: user, admin
   targetLanguage String?  @default("zh") // 翻译目标语言，默认中文
   translationProvider String? // 翻译服务提供商: google, niutrans, microsoft
   googleTranslateApiKey String? // Google 翻译 API Key
@@ -27,14 +28,20 @@ model User {
   autoRefreshOnLoad Boolean @default(true) // 首次进入页面时自动刷新，默认开启
   hideImagesAndVideos Boolean @default(false) // 是否隐藏图片和视频
   lastRefreshRequestAt DateTime? // 用户最后一次刷新请求时间，用于限制刷新频率
+  lastActiveAt  DateTime? // 用户最后活跃时间
   accounts      Account[]
   sessions      Session[]
   feeds         Feed[]
   readArticles  ReadArticle[]
   readLater     ReadLater[]
   webhooks      Webhook[]
+  userActivities UserActivity[]
+  adminLogs     AdminLog[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  
+  @@index([role])
+  @@index([lastActiveAt])
 }
 
 // NextAuth Account模型
@@ -168,5 +175,56 @@ model FeedWebhook {
   @@unique([feedId, webhookId])
   @@index([feedId])
   @@index([webhookId])
+}
+
+// 用户活跃度统计表
+model UserActivity {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  actions      Int      @default(0) // 操作次数
+  articlesRead Int      @default(0) // 阅读文章数
+  createdAt    DateTime @default(now())
+  
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
+}
+
+// 系统统计快照表（每天凌晨生成）
+model SystemStats {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date @unique
+  totalUsers      Int      @default(0)
+  newUsers        Int      @default(0)
+  activeUsers     Int      @default(0) // DAU
+  totalFeeds      Int      @default(0)
+  newFeeds        Int      @default(0)
+  totalArticles   Int      @default(0)
+  newArticles     Int      @default(0)
+  totalReads      Int      @default(0)
+  newReads        Int      @default(0)
+  createdAt       DateTime @default(now())
+  
+  @@index([date])
+}
+
+// 管理员操作日志
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action      String   // view_dashboard, update_user, delete_user, etc.
+  targetType  String?  // user, feed, article, system
+  targetId    String?
+  details     String?  @db.Text // JSON格式的详细信息
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([action])
 }
 
