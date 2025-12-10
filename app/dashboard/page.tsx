@@ -141,6 +141,10 @@ function DashboardContent() {
       // 非静默模式下，总是显示 loading 状态
       if (!silent) {
         setLoading(true)
+        // 重置时先清空文章列表，让用户看到 loading 状态
+        if (reset) {
+          setArticles([])
+        }
       }
       const hasExistingData = articles.length > 0
       const params = new URLSearchParams()
