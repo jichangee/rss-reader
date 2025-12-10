@@ -62,6 +62,130 @@ interface Stats {
   }
 }
 
+// 用户增长趋势折线图组件
+function UserGrowthChart({ data }: { data: Array<{ date: string; count: number }> }) {
+  const width = 800
+  const height = 300
+  const padding = { top: 20, right: 20, bottom: 40, left: 60 }
+  const chartWidth = width - padding.left - padding.right
+  const chartHeight = height - padding.top - padding.bottom
+
+  const maxCount = Math.max(...data.map(d => d.count), 1)
+  const minCount = Math.min(...data.map(d => d.count), 0)
+  const range = maxCount - minCount || 1
+
+  // 计算点的坐标
+  const points = data.map((day, index) => {
+    const x = (index / (data.length - 1 || 1)) * chartWidth + padding.left
+    const y = chartHeight - ((day.count - minCount) / range) * chartHeight + padding.top
+    return { x, y, ...day }
+  })
+
+  // 生成折线路径
+  const pathData = points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ')
+
+  // 格式化日期显示
+  const formatDateLabel = (dateString: string) => {
+    const date = new Date(dateString)
+    return `${date.getMonth() + 1}/${date.getDate()}`
+  }
+
+  // Y轴刻度
+  const yTicks = 5
+  const yTickValues = Array.from({ length: yTicks }, (_, i) => {
+    const value = minCount + (range / (yTicks - 1)) * i
+    return Math.ceil(value)
+  })
+
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg width={width} height={height} className="w-full" viewBox={`0 0 ${width} ${height}`}>
+        {/* 网格线 */}
+        {yTickValues.map((value, index) => {
+          const y = chartHeight - ((value - minCount) / range) * chartHeight + padding.top
+          return (
+            <line
+              key={index}
+              x1={padding.left}
+              y1={y}
+              x2={width - padding.right}
+              y2={y}
+              stroke="currentColor"
+              strokeWidth="1"
+              className="text-gray-200 dark:text-gray-700"
+            />
+          )
+        })}
+
+        {/* Y轴标签 */}
+        {yTickValues.map((value, index) => {
+          const y = chartHeight - ((value - minCount) / range) * chartHeight + padding.top
+          return (
+            <text
+              key={index}
+              x={padding.left - 10}
+              y={y + 4}
+              textAnchor="end"
+              className="text-xs fill-gray-600 dark:fill-gray-400"
+            >
+              {value}
+            </text>
+          )
+        })}
+
+        {/* X轴标签 */}
+        {points.map((point, index) => (
+          <text
+            key={index}
+            x={point.x}
+            y={height - padding.bottom + 20}
+            textAnchor="middle"
+            className="text-xs fill-gray-600 dark:fill-gray-400"
+          >
+            {formatDateLabel(point.date)}
+          </text>
+        ))}
+
+        {/* 折线 */}
+        <path
+          d={pathData}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-indigo-500"
+        />
+
+        {/* 数据点 */}
+        {points.map((point, index) => (
+          <g key={index}>
+            <circle
+              cx={point.x}
+              cy={point.y}
+              r="4"
+              fill="currentColor"
+              className="text-indigo-500"
+            />
+            {/* 悬停提示 */}
+            <title>
+              {point.date}: {point.count} 人
+            </title>
+          </g>
+        ))}
+
+        {/* 填充区域 */}
+        <path
+          d={`${pathData} L ${points[points.length - 1].x} ${chartHeight + padding.top} L ${points[0].x} ${chartHeight + padding.top} Z`}
+          fill="currentColor"
+          fillOpacity="0.1"
+          className="text-indigo-500"
+        />
+      </svg>
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -176,34 +300,7 @@ export default function AdminDashboard() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           用户增长趋势（最近7天）
         </h3>
-        <div className="space-y-3">
-          {stats.users.growth.map((day, index) => {
-            const maxCount = Math.max(...stats.users.growth.map(d => d.count))
-            const percentage = maxCount > 0 ? (day.count / maxCount) * 100 : 0
-            
-            return (
-              <div key={index} className="flex items-center space-x-4">
-                <span className="w-24 text-sm text-gray-600 dark:text-gray-400">
-                  {day.date}
-                </span>
-                <div className="flex-1">
-                  <div className="h-8 rounded-lg bg-gray-100 dark:bg-gray-700">
-                    <div
-                      className="h-full rounded-lg bg-indigo-500 transition-all duration-300 flex items-center justify-end pr-2"
-                      style={{ width: `${percentage}%` }}
-                    >
-                      {day.count > 0 && (
-                        <span className="text-xs font-medium text-white">
-                          {day.count}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <UserGrowthChart data={stats.users.growth} />
       </div>
 
       {/* 活动统计 */}
