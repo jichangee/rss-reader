@@ -138,11 +138,11 @@ function DashboardContent() {
 
   const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false, readLaterOnly = false) => {
     try {
-      // 如果有现有数据，使用静默模式，不清空列表
-      const hasExistingData = articles.length > 0
-      if (!silent && !hasExistingData) {
+      // 非静默模式下，总是显示 loading 状态
+      if (!silent) {
         setLoading(true)
       }
+      const hasExistingData = articles.length > 0
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread && !readLaterOnly) params.append("unreadOnly", "true")
@@ -278,9 +278,8 @@ function DashboardContent() {
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
     setIsReadLaterView(false)
-    // 切换订阅时，如果有现有数据，使用静默模式
-    const hasExistingData = articles.length > 0
-    loadArticles(feedId || undefined, unreadOnly, true, hasExistingData, false)
+    // 切换订阅时，总是显示 loading 状态，不使用静默模式
+    loadArticles(feedId || undefined, unreadOnly, true, false, false)
 
     // 更新 URL
     if (feedId) {
@@ -293,9 +292,8 @@ function DashboardContent() {
   const handleSelectReadLater = () => {
     setSelectedFeed(null)
     setIsReadLaterView(true)
-    // 切换到稍后读视图
-    const hasExistingData = articles.length > 0
-    loadArticles(undefined, false, true, hasExistingData, true)
+    // 切换到稍后读视图，总是显示 loading 状态
+    loadArticles(undefined, false, true, false, true)
     router.push("/dashboard?view=read-later")
   }
 
@@ -525,9 +523,8 @@ function DashboardContent() {
     if (typeof window !== "undefined") {
       localStorage.setItem("unreadOnly", String(newUnreadOnly))
     }
-    // 切换"仅未读"时，如果有现有数据，使用静默模式
-    const hasExistingData = articles.length > 0
-    loadArticles(selectedFeed || undefined, newUnreadOnly, true, hasExistingData)
+    // 切换"仅未读"时，总是显示 loading 状态
+    loadArticles(selectedFeed || undefined, newUnreadOnly, true, false)
   }
 
   const handleMarkAllAsRead = async () => {
