@@ -8,6 +8,7 @@ import ArticleList from "@/app/components/ArticleList"
 import AddFeedModal from "@/app/components/AddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
 import { Loader2, Menu } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 function DashboardContent() {
   const { data: session, status } = useSession()
@@ -727,13 +728,15 @@ function DashboardContent() {
       <main className="flex-1 overflow-hidden flex flex-col">
         {/* 移动端顶部菜单栏 */}
         <div className="md:hidden border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
-          <button
+          <Button
             onClick={() => setIsSidebarOpen(true)}
-            className="flex items-center space-x-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+            variant="ghost"
+            size="sm"
+            className="flex items-center space-x-2"
           >
             <Menu className="h-6 w-6" />
             <span className="font-medium">菜单</span>
-          </button>
+          </Button>
         </div>
         <div className="flex-1 overflow-hidden">
           <ArticleList

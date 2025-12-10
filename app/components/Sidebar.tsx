@@ -2,10 +2,15 @@
 
 import { signOut, useSession } from "next-auth/react"
 import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmark } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerClose,
+} from "@/components/ui/drawer"
 
 interface SidebarProps {
   feeds: any[]
@@ -44,18 +49,6 @@ export default function Sidebar({
   const router = useRouter()
   const [feedIconErrors, setFeedIconErrors] = useState<Record<string, boolean>>({})
 
-  // 防止移动端侧边栏打开时背景滚动
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = "unset"
-    }
-    return () => {
-      document.body.style.overflow = "unset"
-    }
-  }, [isOpen])
-
   const handleFeedSelect = (feedId: string | null) => {
     onSelectFeed(feedId)
     // 在移动端选择订阅后关闭侧边栏
@@ -64,22 +57,9 @@ export default function Sidebar({
     }
   }
 
-  return (
+  // 侧边栏内容组件
+  const SidebarContent = ({ showCloseButton = false }: { showCloseButton?: boolean }) => (
     <>
-      {/* 移动端遮罩层 */}
-      <div
-        className={`fixed inset-0 z-30 bg-black transition-opacity duration-300 md:hidden ${
-          isOpen ? "opacity-50" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={onClose}
-      />
-
-      {/* 侧边栏 */}
-      <div
-        className={`fixed md:static inset-y-0 left-0 z-40 flex w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
       {/* 头部 */}
       <div className="border-b border-gray-200 p-4 dark:border-gray-700">
         <div className="flex items-center justify-between">
@@ -97,14 +77,17 @@ export default function Sidebar({
             </div>
           </div>
           {/* 移动端关闭按钮 */}
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="icon-sm"
-            className="ml-2 md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          {showCloseButton && (
+            <DrawerClose asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="ml-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </DrawerClose>
+          )}
         </div>
       </div>
 
@@ -288,7 +271,24 @@ export default function Sidebar({
           <span>退出登录</span>
         </Button>
       </div>
+    </>
+  )
+
+  return (
+    <>
+      {/* 桌面端侧边栏 */}
+      <div className="hidden md:flex md:static inset-y-0 left-0 z-40 w-80 flex-col border-r border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <SidebarContent showCloseButton={false} />
       </div>
+
+      {/* 移动端 Drawer */}
+      <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()} direction="left">
+        <DrawerContent className="w-80 max-w-[85vw] h-full rounded-none border-r border-t-0 border-b-0 border-l-0 p-0">
+          <div className="flex h-full flex-col">
+            <SidebarContent showCloseButton={true} />
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   )
 }
