@@ -5,6 +5,7 @@ import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmar
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SidebarProps {
   feeds: any[]
@@ -173,8 +174,15 @@ export default function Sidebar({
           </Button>
 
           {(loading && feeds.length === 0) ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            <div className="mt-4 space-y-2">
+              <Skeleton className="h-4 w-20 mb-4" />
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-2 rounded-lg px-3 py-2">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-6" />
+                </div>
+              ))}
             </div>
           ) : feeds.length > 0 ? (
             <div className="mt-4">

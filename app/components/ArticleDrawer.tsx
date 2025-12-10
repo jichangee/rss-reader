@@ -2,7 +2,7 @@ import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, Rss } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import { ToastContainer, useToast } from "./Toast"
+import { useToast } from "./Toast"
 
 interface Article {
   id: string
@@ -34,7 +34,7 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   const [expandedMedia, setExpandedMedia] = useState<Set<string>>(new Set())
   const [feedIconError, setFeedIconError] = useState(false)
   const articleContentRef = useRef<HTMLDivElement>(null)
-  const { toasts, success, error, removeToast } = useToast()
+  const { success, error } = useToast()
 
   // 加载用户设置
   useEffect(() => {
@@ -643,8 +643,6 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
         </div>
       )}
       
-      {/* Toast 提示 */}
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Loader2, BookOpen, CheckCheck, RotateCw } from "lucide-react"
-import { ToastContainer, useToast } from "../Toast"
+import { useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
 import CleanupMenu from "./CleanupMenu"
@@ -10,6 +10,7 @@ import { useMediaProcessor, countMediaFromHtml } from "./hooks/useMediaProcessor
 import { useScrollToRead } from "./hooks/useScrollToRead"
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll"
 import type { ArticleListProps, Article } from "./types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ArticleList({
   articles,
@@ -33,7 +34,7 @@ export default function ArticleList({
   const [expandedArticles, setExpandedArticles] = useState<Set<string>>(new Set())
   // 保留旧的 expandedMedia 用于向后兼容，但现在改为文章级别
   const [expandedMedia, setExpandedMedia] = useState<Map<string, Set<string>>>(new Map())
-  const { toasts, success, error, removeToast } = useToast()
+  const { success, error } = useToast()
 
   // 加载用户设置
   useEffect(() => {
@@ -445,8 +446,33 @@ export default function ArticleList({
   // 只有在没有数据时才显示全屏 loading，有数据时保留列表
   if (loading && articles.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+        <div className="mx-auto max-w-4xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-9 w-20" />
+          </div>
+          <div className="space-y-6">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-4 flex items-start justify-between">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                  <Skeleton className="h-5 w-5 rounded" />
+                </div>
+                <Skeleton className="mb-3 h-4 w-full" />
+                <Skeleton className="mb-3 h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+                <div className="mt-4 flex items-center space-x-4">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -554,8 +580,25 @@ export default function ArticleList({
         </div>
 
         {hasMore && (
-          <div ref={observerTarget} className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          <div ref={observerTarget} className="space-y-6 py-8">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-4 flex items-start justify-between">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                  <Skeleton className="h-5 w-5 rounded" />
+                </div>
+                <Skeleton className="mb-3 h-4 w-full" />
+                <Skeleton className="mb-3 h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+                <div className="mt-4 flex items-center space-x-4">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -584,8 +627,6 @@ export default function ArticleList({
       </div>
       
       <ImagePreviewModal imageSrc={previewImage} onClose={closeImagePreview} />
-      
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   )
 }
