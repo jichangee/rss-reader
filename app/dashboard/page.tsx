@@ -611,8 +611,34 @@ function DashboardContent() {
     }
   }
 
-  const handleMarkOlderAsRead = async (range: '24h' | 'week'): Promise<{ success: boolean; count?: number; message?: string }> => {
+  const handleMarkOlderAsRead = async (range: '24h' | 'week' | 'all'): Promise<{ success: boolean; count?: number; message?: string }> => {
     try {
+      // 如果选择"全部"，则调用 read-all API
+      if (range === 'all') {
+        const res = await fetch("/api/articles/read-all", {
+          method: "POST",
+        })
+
+        if (res.ok) {
+          const data = await res.json()
+          // 刷新文章列表和订阅源计数
+          await loadArticles(selectedFeed || undefined, unreadOnly)
+          await loadFeeds()
+
+          return {
+            success: true,
+            count: data.count || 0,
+            message: data.count > 0 ? `已将全部 ${data.count} 篇文章标记为已读` : "没有未读文章"
+          }
+        } else {
+          return {
+            success: false,
+            message: "操作失败，请重试"
+          }
+        }
+      }
+
+      // 处理 24h 和 week 选项
       let days: number | undefined
       let cutoffDate: Date | undefined
 

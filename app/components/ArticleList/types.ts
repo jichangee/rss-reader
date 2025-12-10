@@ -34,7 +34,7 @@ export interface ArticleListProps {
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
   onMarkAllAsRead: () => void
-  onMarkOlderAsRead?: (range: '24h' | 'week') => Promise<{ success: boolean; count?: number; message?: string }>
+  onMarkOlderAsRead?: (range: '24h' | 'week' | 'all') => Promise<{ success: boolean; count?: number; message?: string }>
   markReadOnScroll?: boolean
   isRefreshing?: boolean
   onRefresh?: () => void

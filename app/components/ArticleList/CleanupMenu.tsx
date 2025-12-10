@@ -5,7 +5,7 @@ import { Clock, Loader2 } from "lucide-react"
 import { useToast } from "../Toast"
 
 interface CleanupMenuProps {
-  onMarkOlderAsRead: (range: '24h' | 'week') => Promise<{ success: boolean; count?: number; message?: string }>
+  onMarkOlderAsRead: (range: '24h' | 'week' | 'all') => Promise<{ success: boolean; count?: number; message?: string }>
 }
 
 export default function CleanupMenu({ onMarkOlderAsRead }: CleanupMenuProps) {
@@ -30,7 +30,7 @@ export default function CleanupMenu({ onMarkOlderAsRead }: CleanupMenuProps) {
     }
   }, [showMenu])
 
-  const handleCleanupClick = async (range: '24h' | 'week') => {
+  const handleCleanupClick = async (range: '24h' | 'week' | 'all') => {
     setShowMenu(false)
     setIsCleaningUp(true)
     
@@ -38,9 +38,12 @@ export default function CleanupMenu({ onMarkOlderAsRead }: CleanupMenuProps) {
       const result = await onMarkOlderAsRead(range)
       if (result.success) {
         if (result.count && result.count > 0) {
-          success(`已将 ${result.count} 篇旧文章标记为已读`)
+          const message = range === 'all' 
+            ? `已将全部 ${result.count} 篇文章标记为已读` 
+            : `已将 ${result.count} 篇旧文章标记为已读`
+          success(message)
         } else {
-          info("没有符合条件的旧文章")
+          info(range === 'all' ? "没有未读文章" : "没有符合条件的旧文章")
         }
       } else {
         error(result.message || "操作失败，请重试")
@@ -89,6 +92,15 @@ export default function CleanupMenu({ onMarkOlderAsRead }: CleanupMenuProps) {
               role="menuitem"
             >
               本周之前
+            </button>
+            <div className="border-t border-gray-200 dark:border-gray-700"></div>
+            <button
+              onClick={() => handleCleanupClick('all')}
+              disabled={isCleaningUp}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-300 dark:hover:bg-gray-700/50 transition-colors"
+              role="menuitem"
+            >
+              全部
             </button>
           </div>
         </div>
