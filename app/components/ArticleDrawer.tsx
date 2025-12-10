@@ -3,6 +3,12 @@ import { zhCN } from "date-fns/locale"
 import { X, ExternalLink, Calendar, User, Bookmark, BookmarkCheck, ChevronDown, ChevronUp, Rss } from "lucide-react"
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useToast } from "./Toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { VisuallyHidden } from "@/components/ui/visually-hidden"
 
 interface Article {
   id: string
@@ -622,26 +628,28 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
       </div>
       
       {/* 图片预览 Modal */}
-      {previewImage && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm"
-          onClick={closeImagePreview}
+      <Dialog open={!!previewImage} onOpenChange={(open) => {
+        if (!open) {
+          closeImagePreview()
+        }
+      }}>
+        <DialogContent 
+          className="max-w-[90vw] max-h-[90vh] p-0 bg-black/90 border-0 shadow-none [&>button]:text-white [&>button]:hover:bg-white/20"
+          showCloseButton={true}
         >
-          <button
-            onClick={closeImagePreview}
-            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
-            aria-label="关闭预览"
-          >
-            <X className="h-6 w-6" />
-          </button>
-          <img
-            src={previewImage}
-            alt="预览"
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+          <VisuallyHidden>
+            <DialogTitle>图片预览</DialogTitle>
+          </VisuallyHidden>
+          {previewImage && (
+            <img
+              src={previewImage}
+              alt="预览"
+              className="max-h-[90vh] max-w-[90vw] object-contain w-full h-auto"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       
     </>
   )

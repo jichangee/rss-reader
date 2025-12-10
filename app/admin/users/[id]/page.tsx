@@ -17,6 +17,15 @@ import {
   FileText
 } from "lucide-react"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface UserDetail {
   id: string
@@ -125,13 +134,16 @@ export default function UserDetailPage() {
   return (
     <div className="space-y-6">
       {/* 返回按钮 */}
-      <Link
-        href="/admin/users"
-        className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+      <Button
+        variant="ghost"
+        size="sm"
+        asChild
       >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        返回用户列表
-      </Link>
+        <Link href="/admin/users">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          返回用户列表
+        </Link>
+      </Button>
 
       {/* 用户基本信息 */}
       <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
@@ -258,51 +270,49 @@ export default function UserDetailPage() {
         {user.feeds.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400">该用户还没有订阅源</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">
-                    订阅源
-                  </th>
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">
-                    文章数
-                  </th>
-                  <th className="pb-3 text-left text-sm font-medium text-gray-600 dark:text-gray-400">
-                    创建时间
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {user.feeds.map((feed) => (
-                  <tr key={feed.id} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="py-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {feed.title}
-                        </p>
-                        <a
-                          href={feed.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center"
-                        >
-                          {feed.url}
-                          <ExternalLink className="ml-1 h-3 w-3" />
-                        </a>
-                      </div>
-                    </td>
-                    <td className="py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {feed._count.articles}
-                    </td>
-                    <td className="py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(feed.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-sm font-medium">
+                  订阅源
+                </TableHead>
+                <TableHead className="text-sm font-medium">
+                  文章数
+                </TableHead>
+                <TableHead className="text-sm font-medium">
+                  创建时间
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {user.feeds.map((feed) => (
+                <TableRow key={feed.id}>
+                  <TableCell>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {feed.title}
+                      </p>
+                      <a
+                        href={feed.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center"
+                      >
+                        {feed.url}
+                        <ExternalLink className="ml-1 h-3 w-3" />
+                      </a>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-500 dark:text-gray-400">
+                    {feed._count.articles}
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-500 dark:text-gray-400">
+                    {formatDate(feed.createdAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </div>
 

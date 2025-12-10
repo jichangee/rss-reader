@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, ArrowLeft, Save, Download, Upload } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Download, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
 import WebhookManager from "@/app/components/WebhookManager"
 import {
   Select,
@@ -15,6 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const LANGUAGES = [
   { code: "zh", name: "中文" },
@@ -364,36 +365,44 @@ export default function SettingsPage() {
             </div>
 
             {importError && (
-              <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                {importError}
-              </div>
+              <Alert variant="destructive" className="mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{importError}</AlertDescription>
+              </Alert>
             )}
 
             {importSuccess && importResults && (
-              <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
-                <p className="font-medium">导入完成</p>
-                <p className="mt-1">
-                  成功导入 {importResults.success} 个订阅，失败 {importResults.failed} 个（共 {importResults.total} 个）
-                </p>
-                {importResults.success > 0 && (
-                  <p className="mt-1 text-xs">页面将在2秒后自动刷新...</p>
-                )}
-              </div>
+              <Alert className="mt-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-600 dark:text-green-400">
+                  <p className="font-medium">导入完成</p>
+                  <p className="mt-1">
+                    成功导入 {importResults.success} 个订阅，失败 {importResults.failed} 个（共 {importResults.total} 个）
+                  </p>
+                  {importResults.success > 0 && (
+                    <p className="mt-1 text-xs">页面将在2秒后自动刷新...</p>
+                  )}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex flex-col sm:flex-row items-end gap-4">
           {error && (
-            <div className="mr-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              {error}
-            </div>
+            <Alert variant="destructive" className="flex-1">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {success && (
-            <div className="mr-4 rounded-lg bg-green-50 p-3 text-sm text-green-600 dark:bg-green-900/20 dark:text-green-400">
-              设置已保存
-            </div>
+            <Alert className="flex-1 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-600 dark:text-green-400">
+                设置已保存
+              </AlertDescription>
+            </Alert>
           )}
 
           <Button

@@ -1,10 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader2, XCircle } from "lucide-react"
+import { Loader2, XCircle, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Webhook {
   id: string
@@ -151,25 +159,19 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
   const selectedWebhooks = allWebhooks.filter(wh => selectedWebhookIds.includes(wh.id))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-2xl max-h-[90vh] rounded-lg bg-white shadow-xl dark:bg-gray-800 flex flex-col">
-        <div className="flex-shrink-0 p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              编辑订阅
-            </h2>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+    <Dialog open={true} onOpenChange={(open) => {
+      if (!open && !loading) {
+        onClose()
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+        <DialogHeader>
+          <DialogTitle>编辑订阅</DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="mb-4">
+          <div className="flex-1 overflow-y-auto space-y-4">
+            <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 订阅名称
               </label>
@@ -182,7 +184,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
               />
             </div>
 
-            <div className="mb-4">
+            <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 RSS 链接
               </label>
@@ -198,7 +200,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
               </p>
             </div>
 
-            <div className="mb-4">
+            <div>
               <label className="flex items-center space-x-2 cursor-pointer">
                 <Checkbox
                   checked={enableTranslation}
@@ -215,7 +217,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </div>
 
             {/* Webhook 选择 */}
-            <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                 Webhook 推送配置
               </h3>
@@ -298,41 +300,38 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </div>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
           </div>
 
-          <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex space-x-3">
-              <Button
-                type="button"
-                onClick={onClose}
-                variant="outline"
-                className="flex-1"
-                disabled={loading}
-              >
-                取消
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    保存中...
-                  </>
-                ) : (
-                  "保存"
-                )}
-              </Button>
-            </div>
-          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={onClose}
+              variant="outline"
+              disabled={loading}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                "保存"
+              )}
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

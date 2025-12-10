@@ -12,6 +12,14 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface UserData {
   id: string
@@ -147,107 +155,109 @@ export default function UsersPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    用户
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    角色
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    统计
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    注册时间
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    最后活跃
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                    操作
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {user.image ? (
-                          <img
-                            src={user.image}
-                            alt=""
-                            className="h-10 w-10 rounded-full"
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                            <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                          </div>
-                        )}
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {user.name || "未命名"}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.role === "admin" ? (
-                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                          <Shield className="mr-1 h-3 w-3" />
-                          管理员
-                        </span>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="px-6 py-3 text-xs font-medium uppercase tracking-wider">
+                  用户
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium uppercase tracking-wider">
+                  角色
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium uppercase tracking-wider">
+                  统计
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium uppercase tracking-wider">
+                  注册时间
+                </TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium uppercase tracking-wider">
+                  最后活跃
+                </TableHead>
+                <TableHead className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
+                  操作
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      {user.image ? (
+                        <img
+                          src={user.image}
+                          alt=""
+                          className="h-10 w-10 rounded-full"
+                        />
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                          普通用户
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center" title="订阅源数">
-                          <Rss className="mr-1 h-4 w-4" />
-                          {user._count.feeds}
+                        <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                          <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                         </div>
-                        <div className="flex items-center" title="阅读数">
-                          <Eye className="mr-1 h-4 w-4" />
-                          {user._count.readArticles}
+                      )}
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {user.name || "未命名"}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {user.email}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(user.createdAt)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {user.lastActiveAt ? formatDate(user.lastActiveAt) : "-"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <Link
-                        href={`/admin/users/${user.id}`}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-4"
-                      >
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    {user.role === "admin" ? (
+                      <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                        <Shield className="mr-1 h-3 w-3" />
+                        管理员
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                        普通用户
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center" title="订阅源数">
+                        <Rss className="mr-1 h-4 w-4" />
+                        {user._count.feeds}
+                      </div>
+                      <div className="flex items-center" title="阅读数">
+                        <Eye className="mr-1 h-4 w-4" />
+                        {user._count.readArticles}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {formatDate(user.createdAt)}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {user.lastActiveAt ? formatDate(user.lastActiveAt) : "-"}
+                  </TableCell>
+                  <TableCell className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      asChild
+                      className="mr-4"
+                    >
+                      <Link href={`/admin/users/${user.id}`}>
                         查看详情
                       </Link>
-                      <Button
-                        onClick={() => handleDeleteUser(user.id, user.name || user.email)}
-                        variant="ghost"
-                        size="icon-sm"
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </Button>
+                    <Button
+                      onClick={() => handleDeleteUser(user.id, user.name || user.email)}
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
 
           {/* 分页 */}
           {totalPages > 1 && (
