@@ -17,7 +17,7 @@ interface Article {
     imageUrl?: string
     enableTranslation?: boolean
   }
-  readBy: any[]
+  readBy: Array<{ id: string; userId: string }>
   isReadLater?: boolean
 }
 
@@ -51,7 +51,10 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
     }
     if (isOpen) {
       loadSettings()
-      setExpandedMedia(new Set()) // 重置展开状态
+      // 使用 setTimeout 避免在 effect 中同步调用 setState
+      setTimeout(() => {
+        setExpandedMedia(new Set()) // 重置展开状态
+      }, 0)
     }
   }, [isOpen, article?.id]) // 添加 article?.id 依赖，确保切换文章时重新加载设置
 
@@ -74,8 +77,11 @@ export default function ArticleDrawer({ article, isOpen, onClose }: ArticleDrawe
   // 初始化稍后读状态
   useEffect(() => {
     if (article) {
-      setIsReadLater(article.isReadLater || false)
-      setFeedIconError(false) // 重置图标错误状态
+      // 使用 setTimeout 避免在 effect 中同步调用 setState
+      setTimeout(() => {
+        setIsReadLater(article.isReadLater || false)
+        setFeedIconError(false) // 重置图标错误状态
+      }, 0)
     }
   }, [article])
 

@@ -68,7 +68,10 @@ export default function ArticleList({
         readLaterSet.add(article.id)
       }
     })
-    setReadLaterArticles(readLaterSet)
+    // 使用 setTimeout 避免在 effect 中同步调用 setState
+    setTimeout(() => {
+      setReadLaterArticles(readLaterSet)
+    }, 0)
     
     // 标记为已初始化（只有在有文章数据时才标记）
     if (articles.length > 0) {

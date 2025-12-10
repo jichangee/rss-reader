@@ -75,11 +75,12 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit)
       }
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("获取用户列表失败:", error)
+    const errorMessage = error instanceof Error ? error.message : "获取用户列表失败"
     return NextResponse.json(
-      { error: error.message || "获取用户列表失败" },
-      { status: error.message === "Forbidden: Admin access required" ? 403 : 500 }
+      { error: errorMessage },
+      { status: errorMessage === "Forbidden: Admin access required" ? 403 : 500 }
     )
   }
 }

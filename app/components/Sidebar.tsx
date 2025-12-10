@@ -241,7 +241,7 @@ export default function Sidebar({
           ) : (
             <div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
               <p>还没有订阅</p>
-              <p className="mt-1">点击"添加订阅"开始</p>
+              <p className="mt-1">点击&quot;添加订阅&quot;开始</p>
             </div>
           )}
         </div>

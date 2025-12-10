@@ -111,7 +111,7 @@ export default function AdminDashboard() {
     title: string
     value: string | number
     change?: string
-    icon: any
+    icon: React.ComponentType<{ className?: string }>
     color: string
   }) => (
     <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">

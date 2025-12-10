@@ -5,11 +5,11 @@ import { prisma } from "@/lib/prisma"
 // 获取用户详情
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await checkAdmin()
-    const userId = params.id
+    const { id: userId } = await params
     
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -80,11 +80,12 @@ export async function GET(
     })
     
     return NextResponse.json(user)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("获取用户详情失败:", error)
+    const errorMessage = error instanceof Error ? error.message : "获取用户详情失败"
     return NextResponse.json(
-      { error: error.message || "获取用户详情失败" },
-      { status: error.message === "Forbidden: Admin access required" ? 403 : 500 }
+      { error: errorMessage },
+      { status: errorMessage === "Forbidden: Admin access required" ? 403 : 500 }
     )
   }
 }
@@ -92,11 +93,11 @@ export async function GET(
 // 更新用户
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await checkAdmin()
-    const userId = params.id
+    const { id: userId } = await params
     const body = await request.json()
     
     const { role } = body
@@ -130,11 +131,12 @@ export async function PUT(
     })
     
     return NextResponse.json(user)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("更新用户失败:", error)
+    const errorMessage = error instanceof Error ? error.message : "更新用户失败"
     return NextResponse.json(
-      { error: error.message || "更新用户失败" },
-      { status: error.message === "Forbidden: Admin access required" ? 403 : 500 }
+      { error: errorMessage },
+      { status: errorMessage === "Forbidden: Admin access required" ? 403 : 500 }
     )
   }
 }
@@ -142,11 +144,11 @@ export async function PUT(
 // 删除用户
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const admin = await checkAdmin()
-    const userId = params.id
+    const { id: userId } = await params
     
     // 防止管理员删除自己
     if (admin.id === userId) {
@@ -178,11 +180,12 @@ export async function DELETE(
     })
     
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("删除用户失败:", error)
+    const errorMessage = error instanceof Error ? error.message : "删除用户失败"
     return NextResponse.json(
-      { error: error.message || "删除用户失败" },
-      { status: error.message === "Forbidden: Admin access required" ? 403 : 500 }
+      { error: errorMessage },
+      { status: errorMessage === "Forbidden: Admin access required" ? 403 : 500 }
     )
   }
 }

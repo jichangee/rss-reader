@@ -3,8 +3,34 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
+// Article 类型定义
+interface ArticleWithFeed {
+  id: string
+  link: string
+  title: string
+  content?: string | null
+  contentSnippet?: string | null
+  guid: string
+  author?: string | null
+  pubDate?: Date | string | null
+  feed: {
+    url: string
+    title: string
+    description?: string | null
+  }
+}
+
+// Webhook 类型定义
+interface WebhookWithFields {
+  id: string
+  name: string
+  url: string
+  method: string
+  customFields: string | null
+}
+
 // 获取字段值的辅助函数
-function getFieldValue(field: string, article: any): string | null {
+function getFieldValue(field: string, article: ArticleWithFeed): string | null {
   switch (field) {
     case 'link':
       return article.link
@@ -110,7 +136,7 @@ const WEBHOOK_FIELD_OPTIONS = [
 ]
 
 // 替换自定义值中的变量
-function replaceVariables(template: string, article: any): string {
+function replaceVariables(template: string, article: ArticleWithFeed): string {
   let result = template
   
   // 替换所有变量 {fieldName}
@@ -124,7 +150,7 @@ function replaceVariables(template: string, article: any): string {
 }
 
 // 执行单个 Webhook 推送
-async function executeWebhook(webhook: any, article: any): Promise<{
+async function executeWebhook(webhook: WebhookWithFields, article: ArticleWithFeed): Promise<{
   webhookId: string
   webhookName: string
   success: boolean
@@ -135,7 +161,7 @@ async function executeWebhook(webhook: any, article: any): Promise<{
   try {
     // 构建 payload
     const customFields = parseCustomFields(webhook.customFields)
-    let payload: Record<string, string> = {}
+    const payload: Record<string, string> = {}
 
     if (customFields && customFields.length > 0) {
       // 使用自定义字段映射

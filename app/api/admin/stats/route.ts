@@ -202,11 +202,12 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(stats)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("获取统计数据失败:", error)
+    const errorMessage = error instanceof Error ? error.message : "获取统计数据失败"
     return NextResponse.json(
-      { error: error.message || "获取统计数据失败" },
-      { status: error.message === "Forbidden: Admin access required" ? 403 : 500 }
+      { error: errorMessage },
+      { status: errorMessage === "Forbidden: Admin access required" ? 403 : 500 }
     )
   }
 }
