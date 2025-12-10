@@ -1,7 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Edit2, Trash2, Loader2, X, Save } from "lucide-react"
+import { Plus, Edit2, Trash2, Loader2, Save } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface Webhook {
   id: string
@@ -251,13 +268,13 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
           Webhook 管理
         </h2>
-        <button
+        <Button
           onClick={handleCreate}
-          className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          size="sm"
         >
           <Plus className="h-4 w-4" />
           <span>新建 Webhook</span>
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -298,20 +315,23 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
                   </p>
                 </div>
                 <div className="flex space-x-2">
-                  <button
+                  <Button
                     onClick={() => handleEdit(webhook)}
-                    className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                    variant="ghost"
+                    size="icon-sm"
                     title="编辑"
                   >
                     <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={() => handleDelete(webhook.id)}
-                    className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-700"
+                    variant="ghost"
+                    size="icon-sm"
                     title="删除"
+                    className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -320,31 +340,28 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
       )}
 
       {/* 创建/编辑表单 */}
-      {(isCreating || editingWebhook) && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <Dialog open={isCreating || !!editingWebhook} onOpenChange={(open) => {
+        if (!open) {
+          handleCancel()
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
               {isCreating ? "新建 Webhook" : "编辑 Webhook"}
-            </h3>
-            <button
-              onClick={handleCancel}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+            </DialogTitle>
+          </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Webhook 名称 *
               </label>
-              <input
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如: 推送到 Notion"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={saving}
               />
             </div>
@@ -353,12 +370,11 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Webhook URL *
               </label>
-              <input
+              <Input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com/webhook"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={saving}
               />
             </div>
@@ -368,15 +384,15 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   请求方式
                 </label>
-                <select
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value as "GET" | "POST")}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  disabled={saving}
-                >
-                  <option value="POST">POST</option>
-                  <option value="GET">GET</option>
-                </select>
+                <Select value={method} onValueChange={(value) => setMethod(value as "GET" | "POST")} disabled={saving}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="选择请求方式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="POST">POST</SelectItem>
+                    <SelectItem value="GET">GET</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -390,7 +406,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
               <div className="space-y-2">
                 {customFields.map((field, index) => (
                   <div key={index} className="flex gap-2">
-                    <input
+                    <Input
                       type="text"
                       value={field.name}
                       onChange={(e) => {
@@ -399,10 +415,10 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
                         setCustomFields(newFields)
                       }}
                       placeholder="参数名"
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                       disabled={saving}
+                      className="flex-1"
                     />
-                    <input
+                    <Input
                       type="text"
                       value={field.value}
                       onChange={(e) => {
@@ -411,91 +427,98 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
                         setCustomFields(newFields)
                       }}
                       placeholder="例如: {link}"
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                       disabled={saving}
+                      className="flex-1"
                     />
-                    <button
+                    <Button
                       type="button"
                       onClick={() => {
                         setCustomFields(customFields.filter((_, i) => i !== index))
                       }}
-                      className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                      variant="outline"
+                      size="sm"
                       disabled={saving || customFields.length === 1}
+                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                     >
                       删除
-                    </button>
+                    </Button>
                   </div>
                 ))}
-                <button
+                <Button
                   type="button"
                   onClick={() => {
                     setCustomFields([...customFields, { name: '', value: '{link}' }])
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                  variant="outline"
+                  size="sm"
                   disabled={saving}
+                  className="w-full"
                 >
                   + 添加字段
-                </button>
+                </Button>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="remote"
                 checked={remote}
-                onChange={(e) => setRemote(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                onCheckedChange={(checked) => setRemote(checked === true)}
                 disabled={saving}
               />
-              <label htmlFor="remote" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="remote" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                 远程发起（服务器端）
               </label>
             </div>
 
             <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="enabled"
                 checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                onCheckedChange={(checked) => setEnabled(checked === true)}
                 disabled={saving}
               />
-              <label htmlFor="enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label htmlFor="enabled" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                 启用
               </label>
             </div>
 
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={handleCancel}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                disabled={saving}
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>保存中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    <span>保存</span>
-                  </>
-                )}
-              </button>
-            </div>
+            {error && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                {error}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              size="sm"
+              disabled={saving}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="sm"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>保存中...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  <span>保存</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

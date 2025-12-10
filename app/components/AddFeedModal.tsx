@@ -1,9 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { X, Loader2, CheckCircle2, XCircle, Plus, Trash2 } from "lucide-react"
+import { Loader2, CheckCircle2, XCircle, Plus, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 interface AddFeedModalProps {
+  open?: boolean
   onClose: () => void
   onAddSingle: (url: string, enableTranslation: boolean) => Promise<{ success: boolean; error?: string }>
   onAddBatch: (urls: string[], enableTranslation: boolean) => Promise<{
@@ -22,7 +33,7 @@ interface FeedResult {
   error?: string
 }
 
-export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFeedModalProps) {
+export default function AddFeedModal({ open = true, onClose, onAddSingle, onAddBatch }: AddFeedModalProps) {
   const [urls, setUrls] = useState<string[]>([""])
   const [enableTranslation, setEnableTranslation] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -117,22 +128,17 @@ export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFe
   const validUrlsCount = urls.filter((u) => u.trim() !== "").length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-2xl max-h-[90vh] rounded-lg bg-white shadow-xl dark:bg-gray-800 flex flex-col">
-        <div className="flex-shrink-0 mb-4 flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            添加 RSS 订阅
-          </h2>
-          <button
-            onClick={handleClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-            disabled={loading}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen && !loading) {
+        handleClose()
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>添加 RSS 订阅</DialogTitle>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-4">
           {results ? (
             <div className="space-y-4">
               <div className="rounded-lg bg-gray-50 dark:bg-gray-700 p-4">
@@ -193,19 +199,10 @@ export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFe
                 ))}
               </div>
 
-              <div className="flex space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="flex-1 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-                >
-                  完成
-                </button>
-              </div>
             </div>
           ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
+            <form id="add-feed-form" onSubmit={handleSubmit} className="space-y-4">
+              <div>
                 <label
                   htmlFor="rss-urls"
                   className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -215,50 +212,47 @@ export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFe
                 <div className="space-y-2">
                   {urls.map((url, index) => (
                     <div key={index} className="flex items-center space-x-2">
-                      <input
+                      <Input
                         type="url"
                         value={url}
                         onChange={(e) => handleUrlChange(index, e.target.value)}
                         placeholder="https://example.com/feed.xml"
-                        className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         disabled={loading}
+                        className="flex-1"
                       />
                       {urls.length > 1 && (
-                        <button
+                        <Button
                           type="button"
                           onClick={() => handleRemoveUrl(index)}
-                          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-700"
+                          variant="ghost"
+                          size="icon-sm"
                           disabled={loading}
+                          className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       )}
                     </div>
                   ))}
                 </div>
-                <button
+                <Button
                   type="button"
                   onClick={handleAddUrl}
-                  className="mt-2 flex items-center space-x-1 text-sm text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  variant="ghost"
+                  size="sm"
                   disabled={loading}
+                  className="mt-2 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
                 >
                   <Plus className="h-4 w-4" />
                   <span>添加更多链接</span>
-                </button>
-                {error && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                    {error}
-                  </p>
-                )}
+                </Button>
               </div>
 
-              <div className="mb-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
+              <div>
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <Checkbox
                     checked={enableTranslation}
-                    onChange={(e) => setEnableTranslation(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    onCheckedChange={(checked) => setEnableTranslation(checked === true)}
                     disabled={loading}
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -270,7 +264,7 @@ export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFe
                 </p>
               </div>
 
-              <div className="mb-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
+              <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-700">
                 <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   常见 RSS 示例：
                 </h3>
@@ -281,36 +275,53 @@ export default function AddFeedModal({ onClose, onAddSingle, onAddBatch }: AddFe
                 </ul>
               </div>
 
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                  disabled={loading}
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      添加中...
-                    </>
-                  ) : (
-                    validUrlsCount > 0 
-                      ? `添加订阅${validUrlsCount > 1 ? ` (${validUrlsCount})` : ""}`
-                      : "添加订阅"
-                  )}
-                </button>
-              </div>
+              {error && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                  {error}
+                </div>
+              )}
             </form>
           )}
         </div>
-      </div>
-    </div>
+
+        {results ? (
+          <DialogFooter>
+            <Button
+              onClick={handleClose}
+              className="w-full"
+            >
+              完成
+            </Button>
+          </DialogFooter>
+        ) : (
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={handleClose}
+              variant="outline"
+              disabled={loading}
+            >
+              取消
+            </Button>
+            <Button
+              type="submit"
+              form="add-feed-form"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  添加中...
+                </>
+              ) : (
+                validUrlsCount > 0 
+                  ? `添加订阅${validUrlsCount > 1 ? ` (${validUrlsCount})` : ""}`
+                  : "添加订阅"
+              )}
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

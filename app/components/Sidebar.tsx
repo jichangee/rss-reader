@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react"
 import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmark } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 
 interface SidebarProps {
   feeds: any[]
@@ -95,67 +96,72 @@ export default function Sidebar({
             </div>
           </div>
           {/* 移动端关闭按钮 */}
-          <button
+          <Button
             onClick={onClose}
-            className="ml-2 md:hidden rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            variant="ghost"
+            size="icon-sm"
+            className="ml-2 md:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 操作按钮 */}
       <div className="border-b border-gray-200 p-4 dark:border-gray-700">
-        <button
+        <Button
           onClick={onAddFeed}
-          className="flex w-full items-center justify-center space-x-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+          className="w-full"
+          size="sm"
         >
           <Plus className="h-4 w-4" />
           <span>添加订阅</span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onToggleUnreadOnly}
-          className={`flex w-full items-center justify-center space-x-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors mt-2 ${
-            unreadOnly
-              ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
-              : "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-          }`}
+          variant={unreadOnly ? "secondary" : "outline"}
+          className="w-full mt-2"
+          size="sm"
         >
           <Filter className="h-4 w-4" />
           <span>{unreadOnly ? "显示全部" : "仅未读"}</span>
-        </button>
+        </Button>
       </div>
 
       {/* 订阅列表 */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-1">
-          <button
+          <Button
             onClick={() => handleFeedSelect(null)}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+            variant={selectedFeed === null && !isReadLaterView ? "secondary" : "ghost"}
+            className={`w-full justify-between ${
               selectedFeed === null && !isReadLaterView
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                : ""
             }`}
+            size="sm"
           >
             <span className="font-medium">全部文章</span>
             <span className="text-xs">
               {(loading && feeds.length === 0) ? "-" : feeds.reduce((sum, feed) => sum + (feed.unreadCount || 0), 0)}
             </span>
-          </button>
+          </Button>
 
           {/* 稍后读入口 */}
-          <button
+          <Button
             onClick={() => {
               onSelectReadLater()
               if (window.innerWidth < 768) {
                 onClose()
               }
             }}
-            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+            variant={isReadLaterView ? "secondary" : "ghost"}
+            className={`w-full justify-between ${
               isReadLaterView
                 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-                : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                : ""
             }`}
+            size="sm"
           >
             <div className="flex items-center space-x-2">
               <Bookmark className={`h-4 w-4 ${isReadLaterView ? "text-yellow-600 dark:text-yellow-400" : "text-gray-400"}`} />
@@ -164,7 +170,7 @@ export default function Sidebar({
             <span className="text-xs">
               {(loading && feeds.length === 0) ? "-" : readLaterCount}
             </span>
-          </button>
+          </Button>
 
           {(loading && feeds.length === 0) ? (
             <div className="flex items-center justify-center py-8">
@@ -184,9 +190,11 @@ export default function Sidebar({
                       : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
-                  <button
+                  <Button
                     onClick={() => handleFeedSelect(feed.id)}
-                    className="flex flex-1 items-center justify-between px-3 py-2 text-left min-w-0"
+                    variant="ghost"
+                    className="flex flex-1 items-center justify-between px-3 py-2 text-left min-w-0 h-auto"
+                    size="sm"
                   >
                     <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-hidden pr-12">
                       {feed.imageUrl && !feedIconErrors[feed.id] ? (
@@ -212,28 +220,32 @@ export default function Sidebar({
                     <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
                       {feed.unreadCount || 0}
                     </span>
-                  </button>
+                  </Button>
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto bg-white/90 dark:bg-gray-800/90 rounded backdrop-blur-sm px-1 py-0.5">
-                    <button
+                    <Button
                       onClick={(e) => {
                         e.stopPropagation()
                         onEditFeed(feed)
                       }}
-                      className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-indigo-600 dark:hover:bg-gray-600"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-auto p-1 text-gray-500 hover:text-indigo-600 dark:hover:text-gray-300"
                       title="编辑订阅"
                     >
                       <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={(e) => {
                         e.stopPropagation()
                         onDeleteFeed(feed.id)
                       }}
-                      className="rounded p-1 text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-auto p-1 text-red-500 hover:text-red-700 dark:hover:text-red-400"
                       title="删除订阅"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -249,20 +261,24 @@ export default function Sidebar({
 
       {/* 底部 */}
       <div className="border-t border-gray-200 p-4 dark:border-gray-700 space-y-2">
-        <button
+        <Button
           onClick={() => router.push("/settings")}
-          className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+          variant="outline"
+          className="w-full"
+          size="sm"
         >
           <Settings className="h-4 w-4" />
           <span>设置</span>
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="flex w-full items-center justify-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+          variant="outline"
+          className="w-full"
+          size="sm"
         >
           <LogOut className="h-4 w-4" />
           <span>退出登录</span>
-        </button>
+        </Button>
       </div>
       </div>
     </>

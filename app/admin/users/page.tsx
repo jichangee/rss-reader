@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react"
 import { Search, Loader2, Trash2, Shield, User, Calendar, Rss, Eye } from "lucide-react"
 import Link from "next/link"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 interface UserData {
   id: string
@@ -103,24 +112,25 @@ export default function UsersPage() {
       {/* 搜索和筛选 */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-          <input
+          <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 z-10" />
+          <Input
             type="text"
             placeholder="搜索用户邮箱或姓名..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="pl-10"
           />
         </div>
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-        >
-          <option value="all">全部角色</option>
-          <option value="user">普通用户</option>
-          <option value="admin">管理员</option>
-        </select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="选择角色" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部角色</SelectItem>
+            <SelectItem value="user">普通用户</SelectItem>
+            <SelectItem value="admin">管理员</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* 统计信息 */}
@@ -224,12 +234,14 @@ export default function UsersPage() {
                       >
                         查看详情
                       </Link>
-                      <button
+                      <Button
                         onClick={() => handleDeleteUser(user.id, user.name || user.email)}
+                        variant="ghost"
+                        size="icon-sm"
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                       >
-                        <Trash2 className="h-4 w-4 inline" />
-                      </button>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -241,20 +253,23 @@ export default function UsersPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-800">
               <div className="flex flex-1 justify-between sm:hidden">
-                <button
+                <Button
                   onClick={() => setPage(page - 1)}
                   disabled={page === 1}
-                  className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  variant="outline"
+                  size="sm"
                 >
                   上一页
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => setPage(page + 1)}
                   disabled={page === totalPages}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                  variant="outline"
+                  size="sm"
+                  className="ml-3"
                 >
                   下一页
-                </button>
+                </Button>
               </div>
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
@@ -265,20 +280,24 @@ export default function UsersPage() {
                 </div>
                 <div>
                   <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
-                    <button
+                    <Button
                       onClick={() => setPage(page - 1)}
                       disabled={page === 1}
-                      className="relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-2 py-2 text-gray-400 hover:bg-gray-50 focus:z-20 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-l-md rounded-r-none"
                     >
                       上一页
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       onClick={() => setPage(page + 1)}
                       disabled={page === totalPages}
-                      className="relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-2 py-2 text-gray-400 hover:bg-gray-50 focus:z-20 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800"
+                      variant="outline"
+                      size="sm"
+                      className="rounded-r-md rounded-l-none"
                     >
                       下一页
-                    </button>
+                    </Button>
                   </nav>
                 </div>
               </div>

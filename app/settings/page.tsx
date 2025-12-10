@@ -1,10 +1,20 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, ArrowLeft, Save, Download, Upload } from "lucide-react"
 import WebhookManager from "@/app/components/WebhookManager"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 const LANGUAGES = [
   { code: "zh", name: "中文" },
@@ -12,28 +22,6 @@ const LANGUAGES = [
   { code: "ja", name: "日本語" },
   { code: "ko", name: "한국어" }
 ]
-
-function Switch({ checked, onChange, disabled }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`${
-        checked ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
-      } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:opacity-50`}
-    >
-      <span
-        aria-hidden="true"
-        className={`${
-          checked ? 'translate-x-5' : 'translate-x-0'
-        } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-      />
-    </button>
-  )
-}
 
 export default function SettingsPage() {
   const { data: session, status } = useSession()
@@ -56,6 +44,7 @@ export default function SettingsPage() {
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState(false)
   const [importResults, setImportResults] = useState<{ success: number; failed: number; total: number } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -223,13 +212,14 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       <div className="mx-auto max-w-4xl p-6">
         <div className="mb-6">
-          <button
+          <Button
             onClick={() => router.push("/dashboard")}
-            className="mb-4 flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            variant="ghost"
+            className="mb-4"
           >
             <ArrowLeft className="h-5 w-5" />
             <span>返回</span>
-          </button>
+          </Button>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             设置
           </h1>
@@ -246,21 +236,21 @@ export default function SettingsPage() {
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">当文章滚动出屏幕时自动标记为已读</p>
                 </div>
-                <Switch checked={markReadOnScroll} onChange={setMarkReadOnScroll} disabled={saving} />
+                <Switch checked={markReadOnScroll} onCheckedChange={setMarkReadOnScroll} disabled={saving} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">首次自动刷新</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">首次进入页面时自动刷新订阅内容</p>
                 </div>
-                <Switch checked={autoRefreshOnLoad} onChange={setAutoRefreshOnLoad} disabled={saving} />
+                <Switch checked={autoRefreshOnLoad} onCheckedChange={setAutoRefreshOnLoad} disabled={saving} />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">隐藏图片和视频</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">勾选后文章中的图片和视频将被折叠隐藏，点击可展开查看</p>
                 </div>
-                <Switch checked={hideImagesAndVideos} onChange={setHideImagesAndVideos} disabled={saving} />
+                <Switch checked={hideImagesAndVideos} onCheckedChange={setHideImagesAndVideos} disabled={saving} />
               </div>
             </div>
           </div>
@@ -281,18 +271,18 @@ export default function SettingsPage() {
                 >
                   目标语言
                 </label>
-                <select
-                  id="target-language"
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  {LANGUAGES.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
+                <Select value={targetLanguage} onValueChange={setTargetLanguage}>
+                  <SelectTrigger id="target-language" className="w-full">
+                    <SelectValue placeholder="选择目标语言" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -302,14 +292,14 @@ export default function SettingsPage() {
                 >
                   翻译服务提供商
                 </label>
-                <select
-                  id="translation-provider"
-                  value={translationProvider}
-                  onChange={(e) => setTranslationProvider(e.target.value as "google")}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="google">Google 翻译</option>
-                </select>
+                <Select value={translationProvider} onValueChange={(value) => setTranslationProvider(value as "google" | "niutrans" | "microsoft")}>
+                  <SelectTrigger id="translation-provider" className="w-full">
+                    <SelectValue placeholder="选择翻译服务提供商" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="google">Google 翻译</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -327,10 +317,11 @@ export default function SettingsPage() {
             </p>
 
             <div className="flex flex-col gap-4 sm:flex-row">
-              <button
+              <Button
                 onClick={handleExport}
                 disabled={exporting}
-                className="flex items-center justify-center space-x-2 rounded-lg border border-indigo-600 bg-white px-6 py-3 font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-500 dark:bg-gray-700 dark:text-indigo-400 dark:hover:bg-gray-600"
+                variant="outline"
+                className="flex items-center justify-center space-x-2"
               >
                 {exporting ? (
                   <>
@@ -343,9 +334,13 @@ export default function SettingsPage() {
                     <span>导出订阅</span>
                   </>
                 )}
-              </button>
+              </Button>
 
-              <label className="flex cursor-pointer items-center justify-center space-x-2 rounded-lg border border-indigo-600 bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-700 disabled:opacity-50 dark:border-indigo-500 dark:bg-indigo-600 dark:hover:bg-indigo-700">
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="flex items-center justify-center space-x-2"
+              >
                 {importing ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -357,14 +352,15 @@ export default function SettingsPage() {
                     <span>导入订阅</span>
                   </>
                 )}
-                <input
-                  type="file"
-                  accept=".opml,application/xml,text/xml"
-                  onChange={handleImport}
-                  disabled={importing}
-                  className="hidden"
-                />
-              </label>
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".opml,application/xml,text/xml"
+                onChange={handleImport}
+                disabled={importing}
+                className="hidden"
+              />
             </div>
 
             {importError && (
@@ -400,10 +396,9 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <button
+          <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center space-x-2 rounded-lg bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {saving ? (
               <>
@@ -416,7 +411,7 @@ export default function SettingsPage() {
                 <span>保存设置</span>
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

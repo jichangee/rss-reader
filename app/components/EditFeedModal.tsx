@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { X, Loader2, XCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Button } from "@/components/ui/button"
 
 interface Webhook {
   id: string
@@ -170,12 +173,11 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 订阅名称
               </label>
-              <input
+              <Input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="输入订阅名称"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={loading}
               />
             </div>
@@ -184,12 +186,11 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 RSS 链接
               </label>
-              <input
+              <Input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://example.com/feed.xml"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 disabled={loading}
               />
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -198,12 +199,10 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </div>
 
             <div className="mb-4">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <Checkbox
                   checked={enableTranslation}
-                  onChange={(e) => setEnableTranslation(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  onCheckedChange={(checked) => setEnableTranslation(checked === true)}
                   disabled={loading}
                 />
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -241,11 +240,9 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
                       key={webhook.id}
                       className="flex items-center space-x-3 rounded-lg border border-gray-200 p-3 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700 cursor-pointer"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedWebhookIds.includes(webhook.id)}
-                        onChange={() => handleWebhookToggle(webhook.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        onCheckedChange={() => handleWebhookToggle(webhook.id)}
                         disabled={loading || !webhook.enabled}
                       />
                       <div className="flex-1">
@@ -278,13 +275,15 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
                             className="inline-flex items-center space-x-1 rounded bg-indigo-100 px-2 py-1 text-xs text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200"
                           >
                             <span>{webhook.name}</span>
-                            <button
+                            <Button
                               type="button"
                               onClick={() => handleWebhookToggle(webhook.id)}
-                              className="hover:text-indigo-600"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="h-auto p-0 hover:text-indigo-600"
                             >
                               <XCircle className="h-3 w-3" />
-                            </button>
+                            </Button>
                           </span>
                         ))}
                       </div>
@@ -307,17 +306,18 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
 
           <div className="flex-shrink-0 p-6 border-t border-gray-200 dark:border-gray-700">
             <div className="flex space-x-3">
-              <button
+              <Button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                variant="outline"
+                className="flex-1"
                 disabled={loading}
               >
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex-1"
                 disabled={loading}
               >
                 {loading ? (
@@ -328,7 +328,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
                 ) : (
                   "保存"
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </form>

@@ -754,13 +754,12 @@ function DashboardContent() {
           />
         </div>
       </main>
-      {showAddFeed && (
-        <AddFeedModal
-          onClose={() => setShowAddFeed(false)}
-          onAddSingle={handleAddFeed}
-          onAddBatch={handleBatchAddFeed}
-        />
-      )}
+      <AddFeedModal
+        open={showAddFeed}
+        onClose={() => setShowAddFeed(false)}
+        onAddSingle={handleAddFeed}
+        onAddBatch={handleBatchAddFeed}
+      />
       {editingFeed && (
         <EditFeedModal
           feed={editingFeed}
