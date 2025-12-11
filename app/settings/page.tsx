@@ -36,8 +36,6 @@ export default function SettingsPage() {
   const [niutransApiKey, setNiutransApiKey] = useState("")
   const [microsoftTranslateApiKey, setMicrosoftTranslateApiKey] = useState("")
   const [microsoftTranslateRegion, setMicrosoftTranslateRegion] = useState("global")
-  const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
-  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -78,8 +76,6 @@ export default function SettingsPage() {
         setNiutransApiKey(data.niutransApiKey || "")
         setMicrosoftTranslateApiKey(data.microsoftTranslateApiKey || "")
         setMicrosoftTranslateRegion(data.microsoftTranslateRegion || "global")
-        setMarkReadOnScroll(data.markReadOnScroll ?? false)
-        setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
         setHideImagesAndVideos(data.hideImagesAndVideos ?? false)
       }
     } catch (error) {
@@ -106,8 +102,8 @@ export default function SettingsPage() {
           niutransApiKey,
           microsoftTranslateApiKey,
           microsoftTranslateRegion,
-          markReadOnScroll, 
-          autoRefreshOnLoad,
+          markReadOnScroll: true,
+          autoRefreshOnLoad: true,
           hideImagesAndVideos
         }),
       })
@@ -249,20 +245,6 @@ export default function SettingsPage() {
                   onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} 
                   disabled={!mounted}
                 />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">滚动标记已读</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">当文章滚动出屏幕时自动标记为已读</p>
-                </div>
-                <Switch checked={markReadOnScroll} onCheckedChange={setMarkReadOnScroll} disabled={saving} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">首次自动刷新</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">首次进入页面时自动刷新订阅内容</p>
-                </div>
-                <Switch checked={autoRefreshOnLoad} onCheckedChange={setAutoRefreshOnLoad} disabled={saving} />
               </div>
               <div className="flex items-center justify-between">
                 <div>

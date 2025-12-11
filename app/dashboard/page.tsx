@@ -45,8 +45,8 @@ function DashboardContent() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [markReadOnScroll, setMarkReadOnScroll] = useState(false)
-  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(null)
+  const [markReadOnScroll, setMarkReadOnScroll] = useState(true)
+  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(true)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
   const hasInitialLoadRef = useRef(false)
@@ -153,7 +153,7 @@ function DashboardContent() {
       const res = await fetch("/api/user/settings")
       if (res.ok) {
         const data = await res.json()
-        setMarkReadOnScroll(data.markReadOnScroll ?? false)
+        setMarkReadOnScroll(data.markReadOnScroll ?? true)
         setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
       }
     } catch (error) {

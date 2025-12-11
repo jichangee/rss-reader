@@ -24,7 +24,7 @@ export default function ArticleList({
   onMarkAllAsRead,
   onMarkOlderAsRead,
   onAddFeed,
-  markReadOnScroll = false,
+  markReadOnScroll = true,
   isRefreshing = false,
   onRefresh,
   isReadLaterView = false,
