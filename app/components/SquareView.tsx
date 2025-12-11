@@ -627,26 +627,22 @@ export default function SquareView({ onSubscribe }: SquareViewProps) {
       {selectedArticle && (
         <ArticleDrawer
           article={{
-            ...selectedArticle,
-            content: null,
-            guid: "",
-            feedId: selectedArticle.feed.id,
-            createdAt: new Date()
+            id: selectedArticle.id,
+            title: selectedArticle.title,
+            link: selectedArticle.link,
+            content: undefined,
+            contentSnippet: selectedArticle.contentSnippet || undefined,
+            pubDate: selectedArticle.pubDate ? selectedArticle.pubDate.toString() : undefined,
+            author: selectedArticle.author || undefined,
+            feed: {
+              title: selectedArticle.feed.title,
+              imageUrl: selectedArticle.feed.imageUrl || undefined,
+            },
+            readBy: [],
+            isReadLater: selectedArticle.isReadLater,
           }}
-          open={!!selectedArticle}
+          isOpen={!!selectedArticle}
           onClose={() => setSelectedArticle(null)}
-          isRead={selectedArticle.isRead}
-          isReadLater={selectedArticle.isReadLater}
-          onToggleRead={() => {
-            if (!selectedArticle.isRead) {
-              handleMarkRead(selectedArticle)
-            }
-          }}
-          onToggleReadLater={() => {
-            if (!selectedArticle.isReadLater) {
-              handleReadLater(selectedArticle)
-            }
-          }}
         />
       )}
     </div>
