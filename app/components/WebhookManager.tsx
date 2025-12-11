@@ -461,7 +461,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            {/* <div className="flex items-center space-x-2">
               <Checkbox
                 id="remote"
                 checked={remote}
@@ -471,7 +471,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
               <label htmlFor="remote" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
                 远程发起（服务器端）
               </label>
-            </div>
+            </div> */}
 
             <div className="flex items-center space-x-2">
               <Checkbox
