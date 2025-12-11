@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { format } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import { Bookmark, BookmarkCheck, User, Calendar, Image, ChevronDown, ChevronUp, Rss, ExternalLink, Send, Loader2 } from "lucide-react"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import type { ArticleItemProps } from "./types"
 
 // 清理和修复图片 URL
@@ -175,15 +176,12 @@ export default function ArticleItem({
       {/* 顶部：订阅源信息和标签 */}
       <div className="mb-3 flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center space-x-2 min-w-0 flex-1">
-          {article.feed.imageUrl ? (
-            <img
-              src={article.feed.imageUrl}
-              alt=""
-              className="h-5 w-5 rounded-full flex-shrink-0"
-            />
-          ) : (
-            <Rss className="h-5 w-5 text-gray-400 flex-shrink-0" />
-          )}
+          <Avatar className="h-5 w-5 flex-shrink-0">
+            <AvatarImage src={article.feed.imageUrl || undefined} alt="" />
+            <AvatarFallback className="bg-transparent">
+              <Rss className="h-5 w-5 text-gray-400" />
+            </AvatarFallback>
+          </Avatar>
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
             {article.feed.title}
           </span>

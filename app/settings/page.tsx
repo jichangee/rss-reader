@@ -17,6 +17,12 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 const LANGUAGES = [
   { code: "zh", name: "中文" },
@@ -242,182 +248,195 @@ export default function SettingsPage() {
           </h1>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-              阅读设置
-            </h2>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">夜间模式</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">切换到深色主题以保护眼睛</p>
+        <div className="rounded-lg bg-white shadow-sm dark:bg-gray-800">
+          <Accordion type="single" collapsible defaultValue="reading" className="w-full">
+            <AccordionItem value="reading">
+              <AccordionTrigger className="px-6 text-xl font-semibold text-gray-900 dark:text-white">
+                阅读设置
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-medium text-gray-900 dark:text-white">夜间模式</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">切换到深色主题以保护眼睛</p>
+                    </div>
+                    <Switch 
+                      checked={mounted && theme === "dark"} 
+                      onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} 
+                      disabled={!mounted}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-medium text-gray-900 dark:text-white">隐藏图片和视频</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">勾选后文章中的图片和视频将被折叠隐藏，点击可展开查看</p>
+                    </div>
+                    <Switch 
+                      checked={hideImagesAndVideos} 
+                      onCheckedChange={(checked) => {
+                        setHideImagesAndVideos(checked)
+                        handleSave()
+                      }} 
+                      disabled={saving} 
+                    />
+                  </div>
                 </div>
-                <Switch 
-                  checked={mounted && theme === "dark"} 
-                  onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")} 
-                  disabled={!mounted}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">隐藏图片和视频</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">勾选后文章中的图片和视频将被折叠隐藏，点击可展开查看</p>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="translation">
+              <AccordionTrigger className="px-6 text-xl font-semibold text-gray-900 dark:text-white">
+                翻译设置
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+                  设置默认的翻译目标语言和翻译服务提供商。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
+                </p>
+
+                <div className="space-y-6">
+                  <div>
+                    <label
+                      htmlFor="target-language"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      目标语言
+                    </label>
+                    <Select 
+                      value={targetLanguage} 
+                      onValueChange={(value) => {
+                        setTargetLanguage(value)
+                        handleSave()
+                      }}
+                    >
+                      <SelectTrigger id="target-language" className="w-full">
+                        <SelectValue placeholder="选择目标语言" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LANGUAGES.map((lang) => (
+                          <SelectItem key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="translation-provider"
+                      className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      翻译服务提供商
+                    </label>
+                    <Select 
+                      value={translationProvider} 
+                      onValueChange={(value) => {
+                        setTranslationProvider(value as "google" | "niutrans" | "microsoft")
+                        handleSave()
+                      }}
+                    >
+                      <SelectTrigger id="translation-provider" className="w-full">
+                        <SelectValue placeholder="选择翻译服务提供商" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="google">Google 翻译</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Switch 
-                  checked={hideImagesAndVideos} 
-                  onCheckedChange={(checked) => {
-                    setHideImagesAndVideos(checked)
-                    handleSave()
-                  }} 
-                  disabled={saving} 
-                />
-              </div>
-            </div>
-          </div>
+              </AccordionContent>
+            </AccordionItem>
 
-          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-              翻译设置
-            </h2>
-            <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-              设置默认的翻译目标语言和翻译服务提供商。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
-            </p>
+            <AccordionItem value="webhook">
+              <AccordionTrigger className="px-6 text-xl font-semibold text-gray-900 dark:text-white">
+                Webhook 管理
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <WebhookManager />
+              </AccordionContent>
+            </AccordionItem>
 
-            <div className="space-y-6">
-              <div>
-                <label
-                  htmlFor="target-language"
-                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  目标语言
-                </label>
-                <Select 
-                  value={targetLanguage} 
-                  onValueChange={(value) => {
-                    setTargetLanguage(value)
-                    handleSave()
-                  }}
-                >
-                  <SelectTrigger id="target-language" className="w-full">
-                    <SelectValue placeholder="选择目标语言" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.code} value={lang.code}>
-                        {lang.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <AccordionItem value="subscription">
+              <AccordionTrigger className="px-6 text-xl font-semibold text-gray-900 dark:text-white">
+                订阅管理
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
+                  导出或导入你的RSS订阅列表。支持标准的OPML格式，可以与其他RSS阅读器兼容。
+                </p>
 
-              <div>
-                <label
-                  htmlFor="translation-provider"
-                  className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  翻译服务提供商
-                </label>
-                <Select 
-                  value={translationProvider} 
-                  onValueChange={(value) => {
-                    setTranslationProvider(value as "google" | "niutrans" | "microsoft")
-                    handleSave()
-                  }}
-                >
-                  <SelectTrigger id="translation-provider" className="w-full">
-                    <SelectValue placeholder="选择翻译服务提供商" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="google">Google 翻译</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <Button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    variant="outline"
+                    className="flex items-center justify-center space-x-2"
+                  >
+                    {exporting ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>导出中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-5 w-5" />
+                        <span>导出订阅</span>
+                      </>
+                    )}
+                  </Button>
 
-          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-            <WebhookManager />
-          </div>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                    className="flex items-center justify-center space-x-2"
+                  >
+                    {importing ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>导入中...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        <span>导入订阅</span>
+                      </>
+                    )}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".opml,application/xml,text/xml"
+                    onChange={handleImport}
+                    disabled={importing}
+                    className="hidden"
+                  />
+                </div>
 
-          <div className="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-            <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-              订阅管理
-            </h2>
-            <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-              导出或导入你的RSS订阅列表。支持标准的OPML格式，可以与其他RSS阅读器兼容。
-            </p>
-
-            <div className="flex flex-col gap-4 sm:flex-row">
-              <Button
-                onClick={handleExport}
-                disabled={exporting}
-                variant="outline"
-                className="flex items-center justify-center space-x-2"
-              >
-                {exporting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>导出中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-5 w-5" />
-                    <span>导出订阅</span>
-                  </>
+                {importError && (
+                  <Alert variant="destructive" className="mt-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{importError}</AlertDescription>
+                  </Alert>
                 )}
-              </Button>
 
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={importing}
-                className="flex items-center justify-center space-x-2"
-              >
-                {importing ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>导入中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-5 w-5" />
-                    <span>导入订阅</span>
-                  </>
+                {importSuccess && importResults && (
+                  <Alert className="mt-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <AlertDescription className="text-green-600 dark:text-green-400">
+                      <p className="font-medium">导入完成</p>
+                      <p className="mt-1">
+                        成功导入 {importResults.success} 个订阅，失败 {importResults.failed} 个（共 {importResults.total} 个）
+                      </p>
+                      {importResults.success > 0 && (
+                        <p className="mt-1 text-xs">页面将在2秒后自动刷新...</p>
+                      )}
+                    </AlertDescription>
+                  </Alert>
                 )}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".opml,application/xml,text/xml"
-                onChange={handleImport}
-                disabled={importing}
-                className="hidden"
-              />
-            </div>
-
-            {importError && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{importError}</AlertDescription>
-              </Alert>
-            )}
-
-            {importSuccess && importResults && (
-              <Alert className="mt-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <AlertDescription className="text-green-600 dark:text-green-400">
-                  <p className="font-medium">导入完成</p>
-                  <p className="mt-1">
-                    成功导入 {importResults.success} 个订阅，失败 {importResults.failed} 个（共 {importResults.total} 个）
-                  </p>
-                  {importResults.success > 0 && (
-                    <p className="mt-1 text-xs">页面将在2秒后自动刷新...</p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </div>
     </div>
