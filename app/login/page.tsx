@@ -4,6 +4,7 @@ import { signIn, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Rss, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function LoginPage() {
   const { data: session, status } = useSession()
@@ -42,9 +43,10 @@ export default function LoginPage() {
           </p>
         </div>
         <div className="mt-8">
-          <button
+          <Button
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-            className="group relative flex w-full justify-center rounded-lg border border-transparent bg-indigo-600 px-4 py-3 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
+            className="w-full relative"
+            size="lg"
           >
             <span className="absolute inset-y-0 left-0 flex items-center pl-3">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -67,7 +69,7 @@ export default function LoginPage() {
               </svg>
             </span>
             使用 Google 登录
-          </button>
+          </Button>
         </div>
         <div className="mt-6">
           <div className="relative">

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/cleanup-articles",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/calculate-hotness",
+      "schedule": "0 * * * *"
     }
   ]
 }

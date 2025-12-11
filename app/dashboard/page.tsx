@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Sidebar from "@/app/components/Sidebar"
 import ArticleList from "@/app/components/ArticleList"
+import SquareView from "@/app/components/SquareView"
 import AddFeedModal from "@/app/components/AddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
 import { Loader2, Menu } from "lucide-react"
@@ -18,7 +19,9 @@ function DashboardContent() {
   const [articles, setArticles] = useState<any[]>([])
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
   const [isReadLaterView, setIsReadLaterView] = useState(false)
+  const [isSquareView, setIsSquareView] = useState(false)
   const [readLaterCount, setReadLaterCount] = useState(0)
+  const [showSquare, setShowSquare] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [showAddFeed, setShowAddFeed] = useState(false)
   const [editingFeed, setEditingFeed] = useState<any | null>(null)
@@ -56,17 +59,23 @@ function DashboardContent() {
     unreadOnlyRef.current = unreadOnly
   }, [selectedFeed, unreadOnly])
 
-  // 从 URL 读取选中的订阅或稍后读视图
+  // 从 URL 读取选中的订阅或稍后读视图或广场视图
   useEffect(() => {
     if (!isInitialized) {
       const feedId = searchParams.get("feed")
       const view = searchParams.get("view")
       if (view === "read-later") {
         setIsReadLaterView(true)
+        setIsSquareView(false)
+        setSelectedFeed(null)
+      } else if (view === "square") {
+        setIsSquareView(true)
+        setIsReadLaterView(false)
         setSelectedFeed(null)
       } else if (feedId) {
         setSelectedFeed(feedId)
         setIsReadLaterView(false)
+        setIsSquareView(false)
       }
       setIsInitialized(true)
     }
@@ -78,12 +87,14 @@ function DashboardContent() {
     }
   }, [status, router])
 
-  // 初始化：加载设置
+  // 初始化：加载设置和检查广场数据
   useEffect(() => {
     if (status === "authenticated") {
       const initializeDashboard = async () => {
         // 先加载设置
         await loadSettings()
+        // 检查广场是否有数据
+        await checkSquareData()
       }
       initializeDashboard()
     }
@@ -121,6 +132,19 @@ function DashboardContent() {
       console.error("加载订阅失败:", error)
     } finally {
       setFeedsLoading(false)
+    }
+  }
+
+  const checkSquareData = async () => {
+    try {
+      const res = await fetch("/api/square/check")
+      if (res.ok) {
+        const data = await res.json()
+        setShowSquare(data.hasData || false)
+      }
+    } catch (error) {
+      console.error("检查广场数据失败:", error)
+      setShowSquare(false)
     }
   }
 
@@ -283,6 +307,7 @@ function DashboardContent() {
   const handleFeedSelect = (feedId: string | null) => {
     setSelectedFeed(feedId)
     setIsReadLaterView(false)
+    setIsSquareView(false)
     // 切换订阅时，总是显示 loading 状态，不使用静默模式
     loadArticles(feedId || undefined, unreadOnly, true, false, false)
 
@@ -297,9 +322,17 @@ function DashboardContent() {
   const handleSelectReadLater = () => {
     setSelectedFeed(null)
     setIsReadLaterView(true)
+    setIsSquareView(false)
     // 切换到稍后读视图，总是显示 loading 状态
     loadArticles(undefined, false, true, false, true)
     router.push("/dashboard?view=read-later")
+  }
+
+  const handleSelectSquare = () => {
+    setSelectedFeed(null)
+    setIsReadLaterView(false)
+    setIsSquareView(true)
+    router.push("/dashboard?view=square")
   }
 
   // 处理稍后读状态变化
@@ -713,9 +746,12 @@ function DashboardContent() {
         feeds={feeds}
         selectedFeed={selectedFeed}
         isReadLaterView={isReadLaterView}
+        isSquareView={isSquareView}
         readLaterCount={readLaterCount}
+        showSquare={showSquare}
         onSelectFeed={handleFeedSelect}
         onSelectReadLater={handleSelectReadLater}
+        onSelectSquare={handleSelectSquare}
         onAddFeed={() => setShowAddFeed(true)}
         onEditFeed={(feed) => setEditingFeed(feed)}
         onDeleteFeed={handleDeleteFeed}
@@ -739,22 +775,31 @@ function DashboardContent() {
           </Button>
         </div>
         <div className="flex-1 overflow-hidden">
-          <ArticleList
-            articles={articles}
-            loading={loading}
-            hasMore={hasMore}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAsReadBatch={handleMarkAsReadBatch}
-            onLoadMore={loadMoreArticles}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            onMarkOlderAsRead={handleMarkOlderAsRead}
-            markReadOnScroll={markReadOnScroll}
-            isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
-            onRefresh={handleManualRefresh}
-            onRefreshAndReload={handleRefreshAndReload}
-            isReadLaterView={isReadLaterView}
-            onReadLaterChange={handleReadLaterChange}
-          />
+          {isSquareView ? (
+            <SquareView onSubscribe={() => {
+              loadFeeds()
+              checkSquareData()
+            }} />
+          ) : (
+            <ArticleList
+              articles={articles}
+              loading={loading}
+              hasMore={hasMore}
+              hasFeeds={feeds.length > 0}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAsReadBatch={handleMarkAsReadBatch}
+              onLoadMore={loadMoreArticles}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onMarkOlderAsRead={handleMarkOlderAsRead}
+              onAddFeed={() => setShowAddFeed(true)}
+              markReadOnScroll={markReadOnScroll}
+              isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
+              onRefresh={handleManualRefresh}
+              onRefreshAndReload={handleRefreshAndReload}
+              isReadLaterView={isReadLaterView}
+              onReadLaterChange={handleReadLaterChange}
+            />
+          )}
         </div>
       </main>
       <AddFeedModal

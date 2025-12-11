@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
 /**
- * 定时任务：清理一周前已读的文章
+ * 定时任务：清理30天前已读的文章
  * 建议每天凌晨 2:00 执行
  * Vercel Cron: 0 2 * * *
  */
@@ -26,21 +26,21 @@ export async function GET(request: Request) {
     console.log("============ 开始清理旧文章 ============")
     const cleanupStartTime = Date.now()
     
-    // 计算一周前的时间
-    const oneWeekAgo = new Date()
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+    // 计算30天前的时间
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     
     let deletedArticlesCount = 0
     let oldReadArticlesCount = 0
     let readLaterArticlesCount = 0
     
     try {
-      // 1. 查找一周前已读且不在稍后读列表中的文章
-      // 这些文章至少被一个用户读过，且最后阅读时间在一周前
+      // 1. 查找30天前已读且不在稍后读列表中的文章
+      // 这些文章至少被一个用户读过，且最后阅读时间在30天前
       const oldReadArticles = await prisma.readArticle.findMany({
         where: {
           readAt: {
-            lt: oneWeekAgo
+            lt: thirtyDaysAgo
           }
         },
         select: {
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
       })
       
       oldReadArticlesCount = oldReadArticles.length
-      console.log(`找到 ${oldReadArticlesCount} 篇一周前已读的文章`)
+      console.log(`找到 ${oldReadArticlesCount} 篇30天前已读的文章`)
       
       if (oldReadArticles.length > 0) {
         const articleIds = oldReadArticles.map(r => r.articleId)
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
       const summary = {
         executedAt: new Date().toISOString(),
         duration: `${cleanupDuration}ms`,
-        oneWeekAgoDate: oneWeekAgo.toISOString(),
+        thirtyDaysAgoDate: thirtyDaysAgo.toISOString(),
         oldReadArticles: oldReadArticlesCount,
         readLaterArticles: readLaterArticlesCount,
         deletedArticles: deletedArticlesCount,

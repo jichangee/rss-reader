@@ -1,7 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
-import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmark } from "lucide-react"
+import { Plus, LogOut, Rss, Trash2, Filter, X, Settings, Edit2, Loader2, Bookmark, TrendingUp } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -16,9 +16,12 @@ interface SidebarProps {
   feeds: any[]
   selectedFeed: string | null
   isReadLaterView: boolean
+  isSquareView: boolean
   readLaterCount: number
+  showSquare: boolean
   onSelectFeed: (feedId: string | null) => void
   onSelectReadLater: () => void
+  onSelectSquare: () => void
   onAddFeed: () => void
   onEditFeed: (feed: any) => void
   onDeleteFeed: (feedId: string) => void
@@ -33,9 +36,12 @@ export default function Sidebar({
   feeds,
   selectedFeed,
   isReadLaterView,
+  isSquareView,
   readLaterCount,
+  showSquare,
   onSelectFeed,
   onSelectReadLater,
+  onSelectSquare,
   onAddFeed,
   onEditFeed,
   onDeleteFeed,
@@ -117,9 +123,9 @@ export default function Sidebar({
         <div className="space-y-1">
           <Button
             onClick={() => handleFeedSelect(null)}
-            variant={selectedFeed === null && !isReadLaterView ? "secondary" : "ghost"}
+            variant={selectedFeed === null && !isReadLaterView && !isSquareView ? "secondary" : "ghost"}
             className={`w-full justify-between ${
-              selectedFeed === null && !isReadLaterView
+              selectedFeed === null && !isReadLaterView && !isSquareView
                 ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
                 : ""
             }`}
@@ -156,6 +162,31 @@ export default function Sidebar({
             </span>
           </Button>
 
+          {/* 广场入口 - 只在有数据时显示 */}
+          {showSquare && (
+            <Button
+              onClick={() => {
+                onSelectSquare()
+                if (window.innerWidth < 768) {
+                  onClose()
+                }
+              }}
+              variant={isSquareView ? "secondary" : "ghost"}
+              className={`w-full justify-between ${
+                isSquareView
+                  ? "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+                  : ""
+              }`}
+              size="sm"
+            >
+              <div className="flex items-center space-x-2">
+                <TrendingUp className={`h-4 w-4 ${isSquareView ? "text-orange-600 dark:text-orange-400" : "text-gray-400"}`} />
+                <span className="font-medium">广场</span>
+              </div>
+              <span className="text-xs">🔥</span>
+            </Button>
+          )}
+
           {(loading && feeds.length === 0) ? (
             <div className="mt-4 space-y-2">
               <Skeleton className="h-4 w-20 mb-4" />
@@ -176,7 +207,7 @@ export default function Sidebar({
                 <div
                   key={feed.id}
                   className={`group relative flex items-center rounded-lg transition-colors ${
-                    selectedFeed === feed.id && !isReadLaterView
+                    selectedFeed === feed.id && !isReadLaterView && !isSquareView
                       ? "bg-indigo-100 dark:bg-indigo-900"
                       : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
@@ -200,7 +231,7 @@ export default function Sidebar({
                       )}
                       <span
                         className={`truncate text-sm min-w-0 ${
-                          selectedFeed === feed.id && !isReadLaterView
+                          selectedFeed === feed.id && !isReadLaterView && !isSquareView
                             ? "font-medium text-indigo-700 dark:text-indigo-300"
                             : "text-gray-700 dark:text-gray-300"
                         }`}

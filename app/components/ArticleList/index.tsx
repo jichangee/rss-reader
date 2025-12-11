@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Loader2, BookOpen, CheckCheck, RotateCw } from "lucide-react"
+import { Loader2, BookOpen, CheckCheck, RotateCw, Plus } from "lucide-react"
 import { useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
@@ -11,16 +11,19 @@ import { useScrollToRead } from "./hooks/useScrollToRead"
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll"
 import type { ArticleListProps, Article } from "./types"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 
 export default function ArticleList({
   articles,
   loading,
   hasMore,
+  hasFeeds = true,
   onMarkAsRead,
   onMarkAsReadBatch,
   onLoadMore,
   onMarkAllAsRead,
   onMarkOlderAsRead,
+  onAddFeed,
   markReadOnScroll = false,
   isRefreshing = false,
   onRefresh,
@@ -510,6 +513,18 @@ export default function ArticleList({
             <BookOpen className="h-16 w-16 mb-4 opacity-50" />
             <p className="text-lg font-medium">{isReadLaterView ? "暂无稍后读文章" : "暂无文章"}</p>
             <p className="mt-2 text-sm">{isReadLaterView ? "点击文章的书签按钮添加到稍后读" : "添加订阅以获取最新内容"}</p>
+            
+            {/* 如果用户没有订阅，显示添加订阅按钮 */}
+            {!isReadLaterView && !hasFeeds && onAddFeed && (
+              <Button
+                onClick={onAddFeed}
+                size="lg"
+                className="mt-6"
+              >
+                <Plus className="h-5 w-5" />
+                <span>添加订阅</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>

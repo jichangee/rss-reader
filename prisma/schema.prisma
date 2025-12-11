@@ -116,6 +116,7 @@ model Article {
   guid        String
   readBy      ReadArticle[]
   readLaterBy ReadLater[]
+  hotness     ArticleHotness?
   createdAt   DateTime      @default(now())
 
   @@unique([feedId, guid])
@@ -226,5 +227,21 @@ model AdminLog {
   @@index([adminId])
   @@index([createdAt])
   @@index([action])
+}
+
+// 文章热度统计表（定时计算更新）
+model ArticleHotness {
+  id              String   @id @default(cuid())
+  articleId       String   @unique
+  article         Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  readLaterCount  Int      @default(0)  // 稍后读次数
+  readCount       Int      @default(0)  // 阅读次数
+  uniqueUsers     Int      @default(0)  // 影响的独立用户数
+  hotScore        Float    @default(0)  // 热度分数
+  lastCalculated  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  
+  @@index([hotScore, lastCalculated])
+  @@index([createdAt])
 }
 
