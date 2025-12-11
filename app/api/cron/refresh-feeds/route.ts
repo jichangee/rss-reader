@@ -162,73 +162,6 @@ export async function GET(req: Request) {
       console.log(`用户 ${user.email}: 成功 ${userSuccess}, 失败 ${userFailed}, 新文章 ${userNewArticles}`)
     }
 
-    // ==================== 清理旧文章 ====================
-    console.log("============ 开始清理旧文章 ============")
-    const cleanupStartTime = Date.now()
-    
-    // 计算一周前的时间
-    const oneWeekAgo = new Date()
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-    
-    let deletedArticlesCount = 0
-    
-    try {
-      // 1. 查找一周前已读且不在稍后读列表中的文章
-      // 这些文章至少被一个用户读过，且最后阅读时间在一周前
-      const oldReadArticles = await prisma.readArticle.findMany({
-        where: {
-          readAt: {
-            lt: oneWeekAgo
-          }
-        },
-        select: {
-          articleId: true,
-          readAt: true
-        },
-        distinct: ['articleId']
-      })
-      
-      console.log(`找到 ${oldReadArticles.length} 篇一周前已读的文章`)
-      
-      if (oldReadArticles.length > 0) {
-        const articleIds = oldReadArticles.map(r => r.articleId)
-        
-        // 2. 排除仍在稍后读列表中的文章
-        const articlesInReadLater = await prisma.readLater.findMany({
-          where: {
-            articleId: { in: articleIds }
-          },
-          select: {
-            articleId: true
-          }
-        })
-        
-        const readLaterIds = new Set(articlesInReadLater.map(r => r.articleId))
-        const articlesToDelete = articleIds.filter(id => !readLaterIds.has(id))
-        
-        console.log(`排除 ${readLaterIds.size} 篇在稍后读列表中的文章`)
-        console.log(`准备删除 ${articlesToDelete.length} 篇文章`)
-        
-        if (articlesToDelete.length > 0) {
-          // 3. 删除文章（会级联删除关联的 readArticle 记录）
-          const deleteResult = await prisma.article.deleteMany({
-            where: {
-              id: { in: articlesToDelete }
-            }
-          })
-          
-          deletedArticlesCount = deleteResult.count
-          console.log(`成功删除 ${deletedArticlesCount} 篇旧文章`)
-        }
-      }
-      
-      const cleanupDuration = Date.now() - cleanupStartTime
-      console.log(`============ 清理完成，耗时 ${cleanupDuration}ms ============`)
-    } catch (cleanupError) {
-      console.error("清理旧文章失败:", cleanupError)
-      // 清理失败不影响主流程，继续执行
-    }
-
     const duration = Date.now() - startTime
 
     const summary = {
@@ -240,7 +173,6 @@ export async function GET(req: Request) {
       successfulRefreshes: totalSuccess,
       failedRefreshes: totalFailed,
       newArticles: totalNewArticles,
-      deletedArticles: deletedArticlesCount,
     }
 
     console.log("============ Cron Job 完成 ============")
