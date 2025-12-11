@@ -245,3 +245,16 @@ model ArticleHotness {
   @@index([createdAt])
 }
 
+// 邮箱验证码表
+model EmailVerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String   // 6位数字验证码
+  expiresAt DateTime // 过期时间（5分钟）
+  used      Boolean  @default(false) // 是否已使用
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+  @@index([expiresAt])
+}
+

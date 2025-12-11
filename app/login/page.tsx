@@ -2,19 +2,105 @@
 
 import { signIn, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-import { Rss, Loader2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Loader2, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [code, setCode] = useState("")
+  const [sendingCode, setSendingCode] = useState(false)
+  const [loggingIn, setLoggingIn] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
     if (status === "authenticated") {
       router.push("/dashboard")
     }
   }, [status, router])
+
+  // 倒计时逻辑
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
+
+  // 发送验证码
+  const handleSendCode = async () => {
+    if (!email) {
+      toast.error("请输入邮箱地址")
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast.error("邮箱格式不正确")
+      return
+    }
+
+    setSendingCode(true)
+    try {
+      const response = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success("验证码已发送，请查收邮件")
+        setCountdown(60) // 60秒倒计时
+      } else {
+        toast.error(data.error || "发送失败")
+      }
+    } catch (error) {
+      toast.error("发送失败，请稍后重试")
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  // 邮箱验证码登录
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!email || !code) {
+      toast.error("请输入邮箱和验证码")
+      return
+    }
+
+    if (code.length !== 6) {
+      toast.error("验证码应为6位数字")
+      return
+    }
+
+    setLoggingIn(true)
+    try {
+      const result = await signIn("email-code", {
+        email,
+        code,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        toast.error("验证码错误或已过期")
+      } else if (result?.ok) {
+        toast.success("登录成功")
+        router.push("/dashboard")
+      }
+    } catch (error) {
+      toast.error("登录失败，请重试")
+    } finally {
+      setLoggingIn(false)
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -29,7 +115,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-white p-10 shadow-2xl dark:bg-gray-800">
         <div className="text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg overflow-hidden">
@@ -39,14 +125,17 @@ export default function LoginPage() {
             RSS 阅读器
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            使用 Google 账号登录开始阅读
+            选择登录方式开始阅读
           </p>
         </div>
+
+        {/* Google登录 */}
         <div className="mt-8">
           <Button
             onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
             className="w-full relative"
             size="lg"
+            variant="default"
           >
             <span className="absolute inset-y-0 left-0 flex items-center pl-3">
               <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -71,6 +160,94 @@ export default function LoginPage() {
             使用 Google 登录
           </Button>
         </div>
+
+        {/* 分隔线 */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-white px-2 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              或使用邮箱登录
+            </span>
+          </div>
+        </div>
+
+        {/* 邮箱验证码登录 */}
+        <form onSubmit={handleEmailLogin} className="space-y-4">
+          {/* 邮箱输入 */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              邮箱地址
+            </label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loggingIn}
+              className="w-full"
+            />
+          </div>
+
+          {/* 验证码输入 */}
+          <div>
+            <label htmlFor="code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              验证码
+            </label>
+            <div className="flex space-x-2">
+              <Input
+                id="code"
+                type="text"
+                placeholder="6位数字验证码"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                disabled={loggingIn}
+                className="flex-1"
+                maxLength={6}
+              />
+              <Button
+                type="button"
+                onClick={handleSendCode}
+                disabled={sendingCode || countdown > 0 || !email}
+                variant="outline"
+                size="default"
+              >
+                {sendingCode ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : countdown > 0 ? (
+                  `${countdown}秒`
+                ) : (
+                  "获取验证码"
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* 登录按钮 */}
+          <Button
+            type="submit"
+            className="w-full"
+            size="lg"
+            disabled={loggingIn || !email || !code}
+            variant="secondary"
+          >
+            {loggingIn ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>登录中...</span>
+              </>
+            ) : (
+              <>
+                <Mail className="h-4 w-4" />
+                <span>邮箱登录</span>
+              </>
+            )}
+          </Button>
+        </form>
+
+        {/* 功能特性 */}
         <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -137,4 +314,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
