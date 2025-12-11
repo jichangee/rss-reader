@@ -4,7 +4,8 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Loader2, ArrowLeft, Save, Download, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Loader2, ArrowLeft, Download, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
+import { toast } from "sonner"
 import WebhookManager from "@/app/components/WebhookManager"
 import {
   Select,
@@ -14,7 +15,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -39,14 +39,13 @@ export default function SettingsPage() {
   const [hideImagesAndVideos, setHideImagesAndVideos] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState("")
   const [importSuccess, setImportSuccess] = useState(false)
   const [importResults, setImportResults] = useState<{ success: number; failed: number; total: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -80,47 +79,61 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error("加载设置失败:", error)
-      setError("加载设置失败")
+      toast.error("加载设置失败")
     } finally {
       setLoading(false)
     }
   }
 
   const handleSave = async () => {
-    try {
-      setSaving(true)
-      setError("")
-      setSuccess(false)
-
-      const res = await fetch("/api/user/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          targetLanguage, 
-          translationProvider,
-          googleTranslateApiKey,
-          niutransApiKey,
-          microsoftTranslateApiKey,
-          microsoftTranslateRegion,
-          markReadOnScroll: true,
-          autoRefreshOnLoad: true,
-          hideImagesAndVideos
-        }),
-      })
-
-      if (res.ok) {
-        setSuccess(true)
-        setTimeout(() => setSuccess(false), 3000)
-      } else {
-        const error = await res.json()
-        setError(error.error || "保存失败")
-      }
-    } catch (error) {
-      setError("保存失败，请重试")
-    } finally {
-      setSaving(false)
+    // 清除之前的定时器
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
     }
+
+    // 设置新的定时器，延迟保存以避免频繁请求
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setSaving(true)
+
+        const res = await fetch("/api/user/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            targetLanguage, 
+            translationProvider,
+            googleTranslateApiKey,
+            niutransApiKey,
+            microsoftTranslateApiKey,
+            microsoftTranslateRegion,
+            markReadOnScroll: true,
+            autoRefreshOnLoad: true,
+            hideImagesAndVideos
+          }),
+        })
+
+        if (res.ok) {
+          toast.success("设置已保存")
+        } else {
+          const error = await res.json()
+          toast.error(error.error || "保存失败")
+        }
+      } catch (error) {
+        toast.error("保存失败，请重试")
+      } finally {
+        setSaving(false)
+      }
+    }, 500)
   }
+
+  // 组件卸载时清除定时器
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleExport = async () => {
     try {
@@ -139,10 +152,10 @@ export default function SettingsPage() {
         document.body.removeChild(a)
       } else {
         const error = await res.json()
-        setError(error.error || "导出失败")
+        toast.error(error.error || "导出失败")
       }
     } catch (error) {
-      setError("导出失败，请重试")
+      toast.error("导出失败，请重试")
     } finally {
       setExporting(false)
     }
@@ -251,7 +264,14 @@ export default function SettingsPage() {
                   <h3 className="text-base font-medium text-gray-900 dark:text-white">隐藏图片和视频</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">勾选后文章中的图片和视频将被折叠隐藏，点击可展开查看</p>
                 </div>
-                <Switch checked={hideImagesAndVideos} onCheckedChange={setHideImagesAndVideos} disabled={saving} />
+                <Switch 
+                  checked={hideImagesAndVideos} 
+                  onCheckedChange={(checked) => {
+                    setHideImagesAndVideos(checked)
+                    handleSave()
+                  }} 
+                  disabled={saving} 
+                />
               </div>
             </div>
           </div>
@@ -272,7 +292,13 @@ export default function SettingsPage() {
                 >
                   目标语言
                 </label>
-                <Select value={targetLanguage} onValueChange={setTargetLanguage}>
+                <Select 
+                  value={targetLanguage} 
+                  onValueChange={(value) => {
+                    setTargetLanguage(value)
+                    handleSave()
+                  }}
+                >
                   <SelectTrigger id="target-language" className="w-full">
                     <SelectValue placeholder="选择目标语言" />
                   </SelectTrigger>
@@ -293,7 +319,13 @@ export default function SettingsPage() {
                 >
                   翻译服务提供商
                 </label>
-                <Select value={translationProvider} onValueChange={(value) => setTranslationProvider(value as "google" | "niutrans" | "microsoft")}>
+                <Select 
+                  value={translationProvider} 
+                  onValueChange={(value) => {
+                    setTranslationProvider(value as "google" | "niutrans" | "microsoft")
+                    handleSave()
+                  }}
+                >
                   <SelectTrigger id="translation-provider" className="w-full">
                     <SelectValue placeholder="选择翻译服务提供商" />
                   </SelectTrigger>
@@ -386,41 +418,6 @@ export default function SettingsPage() {
               </Alert>
             )}
           </div>
-        </div>
-
-        <div className="mt-6 flex flex-col sm:flex-row items-end gap-4">
-          {error && (
-            <Alert variant="destructive" className="flex-1">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {success && (
-            <Alert className="flex-1 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertDescription className="text-green-600 dark:text-green-400">
-                设置已保存
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>保存中...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5" />
-                <span>保存设置</span>
-              </>
-            )}
-          </Button>
         </div>
       </div>
     </div>
