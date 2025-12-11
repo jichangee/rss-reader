@@ -155,7 +155,7 @@ model Webhook {
   url           String        // 目标 URL
   method        String        @default("POST") // 请求方法: GET 或 POST
   customFields  String?       @db.Text // 自定义字段映射 JSON: [{"name": "url", "value": "{link}"}]
-  remote        Boolean       @default(true) // 是否由服务器端发起请求
+  remote        Boolean       @default(false) // 是否由服务器端发起请求
   enabled       Boolean       @default(true) // 是否启用
   feeds         FeedWebhook[]
   createdAt     DateTime      @default(now())
