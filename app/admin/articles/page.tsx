@@ -47,6 +47,7 @@ export default function ArticlesPage() {
   const [total, setTotal] = useState(0)
   const [selectedArticles, setSelectedArticles] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
 
   useEffect(() => {
     loadArticles()
@@ -160,6 +161,35 @@ export default function ArticlesPage() {
     }
   }
 
+  const handleCleanupOldArticles = async () => {
+    if (!confirm("确定要清理一周前已读的文章吗？此操作不可撤销。\n\n将删除：\n- 一周前已读的文章\n- 不在稍后读列表中的文章")) {
+      return
+    }
+
+    try {
+      setCleaning(true)
+      const res = await fetch("/api/admin/articles/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: 7 })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        alert(data.message || "清理完成")
+        loadArticles()
+      } else {
+        const data = await res.json()
+        alert(data.error || "清理失败")
+      }
+    } catch (error) {
+      console.error("清理旧文章失败:", error)
+      alert("清理失败")
+    } finally {
+      setCleaning(false)
+    }
+  }
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
     return new Date(dateString).toLocaleDateString("zh-CN", {
@@ -187,6 +217,18 @@ export default function ArticlesPage() {
             className="pl-10"
           />
         </div>
+        <Button
+          onClick={handleCleanupOldArticles}
+          disabled={cleaning}
+          variant="outline"
+        >
+          {cleaning ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Trash2 className="h-4 w-4 mr-2" />
+          )}
+          清理旧文章
+        </Button>
         <Button
           onClick={handleDeleteSelected}
           disabled={selectedArticles.size === 0 || deleting}
