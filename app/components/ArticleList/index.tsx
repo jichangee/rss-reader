@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Loader2, BookOpen, CheckCheck, RotateCw, Plus } from "lucide-react"
+import { Loader2, BookOpen, CheckCheck, RotateCw, Plus, Upload, Shuffle } from "lucide-react"
 import { useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
@@ -38,6 +38,9 @@ export default function ArticleList({
   // 保留旧的 expandedMedia 用于向后兼容，但现在改为文章级别
   const [expandedMedia, setExpandedMedia] = useState<Map<string, Set<string>>>(new Map())
   const { success, error } = useToast()
+  const [importing, setImporting] = useState(false)
+  const [randomSubscribing, setRandomSubscribing] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 加载用户设置
   useEffect(() => {
@@ -172,6 +175,83 @@ export default function ArticleList({
       error("操作失败，请重试")
     }
   }, [readLaterArticles, success, error, onReadLaterChange])
+
+  // 处理导入订阅
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 检查文件类型
+    if (!file.name.endsWith('.opml') && file.type !== 'application/xml' && file.type !== 'text/xml') {
+      error("请选择OPML格式的文件")
+      return
+    }
+
+    try {
+      setImporting(true)
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await fetch("/api/feeds/import", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.summary.success > 0) {
+          success(`成功导入 ${data.summary.success} 个订阅`)
+          // 刷新页面以更新订阅列表
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
+        } else {
+          error("导入失败，没有有效的订阅")
+        }
+      } else {
+        const errorData = await res.json()
+        error(errorData.error || "导入失败")
+      }
+    } catch (err) {
+      console.error("导入失败:", err)
+      error("导入失败，请重试")
+    } finally {
+      setImporting(false)
+      // 重置文件输入
+      e.target.value = ""
+    }
+  }
+
+  // 处理随机订阅
+  const handleRandomSubscribe = async () => {
+    try {
+      setRandomSubscribing(true)
+      const res = await fetch("/api/feeds/random", {
+        method: "POST",
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data.summary && data.summary.success > 0) {
+          success(`成功随机订阅 ${data.summary.success} 个源`)
+          // 刷新页面以更新订阅列表
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
+        } else {
+          error(data.error || "暂无可推荐的订阅源")
+        }
+      } else {
+        const errorData = await res.json()
+        error(errorData.error || "随机订阅失败")
+      }
+    } catch (err) {
+      console.error("随机订阅失败:", err)
+      error("随机订阅失败，请重试")
+    } finally {
+      setRandomSubscribing(false)
+    }
+  }
 
   // 处理标题点击标记已读
   const handleTitleClick = useCallback((articleId: string) => {
@@ -514,16 +594,63 @@ export default function ArticleList({
             <p className="text-lg font-medium">{isReadLaterView ? "暂无稍后读文章" : "暂无文章"}</p>
             <p className="mt-2 text-sm">{isReadLaterView ? "点击文章的书签按钮添加到稍后读" : "添加订阅以获取最新内容"}</p>
             
-            {/* 如果用户没有订阅，显示添加订阅按钮 */}
-            {!isReadLaterView && !hasFeeds && onAddFeed && (
-              <Button
-                onClick={onAddFeed}
-                size="lg"
-                className="mt-6"
-              >
-                <Plus className="h-5 w-5" />
-                <span>添加订阅</span>
-              </Button>
+            {/* 如果用户没有订阅，显示操作按钮 */}
+            {!isReadLaterView && !hasFeeds && (
+              <div className="flex flex-col gap-3 mt-6">
+                {onAddFeed && (
+                  <Button
+                    onClick={onAddFeed}
+                    size="lg"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>添加订阅</span>
+                  </Button>
+                )}
+                <Button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importing}
+                  variant="outline"
+                  size="lg"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>导入中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5" />
+                      <span>导入订阅</span>
+                    </>
+                  )}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".opml,application/xml,text/xml"
+                  onChange={handleImport}
+                  disabled={importing}
+                  className="hidden"
+                />
+                <Button
+                  onClick={handleRandomSubscribe}
+                  disabled={randomSubscribing}
+                  variant="outline"
+                  size="lg"
+                >
+                  {randomSubscribing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>订阅中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Shuffle className="h-5 w-5" />
+                      <span>随机订阅</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
         </div>
