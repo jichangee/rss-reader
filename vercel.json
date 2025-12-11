@@ -5,16 +5,8 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/aggregate-stats",
-      "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-articles",
+      "path": "/api/cron/daily-maintenance",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/calculate-hotness",
-      "schedule": "0 6 * * *"
     }
   ]
 }
