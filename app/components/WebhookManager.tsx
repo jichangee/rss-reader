@@ -72,7 +72,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
   const [url, setUrl] = useState("")
   const [method, setMethod] = useState<"GET" | "POST">("POST")
   const [customFields, setCustomFields] = useState<CustomFieldMapping[]>([])
-  const [remote, setRemote] = useState(true)
+  const [remote, setRemote] = useState(false)
   const [enabled, setEnabled] = useState(true)
 
   useEffect(() => {
