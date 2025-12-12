@@ -50,6 +50,12 @@ export async function POST(request: Request) {
         })),
         skipDuplicates: true,
       })
+
+      // 更新用户最后活跃时间
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastActiveAt: new Date() },
+      })
     }
 
     return NextResponse.json({ 

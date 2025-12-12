@@ -51,10 +51,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 更新用户最后刷新请求时间
+    // 更新用户最后刷新请求时间和最后活跃时间
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastRefreshRequestAt: new Date() },
+      data: { 
+        lastRefreshRequestAt: new Date(),
+        lastActiveAt: new Date(),
+      },
     })
 
     // 获取用户的所有订阅

@@ -78,6 +78,14 @@ export async function POST(req: Request) {
       skipDuplicates: true // 防止并发请求导致的唯一键冲突
     })
 
+    // 更新用户最后活跃时间
+    if (result.count > 0) {
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: { lastActiveAt: new Date() },
+      })
+    }
+
     console.log(`[READ_OLDER] 成功标记 ${result.count} 篇文章为已读`)
 
     return NextResponse.json({ 

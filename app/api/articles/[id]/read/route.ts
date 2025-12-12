@@ -54,6 +54,12 @@ export async function POST(
       },
     })
 
+    // 更新用户最后活跃时间
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastActiveAt: new Date() },
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("标记已读失败:", error)
