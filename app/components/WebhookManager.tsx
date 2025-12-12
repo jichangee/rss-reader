@@ -104,7 +104,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
     setUrl("")
     setMethod("POST")
     setCustomFields([{ name: 'url', value: '{link}' }])
-    setRemote(true)
+    setRemote(false)
     setEnabled(true)
     setError("")
   }
@@ -146,7 +146,7 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
     setUrl("")
     setMethod("POST")
     setCustomFields([{ name: 'url', value: '{link}' }])
-    setRemote(true)
+    setRemote(false)
     setEnabled(true)
     setError("")
   }
@@ -267,7 +267,6 @@ export default function WebhookManager({ onWebhookChange }: WebhookManagerProps)
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-          Webhook 管理
         </h2>
         <Button
           onClick={handleCreate}

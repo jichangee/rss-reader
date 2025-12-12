@@ -217,7 +217,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
             </div>
 
             {/* Webhook 选择 */}
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-2">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                 Webhook 推送配置
               </h3>

@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         url: url.trim(),
         method: validMethod,
         customFields: customFieldsJson,
-        remote: remote !== false, // 默认为 true
+        remote: remote === true, // 默认为 false（本地执行）
         enabled: enabled !== false, // 默认为 true
       },
     })
