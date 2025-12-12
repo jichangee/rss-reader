@@ -45,8 +45,19 @@ export async function POST() {
       distinct: ['url'], // 去重，相同的URL只保留一份
     })
 
+    // 应用层面的去重，确保URL唯一（处理可能的重复情况）
+    const uniqueFeedsMap = new Map<string, typeof otherUserFeeds[0]>()
+    for (const feed of otherUserFeeds) {
+      // 标准化URL（去除尾部斜杠和空格，统一大小写）
+      const normalizedUrl = feed.url.trim().toLowerCase().replace(/\/+$/, '')
+      if (!uniqueFeedsMap.has(normalizedUrl)) {
+        uniqueFeedsMap.set(normalizedUrl, feed)
+      }
+    }
+    const uniqueFeeds = Array.from(uniqueFeedsMap.values())
+
     // 随机选择10个RSS源
-    const shuffled = otherUserFeeds.sort(() => 0.5 - Math.random())
+    const shuffled = uniqueFeeds.sort(() => 0.5 - Math.random())
     const selectedFeeds = shuffled.slice(0, 10)
 
     if (selectedFeeds.length === 0) {
