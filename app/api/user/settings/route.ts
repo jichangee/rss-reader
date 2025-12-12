@@ -40,8 +40,8 @@ export async function GET() {
       niutransApiSecret: user.niutransApiSecret || "",
       microsoftTranslateApiKey: user.microsoftTranslateApiKey || "",
       microsoftTranslateRegion: user.microsoftTranslateRegion || "global",
-      markReadOnScroll: user.markReadOnScroll ?? true,
-      autoRefreshOnLoad: user.autoRefreshOnLoad ?? true,
+      markReadOnScroll: true,
+      autoRefreshOnLoad: true,
       hideImagesAndVideos: user.hideImagesAndVideos ?? false,
     })
   } catch (error) {

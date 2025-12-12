@@ -46,7 +46,7 @@ function DashboardContent() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [markReadOnScroll, setMarkReadOnScroll] = useState(true)
-  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState<boolean | null>(true)
+  const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
   const hasInitialLoadRef = useRef(false)
@@ -91,8 +91,6 @@ function DashboardContent() {
   useEffect(() => {
     if (status === "authenticated") {
       const initializeDashboard = async () => {
-        // 先加载设置
-        await loadSettings()
         // 检查广场是否有数据
         await checkSquareData()
       }
@@ -145,19 +143,6 @@ function DashboardContent() {
     } catch (error) {
       console.error("检查广场数据失败:", error)
       setShowSquare(false)
-    }
-  }
-
-  const loadSettings = async () => {
-    try {
-      const res = await fetch("/api/user/settings")
-      if (res.ok) {
-        const data = await res.json()
-        setMarkReadOnScroll(data.markReadOnScroll ?? true)
-        setAutoRefreshOnLoad(data.autoRefreshOnLoad ?? true)
-      }
-    } catch (error) {
-      console.error("加载设置失败:", error)
     }
   }
 
