@@ -49,6 +49,7 @@ function DashboardContent() {
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
+  const [sortBy, setSortBy] = useState<'default' | 'oldest'>('default')
   const hasInitialLoadRef = useRef(false)
   const selectedFeedRef = useRef<string | null>(null)
   const unreadOnlyRef = useRef<boolean>(true)
@@ -117,6 +118,13 @@ function DashboardContent() {
     }
   }, [status, autoRefreshOnLoad, isInitialized])
 
+  // 当排序改变时，重新加载文章（仅在非稍后读视图）
+  useEffect(() => {
+    if (status === "authenticated" && isInitialized && hasInitialLoadRef.current && !isReadLaterView) {
+      loadArticles(selectedFeed || undefined, unreadOnly, true, false, false)
+    }
+  }, [sortBy])
+
   const loadFeeds = async () => {
     try {
       setFeedsLoading(true)
@@ -161,6 +169,7 @@ function DashboardContent() {
       if (feedId) params.append("feedId", feedId)
       if (unread && !readLaterOnly) params.append("unreadOnly", "true")
       if (readLaterOnly) params.append("readLaterOnly", "true")
+      if (!readLaterOnly && sortBy !== 'default') params.append("sortBy", sortBy)
       params.append("limit", "10")
 
       const res = await fetch(`/api/articles?${params.toString()}`)
@@ -272,6 +281,7 @@ function DashboardContent() {
       } else if (unreadOnly) {
         params.append("unreadOnly", "true")
       }
+      if (!isReadLaterView && sortBy !== 'default') params.append("sortBy", sortBy)
       params.append("limit", "10")
       params.append("cursor", nextCursor)
 
@@ -783,6 +793,8 @@ function DashboardContent() {
               onRefreshAndReload={handleRefreshAndReload}
               isReadLaterView={isReadLaterView}
               onReadLaterChange={handleReadLaterChange}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
             />
           )}
         </div>

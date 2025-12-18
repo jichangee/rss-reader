@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const readLaterOnly = searchParams.get("readLaterOnly") === "true"
     const cursor = searchParams.get("cursor")
     const limit = parseInt(searchParams.get("limit") || "20", 10)
+    const sortBy = searchParams.get("sortBy") || "default" // "default" | "oldest"
 
     const userRaw = await prisma.user.findUnique({
       where: { email: session.user.email },
@@ -114,7 +115,9 @@ export async function GET(request: Request) {
       },
       orderBy: readLaterOnly 
         ? { readLaterBy: { _count: "desc" } } // 稍后读按添加时间排序（通过关联表）
-        : { pubDate: "desc" },
+        : sortBy === "oldest"
+        ? { pubDate: "asc" } // 按时间从旧到新
+        : { pubDate: "desc" }, // 默认排序：按时间从新到旧
       take: limit + 1,
       ...(cursor && {
         cursor: { id: cursor },

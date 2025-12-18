@@ -6,6 +6,7 @@ import { useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
 import CleanupMenu from "./CleanupMenu"
+import SortMenu from "./SortMenu"
 import { useMediaProcessor, countMediaFromHtml } from "./hooks/useMediaProcessor"
 import { useScrollToRead } from "./hooks/useScrollToRead"
 import { useInfiniteScroll } from "./hooks/useInfiniteScroll"
@@ -29,6 +30,8 @@ export default function ArticleList({
   onRefresh,
   isReadLaterView = false,
   onReadLaterChange,
+  sortBy = 'default',
+  onSortChange,
 }: ArticleListProps) {
   const [readLaterArticles, setReadLaterArticles] = useState<Set<string>>(new Set())
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -663,7 +666,7 @@ export default function ArticleList({
   return (
     <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-4xl p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="sticky top-0 z-10 flex items-center justify-between mb-6 py-4 -mx-6 px-6 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               {isReadLaterView ? "稍后读" : "最新文章"}
             </h2>
@@ -684,6 +687,9 @@ export default function ArticleList({
                     {isRefreshing ? "刷新中..." : "刷新"}
                   </span>
                 </button>
+              )}
+              {!isReadLaterView && onSortChange && (
+                <SortMenu sortBy={sortBy} onSortChange={onSortChange} />
               )}
               {onMarkOlderAsRead && !isReadLaterView && (
                 <CleanupMenu onMarkOlderAsRead={onMarkOlderAsRead} />

@@ -44,6 +44,8 @@ export interface ArticleListProps {
   onRefreshAndReload?: () => void
   isReadLaterView?: boolean
   onReadLaterChange?: (articleId: string, isReadLater: boolean) => void
+  sortBy?: 'default' | 'oldest'
+  onSortChange?: (sort: 'default' | 'oldest') => void
 }
 
 export interface ArticleItemProps {
