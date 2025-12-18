@@ -577,19 +577,15 @@ function DashboardContent() {
       // 使用批量标记已读功能
       await handleMarkAsReadBatch(unreadArticleIds)
 
-      // 如果开启了"仅未读"模式，直接更新本地状态，移除已读文章
-      if (unreadOnly) {
-        setArticles((prevArticles) => 
-          prevArticles.filter((a) => !unreadArticleIds.includes(a.id))
-        )
-        setNextCursor(null)
-        setHasMore(false)
-      } else {
-        // 否则重新加载第一页文章数据（静默模式，避免触发刷新）
-        setNextCursor(null)
-        setHasMore(true)
-        await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
-      }
+      // 清空文章列表
+      setArticles([])
+      
+      // 重置分页状态
+      setNextCursor(null)
+      setHasMore(true)
+      
+      // 刷新并重新加载文章列表（非静默模式，会显示加载状态并触发刷新）
+      await loadArticles(selectedFeed || undefined, unreadOnly, true, false)
       
       // 更新订阅列表的未读计数
       await loadFeeds()
