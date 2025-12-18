@@ -262,53 +262,21 @@ input[type="range"]::-moz-range-thumb:hover {
   align-items: center;
   gap: 0.25rem;
   color: #4f46e5;
-  background-color: #eef2ff;
-  padding: 0.125rem 0.5rem;
-  border-radius: 9999px;
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
   min-width: 0;
-  transition: all 0.2s;
-  font-size: 0.625em;
-  font-weight: 500;
-  margin-right: 0.1rem;
-  margin-bottom: 0.2rem;
-}
-
-.telegram-article-content a::after {
-  content: '';
-  display: inline-block;
-  width: 0.75rem;
-  height: 0.75rem;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  flex-shrink: 0;
 }
 
 .telegram-article-content a:hover {
-  color: #4338ca;
-  background-color: #e0e7ff;
-  transform: translateY(-1px);
+  text-decoration: underline;
 }
 
 @media (prefers-color-scheme: dark) {
   .telegram-article-content a {
     color: #a5b4fc;
-    background-color: #312e81;
-  }
-
-  .telegram-article-content a::after {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a5b4fc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'%3E%3C/path%3E%3Cpolyline points='15 3 21 3 21 9'%3E%3C/polyline%3E%3Cline x1='10' y1='14' x2='21' y2='3'%3E%3C/line%3E%3C/svg%3E");
-  }
-
-  .telegram-article-content a:hover {
-    color: #c7d2fe;
-    background-color: #3730a3;
   }
 }
 
