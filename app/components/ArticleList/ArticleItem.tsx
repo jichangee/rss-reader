@@ -229,12 +229,12 @@ export default function ArticleItem({
               {expandedMedia ? (
                 <>
                   <ChevronUp className="w-5 h-5" />
-                  <span>{mediaCount > 1 ? `折叠所有图片和视频 (${mediaCount})` : '折叠视频'}</span>
+                  <span>{mediaCount > 1 ? `收起 (${mediaCount})` : '收起'}</span>
                 </>
               ) : (
                 <>
                   <Image className="w-5 h-5" />
-                  <span>{mediaCount > 1 ? `展开所有图片和视频 (${mediaCount})` : '展开视频'}</span>
+                  <span>{mediaCount > 1 ? `展开 (${mediaCount})` : '展开'}</span>
                   <ChevronDown className="w-4 h-4" />
                 </>
               )}
