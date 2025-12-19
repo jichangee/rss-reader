@@ -282,6 +282,22 @@ export default function ArticleList({
     onLoadMore,
   })
 
+  // 滚动容器 ref
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  // 监听刷新状态，刷新完成后滚动到顶部
+  const prevIsRefreshingRef = useRef(isRefreshing)
+  useEffect(() => {
+    // 当刷新状态从 true 变为 false 时，滚动到顶部
+    if (prevIsRefreshingRef.current && !isRefreshing) {
+      // 使用 setTimeout 确保 DOM 更新完成后再滚动
+      setTimeout(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      }, 100)
+    }
+    prevIsRefreshingRef.current = isRefreshing
+  }, [isRefreshing])
+
   // 处理标题点击（结合标记已读）
   const handleArticleTitleClick = useCallback((article: Article) => {
     if (article.readBy.length === 0) {
@@ -532,7 +548,7 @@ export default function ArticleList({
   // 只有在没有数据时才显示全屏 loading，有数据时保留列表
   if (loading && articles.length === 0) {
     return (
-      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div ref={scrollContainerRef} className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="mx-auto max-w-4xl p-6">
           <div className="flex items-center justify-between mb-6">
             <Skeleton className="h-8 w-32" />
@@ -565,7 +581,7 @@ export default function ArticleList({
 
   if (articles.length === 0) {
     return (
-      <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div ref={scrollContainerRef} className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
         <div className="mx-auto max-w-4xl p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -664,7 +680,7 @@ export default function ArticleList({
   const unreadCount = articles.filter(a => a.readBy.length === 0).length
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
+    <div ref={scrollContainerRef} className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="mx-auto max-w-4xl p-6">
           <div className="sticky top-0 z-10 flex items-center justify-between mb-6 py-4 -mx-6 px-6 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">

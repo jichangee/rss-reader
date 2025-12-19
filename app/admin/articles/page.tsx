@@ -178,6 +178,8 @@ export default function ArticlesPage() {
         const data = await res.json()
         alert(data.message || "清理完成")
         loadArticles()
+        // 滚动到顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       } else {
         const data = await res.json()
         alert(data.error || "清理失败")
