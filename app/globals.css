@@ -78,6 +78,43 @@
   display: block;
   overflow-x: auto;
   max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-spacing: 0;
+}
+
+/* 为文章内容中的表格添加边框样式 */
+.article-content table th,
+.article-content table td,
+.prose table th,
+.prose table td {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem;
+}
+
+.article-content table th,
+.prose table th {
+  background-color: var(--color-muted);
+  font-weight: 600;
+}
+
+.telegram-article-content table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-spacing: 0;
+  margin: 1rem 0;
+}
+
+.telegram-article-content table th,
+.telegram-article-content table td {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem;
+}
+
+.telegram-article-content table th {
+  background-color: var(--color-muted);
+  font-weight: 600;
 }
 
 /* 确保 iframe（包括 YouTube 播放器）保持 16:9 比例且不会超出屏幕 */
