@@ -17,13 +17,13 @@ export async function GET(request: Request) {
     }
 
     // 检查是否有任何热度数据
-    const hotnessCount = await prisma.articleHotness.count({
-      where: {
-        hotScore: {
-          gt: 0
-        }
-      }
-    })
+    // const hotnessCount = await prisma.articleHotness.count({
+    //   where: {
+    //     hotScore: {
+    //       gt: 0
+    //     }
+    //   }
+    // })
 
     return NextResponse.json({ hasData: false })
   } catch (error) {
