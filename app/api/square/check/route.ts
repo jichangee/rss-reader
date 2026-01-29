@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       }
     })
 
-    return NextResponse.json({ hasData: hotnessCount > 0 })
+    return NextResponse.json({ hasData: false })
   } catch (error) {
     console.error("检查广场数据失败:", error)
     return NextResponse.json({ hasData: false })
