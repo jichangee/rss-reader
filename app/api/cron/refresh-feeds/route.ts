@@ -103,6 +103,16 @@ export async function GET(req: Request) {
               })
               const existingGuidSet = new Set(existingGuids.map(a => a.guid))
 
+              // 解析关键词过滤设置
+              let filterKeywords: string[] = []
+              if (feed.filterKeywords) {
+                try {
+                  filterKeywords = JSON.parse(feed.filterKeywords)
+                } catch (e) {
+                  // 忽略解析错误
+                }
+              }
+
               // 过滤出新文章
               const newArticles = parsedFeed.items
                 .slice(0, 20)
@@ -120,6 +130,26 @@ export async function GET(req: Request) {
                   }
                 })
                 .filter((article: any) => !existingGuidSet.has(article.guid))
+                .filter((article: any) => {
+                  // 如果没有设置过滤关键词，则保留所有文章
+                  if (filterKeywords.length === 0) return true
+                  
+                  // 检查标题和内容是否包含任何关键词（不区分大小写）
+                  const titleLower = (article.title || "").toLowerCase()
+                  const contentLower = (article.content || "").toLowerCase()
+                  const snippetLower = (article.contentSnippet || "").toLowerCase()
+                  
+                  // 如果包含任一关键词，则过滤掉该文章
+                  for (const keyword of filterKeywords) {
+                    const keywordLower = keyword.toLowerCase()
+                    if (titleLower.includes(keywordLower) || 
+                        contentLower.includes(keywordLower) || 
+                        snippetLower.includes(keywordLower)) {
+                      return false
+                    }
+                  }
+                  return true
+                })
 
               // 插入新文章
               if (newArticles.length > 0) {

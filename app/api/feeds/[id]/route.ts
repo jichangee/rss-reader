@@ -55,9 +55,20 @@ export async function GET(
       return NextResponse.json({ error: "无权限访问此订阅" }, { status: 403 })
     }
 
+    // 解析 filterKeywords JSON 字符串为数组
+    let filterKeywords: string[] = []
+    if (feed.filterKeywords) {
+      try {
+        filterKeywords = JSON.parse(feed.filterKeywords)
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
     // 格式化返回数据
     const formattedFeed = {
       ...feed,
+      filterKeywords,
       webhooks: feed.webhooks.map(fw => fw.webhook),
     }
 
@@ -89,7 +100,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { title, url, enableTranslation } = await request.json()
+    const { title, url, enableTranslation, filterKeywords } = await request.json()
 
     const feed = await prisma.feed.findUnique({
       where: { id },
@@ -108,11 +119,23 @@ export async function PUT(
       title?: string
       url?: string
       enableTranslation?: boolean
+      filterKeywords?: string | null
     } = {}
 
     // 如果提供了新的标题，则更新
     if (title !== undefined && title.trim()) {
       updateData.title = title.trim()
+    }
+
+    // 如果提供了关键词过滤设置，则更新
+    if (filterKeywords !== undefined) {
+      // 验证关键词数量不超过3个
+      if (Array.isArray(filterKeywords)) {
+        const validKeywords = filterKeywords.slice(0, 3).filter((k: string) => typeof k === 'string' && k.trim())
+        updateData.filterKeywords = validKeywords.length > 0 ? JSON.stringify(validKeywords) : null
+      } else {
+        updateData.filterKeywords = null
+      }
     }
 
     // 如果提供了新的URL，先检查是否与原来的URL不同

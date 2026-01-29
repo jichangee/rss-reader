@@ -398,6 +398,7 @@ function DashboardContent() {
       title?: string
       url?: string
       enableTranslation?: boolean
+      filterKeywords?: string[]
       webhookUrl?: string | null
       webhookMethod?: string
       webhookField?: string

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, XCircle, AlertCircle } from "lucide-react"
+import { Loader2, XCircle, AlertCircle, Plus, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,7 @@ interface Feed {
   title: string
   url: string
   enableTranslation?: boolean
+  filterKeywords?: string[]
   webhooks?: Webhook[]
 }
 
@@ -37,6 +38,7 @@ interface EditFeedModalProps {
     title?: string
     url?: string
     enableTranslation?: boolean
+    filterKeywords?: string[]
   }) => Promise<{ success: boolean; error?: string }>
 }
 
@@ -47,6 +49,10 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   
+  // 关键词过滤相关状态
+  const [filterKeywords, setFilterKeywords] = useState<string[]>(feed?.filterKeywords ?? [])
+  const [newKeyword, setNewKeyword] = useState("")
+  
   // Webhook 相关状态
   const [allWebhooks, setAllWebhooks] = useState<Webhook[]>([])
   const [selectedWebhookIds, setSelectedWebhookIds] = useState<string[]>([])
@@ -56,6 +62,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
     setTitle(feed?.title ?? "")
     setUrl(feed?.url ?? "")
     setEnableTranslation(Boolean(feed?.enableTranslation ?? false))
+    setFilterKeywords(feed?.filterKeywords ?? [])
     
     // 加载当前Feed关联的webhooks
     if (feed?.webhooks) {
@@ -103,6 +110,7 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
         title: title.trim(),
         url: url.trim(),
         enableTranslation,
+        filterKeywords,
       })
       
       if (result.success) {
@@ -213,6 +221,85 @@ export default function EditFeedModal({ feed, onClose, onUpdate }: EditFeedModal
               </label>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 启用后，此订阅的文章标题和内容将自动翻译为你设置的目标语言
+              </p>
+            </div>
+
+            {/* 关键词过滤 */}
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-2">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                关键词过滤
+              </h3>
+              
+              <div className="space-y-3">
+                {/* 已添加的关键词 */}
+                {filterKeywords.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {filterKeywords.map((keyword, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center space-x-1 rounded-full bg-red-100 px-3 py-1 text-sm text-red-800 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        <span>{keyword}</span>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            setFilterKeywords(filterKeywords.filter((_, i) => i !== index))
+                          }}
+                          variant="ghost"
+                          size="icon-sm"
+                          className="h-auto p-0 hover:text-red-600"
+                          disabled={loading}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* 添加关键词输入 */}
+                {filterKeywords.length < 3 && (
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="text"
+                      value={newKeyword}
+                      onChange={(e) => setNewKeyword(e.target.value)}
+                      placeholder="输入要过滤的关键词"
+                      disabled={loading}
+                      className="flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          const trimmed = newKeyword.trim()
+                          if (trimmed && !filterKeywords.includes(trimmed)) {
+                            setFilterKeywords([...filterKeywords, trimmed])
+                            setNewKeyword("")
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const trimmed = newKeyword.trim()
+                        if (trimmed && !filterKeywords.includes(trimmed)) {
+                          setFilterKeywords([...filterKeywords, trimmed])
+                          setNewKeyword("")
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      disabled={loading || !newKeyword.trim() || filterKeywords.includes(newKeyword.trim())}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      添加
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                包含这些关键词的文章将被自动过滤，最多可添加 3 个关键词。关键词匹配标题和内容（不区分大小写）。
               </p>
             </div>
 

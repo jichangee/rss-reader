@@ -91,6 +91,7 @@ model Feed {
   link              String?
   imageUrl          String?
   enableTranslation Boolean       @default(false) // 是否启用翻译
+  filterKeywords    String?       // 关键词过滤，JSON数组格式，最多3个关键词，包含任一关键词的文章将被过滤
   userId            String
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   articles          Article[]

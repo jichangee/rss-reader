@@ -70,8 +70,19 @@ export async function GET() {
           },
         })
 
+        // 解析 filterKeywords JSON 字符串为数组
+        let filterKeywords: string[] = []
+        if (feed.filterKeywords) {
+          try {
+            filterKeywords = JSON.parse(feed.filterKeywords)
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+
         return {
           ...feed,
+          filterKeywords,
           unreadCount,
           webhooks: feed.webhooks.map(fw => fw.webhook),
         }
