@@ -336,33 +336,63 @@ export default function ArticleList({
     try {
       setExporting(true)
 
-      const params = new URLSearchParams()
-      if (selectedFeedId) params.append("feedId", selectedFeedId)
-      params.append("limit", "100")
+      const MAX_EXPORT = 500
+      const PAGE_SIZE = 100
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000
 
-      const res = await fetch(`/api/articles?${params.toString()}`)
-      if (!res.ok) {
-        error("导出失败：获取最新文章失败")
-        return
+      const collected: Article[] = []
+      let cursor: string | null = null
+      let hasNextPage = true
+
+      while (collected.length < MAX_EXPORT && hasNextPage) {
+        const params = new URLSearchParams()
+        if (selectedFeedId) params.append("feedId", selectedFeedId)
+        params.append("limit", String(PAGE_SIZE))
+        if (cursor) params.append("cursor", cursor)
+
+        const res = await fetch(`/api/articles?${params.toString()}`)
+        if (!res.ok) {
+          error("导出失败：获取文章失败")
+          return
+        }
+        const data = await res.json()
+        const page: Article[] = Array.isArray(data.articles) ? data.articles : []
+        cursor = typeof data.nextCursor === "string" ? data.nextCursor : null
+        hasNextPage = Boolean(data.hasNextPage)
+
+        if (page.length === 0) break
+
+        for (const a of page) {
+          if (collected.length >= MAX_EXPORT) break
+          const t = a.pubDate ? new Date(a.pubDate).getTime() : NaN
+          if (!Number.isNaN(t) && t >= cutoff) {
+            collected.push(a)
+          }
+        }
+
+        // 如果这一页最后一篇已经早于 cutoff，则后面只会更早（默认排序为 pubDate desc）
+        const last = page[page.length - 1]
+        const lastTime = last?.pubDate ? new Date(last.pubDate).getTime() : NaN
+        if (!Number.isNaN(lastTime) && lastTime < cutoff) {
+          break
+        }
       }
-      const data = await res.json()
-      const latest: Article[] = Array.isArray(data.articles) ? data.articles : []
 
-      if (latest.length === 0) {
-        success("没有文章可导出")
+      if (collected.length === 0) {
+        success("最近24小时没有文章可导出")
         return
       }
 
       const scopeLabel = selectedFeedId ? "当前订阅" : "全部订阅"
-      const md = buildMarkdown(latest.slice(0, 100), scopeLabel, "最新文章导出")
+      const md = buildMarkdown(collected, scopeLabel, "最近24小时文章导出")
 
       const ts = new Date()
         .toISOString()
         .replace(/[:-]/g, "")
         .replace(/\.\d{3}Z$/, "Z")
-      const filename = `latest-${selectedFeedId ? "feed" : "all"}-${ts}.md`
+      const filename = `latest-24h-${selectedFeedId ? "feed" : "all"}-${ts}.md`
       downloadTextFile(filename, md)
-      success(`已导出最新文章（${Math.min(100, latest.length)} 篇）`)
+      success(`已导出最近24小时文章（${collected.length} 篇）`)
     } catch (e) {
       console.error("导出最新 Markdown 失败:", e)
       error("导出失败，请重试")
@@ -807,7 +837,7 @@ export default function ArticleList({
                   onClick={handleExportLatestMarkdown}
                   disabled={exporting}
                   className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
-                  title="导出最新文章为 Markdown（最多100篇）"
+                  title="导出最近24小时文章为 Markdown（最多500篇）"
                 >
                   {exporting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
