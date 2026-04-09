@@ -49,6 +49,7 @@ function DashboardContent() {
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
+  const [isCleaningOldArticles, setIsCleaningOldArticles] = useState(false)
   const [sortBy, setSortBy] = useState<'default' | 'oldest'>('default')
   const hasInitialLoadRef = useRef(false)
   const selectedFeedRef = useRef<string | null>(null)
@@ -671,6 +672,7 @@ function DashboardContent() {
   }
 
   const handleMarkOlderAsRead = async (range: '24h' | 'week' | 'all'): Promise<{ success: boolean; count?: number; message?: string }> => {
+    setIsCleaningOldArticles(true)
     try {
       // 如果选择"全部"，则调用 read-all API
       if (range === 'all') {
@@ -749,6 +751,8 @@ function DashboardContent() {
         success: false,
         message: "操作失败，请重试"
       }
+    } finally {
+      setIsCleaningOldArticles(false)
     }
   }
 
@@ -817,7 +821,7 @@ function DashboardContent() {
               onMarkOlderAsRead={handleMarkOlderAsRead}
               onAddFeed={() => setShowAddFeed(true)}
               markReadOnScroll={markReadOnScroll}
-              isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing}
+              isRefreshing={isRefreshingAfterMarkAllRead || isManualRefreshing || isCleaningOldArticles}
               onRefresh={handleManualRefresh}
               onRefreshAndReload={handleRefreshAndReload}
               isReadLaterView={isReadLaterView}
