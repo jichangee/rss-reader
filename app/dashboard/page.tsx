@@ -53,6 +53,7 @@ function DashboardContent() {
   const hasInitialLoadRef = useRef(false)
   const selectedFeedRef = useRef<string | null>(null)
   const unreadOnlyRef = useRef<boolean>(true)
+  const autoRefreshedOnLoadRef = useRef(false)
   
   // 同步 ref 值
   useEffect(() => {
@@ -111,7 +112,34 @@ function DashboardContent() {
         } else {
           await loadArticles(selectedFeed || undefined, unreadOnly)
         }
-        await loadFeeds()
+        const feedsData = await loadFeeds()
+
+        // Auto-refresh on load: if last refresh was >30 min ago or no unread articles
+        if (!isReadLaterView && !autoRefreshedOnLoadRef.current) {
+          const THIRTY_MINUTES = 30 * 60 * 1000
+          const lastRefresh = localStorage.getItem('lastAutoRefreshTime')
+          const now = Date.now()
+          const isStale = !lastRefresh || now - parseInt(lastRefresh, 10) > THIRTY_MINUTES
+          const totalUnread = (feedsData ?? []).reduce((sum: number, f: any) => sum + (f.unreadCount || 0), 0)
+
+          if (isStale || totalUnread === 0) {
+            autoRefreshedOnLoadRef.current = true
+            try {
+              const res = await fetch("/api/feeds/refresh", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ forceRefresh: true }),
+              })
+              if (res.ok) {
+                localStorage.setItem('lastAutoRefreshTime', String(now))
+                await loadArticles(selectedFeed || undefined, unreadOnly, true, true)
+                await loadFeeds()
+              }
+            } catch (error) {
+              console.error("Auto-refresh on load failed:", error)
+            }
+          }
+        }
       }
 
       performInitialLoad()
@@ -131,14 +159,17 @@ function DashboardContent() {
       const res = await fetch("/api/feeds")
       if (res.ok) {
         const data = await res.json()
-        setFeeds(data.feeds || [])
+        const feeds = data.feeds || []
+        setFeeds(feeds)
         setReadLaterCount(data.readLaterCount || 0)
+        return feeds
       }
     } catch (error) {
       console.error("加载订阅失败:", error)
     } finally {
       setFeedsLoading(false)
     }
+    return []
   }
 
   const checkSquareData = async () => {
@@ -208,8 +239,9 @@ function DashboardContent() {
               })
               
               if (refreshRes.ok) {
-                const refreshData = await refreshRes.json()
-                
+                autoRefreshedOnLoadRef.current = true
+                localStorage.setItem('lastAutoRefreshTime', String(Date.now()))
+
                 // 刷新完成后，重新加载文章列表
                 const articlesRes = await fetch(`/api/articles?${params.toString()}`)
                 if (articlesRes.ok) {
