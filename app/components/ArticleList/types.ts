@@ -31,6 +31,7 @@ export interface ArticleListProps {
   loading: boolean
   hasMore: boolean
   hasFeeds?: boolean
+  selectedFeedId?: string | null
   onMarkAsRead: (articleId: string) => void
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void

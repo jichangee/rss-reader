@@ -814,6 +814,7 @@ function DashboardContent() {
               loading={loading}
               hasMore={hasMore}
               hasFeeds={feeds.length > 0}
+              selectedFeedId={selectedFeed}
               onMarkAsRead={handleMarkAsRead}
               onMarkAsReadBatch={handleMarkAsReadBatch}
               onLoadMore={loadMoreArticles}

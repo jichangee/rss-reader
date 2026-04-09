@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { Loader2, BookOpen, CheckCheck, RotateCw, Plus, Upload, Shuffle } from "lucide-react"
+import { Loader2, BookOpen, CheckCheck, RotateCw, Plus, Upload, Shuffle, Download } from "lucide-react"
 import { useToast } from "../Toast"
 import ArticleItem from "./ArticleItem"
 import ImagePreviewModal from "./ImagePreviewModal"
@@ -19,6 +19,7 @@ export default function ArticleList({
   loading,
   hasMore,
   hasFeeds = true,
+  selectedFeedId = null,
   onMarkAsRead,
   onMarkAsReadBatch,
   onLoadMore,
@@ -43,6 +44,7 @@ export default function ArticleList({
   const { success, error } = useToast()
   const [importing, setImporting] = useState(false)
   const [randomSubscribing, setRandomSubscribing] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 加载用户设置
@@ -253,6 +255,119 @@ export default function ArticleList({
       error("随机订阅失败，请重试")
     } finally {
       setRandomSubscribing(false)
+    }
+  }
+
+  const stripHtmlToText = (html: string): string => {
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html")
+      return (doc.body?.textContent || "").replace(/\s+/g, " ").trim()
+    } catch {
+      return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    }
+  }
+
+  const escapeMd = (text: string): string => {
+    // 轻量转义：避免标题/列表被意外破坏
+    return text.replace(/\\/g, "\\\\").replace(/`/g, "\\`")
+  }
+
+  const formatDateSafe = (iso?: string): string | null => {
+    if (!iso) return null
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return null
+    return d.toISOString()
+  }
+
+  const buildMarkdown = (items: Article[], scopeLabel: string, exportTitle: string) => {
+    const exportedAt = new Date().toISOString()
+    const lines: string[] = []
+    lines.push(`# ${exportTitle}`)
+    lines.push(``)
+    lines.push(`- 导出时间: ${exportedAt}`)
+    lines.push(`- 范围: ${scopeLabel}`)
+    lines.push(`- 数量: ${items.length}`)
+    lines.push(``)
+    lines.push(`---`)
+    lines.push(``)
+
+    items.forEach((a, idx) => {
+      const title = escapeMd(a.title || "无标题")
+      const link = a.link || ""
+      const feedTitle = escapeMd(a.feed?.title || "未知订阅")
+      const author = a.author ? escapeMd(a.author) : null
+      const pubDate = formatDateSafe(a.pubDate)
+      const snippet = a.contentSnippet?.trim()
+      const contentText = a.content ? stripHtmlToText(a.content) : ""
+      const preview = (snippet || contentText).trim()
+
+      lines.push(`## ${idx + 1}. ${title}`)
+      lines.push(``)
+      lines.push(`- 订阅: ${feedTitle}`)
+      if (author) lines.push(`- 作者: ${author}`)
+      if (pubDate) lines.push(`- 时间: ${pubDate}`)
+      if (link) lines.push(`- 链接: ${link}`)
+      lines.push(``)
+      if (preview) {
+        lines.push(preview)
+        lines.push(``)
+      }
+      lines.push(`---`)
+      lines.push(``)
+    })
+
+    return lines.join("\n")
+  }
+
+  const downloadTextFile = (filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleExportLatestMarkdown = async () => {
+    if (exporting) return
+    try {
+      setExporting(true)
+
+      const params = new URLSearchParams()
+      if (selectedFeedId) params.append("feedId", selectedFeedId)
+      params.append("limit", "100")
+
+      const res = await fetch(`/api/articles?${params.toString()}`)
+      if (!res.ok) {
+        error("导出失败：获取最新文章失败")
+        return
+      }
+      const data = await res.json()
+      const latest: Article[] = Array.isArray(data.articles) ? data.articles : []
+
+      if (latest.length === 0) {
+        success("没有文章可导出")
+        return
+      }
+
+      const scopeLabel = selectedFeedId ? "当前订阅" : "全部订阅"
+      const md = buildMarkdown(latest.slice(0, 100), scopeLabel, "最新文章导出")
+
+      const ts = new Date()
+        .toISOString()
+        .replace(/[:-]/g, "")
+        .replace(/\.\d{3}Z$/, "Z")
+      const filename = `latest-${selectedFeedId ? "feed" : "all"}-${ts}.md`
+      downloadTextFile(filename, md)
+      success(`已导出最新文章（${Math.min(100, latest.length)} 篇）`)
+    } catch (e) {
+      console.error("导出最新 Markdown 失败:", e)
+      error("导出失败，请重试")
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -687,6 +802,23 @@ export default function ArticleList({
               {isReadLaterView ? "稍后读" : "最新文章"}
             </h2>
             <div className="flex items-center space-x-2">
+              {!isReadLaterView && (
+                <button
+                  onClick={handleExportLatestMarkdown}
+                  disabled={exporting}
+                  className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
+                  title="导出最新文章为 Markdown（最多100篇）"
+                >
+                  {exporting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {exporting ? "导出中..." : "导出最新"}
+                  </span>
+                </button>
+              )}
               {onRefresh && !isReadLaterView && (
                 <button
                   onClick={onRefresh}
