@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { parseRSSWithTimeout, RssFeedFetchBlockedError } from "@/lib/rss-parser"
 
 // 获取用户的所有订阅
 export async function GET() {
@@ -123,9 +123,13 @@ export async function POST(request: Request) {
       feed = await parseRSSWithTimeout(url, 10000)
     } catch (error) {
       console.error("解析RSS失败:", error)
-      const errorMessage = error instanceof Error && error.message === 'RSS解析超时' 
-        ? "RSS解析超时，请稍后重试" 
-        : "无效的RSS链接"
+      if (error instanceof RssFeedFetchBlockedError) {
+        return NextResponse.json({ error: error.message }, { status: 400 })
+      }
+      const errorMessage =
+        error instanceof Error && error.message === "RSS解析超时"
+          ? "RSS解析超时，请稍后重试"
+          : "无效的RSS链接"
       return NextResponse.json({ error: errorMessage }, { status: 400 })
     }
 
