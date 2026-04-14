@@ -31,7 +31,8 @@ export interface ArticleListProps {
   loading: boolean
   hasMore: boolean
   hasFeeds?: boolean
-  selectedFeedId?: string | null
+  /** 用于打开公开导出页（User.id，会出现在 URL 中） */
+  publicExportUserId?: string | null
   onMarkAsRead: (articleId: string) => void
   onMarkAsReadBatch: (articleIds: string[]) => void
   onLoadMore: () => void
