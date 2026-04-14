@@ -22,6 +22,53 @@ export type PublicArticleExportPayload = {
   articles: PublicArticleExportItem[]
 }
 
+function formatZhDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString("zh-CN", { hour12: false })
+}
+
+function singleLineHeading(text: string): string {
+  return text.replace(/\r?\n/g, " ").trim() || "无标题"
+}
+
+/** 将导出数据格式化为 Markdown 文本（页面可直接原样展示） */
+export function formatPublicExportAsMarkdown(data: PublicArticleExportPayload): string {
+  const lines: string[] = []
+  lines.push(`# ${data.displayName} 的订阅文章（公开导出）`)
+  lines.push("")
+  lines.push("- 数据范围: 最近 24 小时内，最多 500 篇，已排除稍后读")
+  lines.push("- 缓存说明: 首次访问后内存缓存 4 小时，仅在有人打开页面时刷新")
+  lines.push(`- 生成时间: ${formatZhDateTime(data.generatedAt)}`)
+  lines.push(`- 篇数: ${data.articleCount}`)
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  if (data.articles.length === 0) {
+    lines.push("*最近 24 小时内没有符合条件的文章。*")
+    return lines.join("\n")
+  }
+
+  data.articles.forEach((a, index) => {
+    lines.push(`## ${index + 1}. ${singleLineHeading(a.title)}`)
+    lines.push("")
+    lines.push(`- **订阅**: ${a.feedTitle}`)
+    if (a.author) lines.push(`- **作者**: ${a.author}`)
+    if (a.pubDate) lines.push(`- **时间**: ${formatZhDateTime(a.pubDate)}`)
+    if (a.link) lines.push(`- **链接**: ${a.link}`)
+    lines.push("")
+    if (a.preview?.trim()) {
+      lines.push(a.preview.trim())
+      lines.push("")
+    }
+    lines.push("---")
+    lines.push("")
+  })
+
+  return lines.join("\n")
+}
+
 type CacheEntry = {
   fetchedAt: number
   payload: PublicArticleExportPayload
