@@ -35,10 +35,6 @@ function singleLineHeading(text: string): string {
 /** 将导出数据格式化为 Markdown 文本（页面可直接原样展示） */
 export function formatPublicExportAsMarkdown(data: PublicArticleExportPayload): string {
   const lines: string[] = []
-  lines.push(`# ${data.displayName} 的订阅文章（公开导出）`)
-  lines.push("")
-  lines.push("- 数据范围: 最近 24 小时内，最多 500 篇，已排除稍后读")
-  lines.push("- 缓存说明: 首次访问后内存缓存 4 小时，仅在有人打开页面时刷新")
   lines.push(`- 生成时间: ${formatZhDateTime(data.generatedAt)}`)
   lines.push(`- 篇数: ${data.articleCount}`)
   lines.push("")
