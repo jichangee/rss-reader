@@ -1,5 +1,6 @@
 import type { Article, User } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { refreshFeedsForUserId } from "@/lib/refresh-user-feeds"
 
 const CACHE_TTL_MS = 4 * 60 * 60 * 1000
 const WINDOW_MS = 24 * 60 * 60 * 1000
@@ -148,8 +149,9 @@ async function buildPayload(user: User): Promise<PublicArticleExportPayload> {
 }
 
 /**
- * 首次访问或缓存超过 4 小时时查库；否则返回内存缓存。
- * 仅在请求到达本进程时刷新（无后台定时任务）。
+ * 缓存命中：直接返回内存缓存。
+ * 缓存未命中或过期：先对该用户执行一次强制 RSS 刷新（与站内刷新逻辑一致），再查库生成导出内容。
+ * 缓存仅在请求到达本进程时更新（无定时任务）。
  */
 export async function getPublicArticleExport(userId: string): Promise<PublicArticleExportPayload | null> {
   const user = await resolveUserFromExportPathId(userId)
@@ -159,6 +161,12 @@ export async function getPublicArticleExport(userId: string): Promise<PublicArti
   const hit = cacheByUserId.get(user.id)
   if (hit && now - hit.fetchedAt < CACHE_TTL_MS) {
     return hit.payload
+  }
+
+  try {
+    await refreshFeedsForUserId(user.id, { forceRefresh: true })
+  } catch (e) {
+    console.error("[public export] 订阅刷新失败，将使用已有数据库数据:", e)
   }
 
   const payload = await buildPayload(user)
