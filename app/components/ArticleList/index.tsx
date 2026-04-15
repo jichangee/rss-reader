@@ -704,7 +704,7 @@ export default function ArticleList({
                   onClick={handleOpenPublicExport}
                   disabled={!publicExportUserId?.trim()}
                   className="flex items-center space-x-1 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-gray-800 dark:text-gray-300 dark:shadow-gray-900/20 dark:hover:bg-gray-700 transition-all duration-200"
-                  title="在新标签页打开公开导出（URL 含用户 ID；最近24小时，最多500篇；首次访问后缓存4小时）"
+                  title="在新标签页打开公开导出（URL 含用户 ID；最近24小时，最多500篇；首次访问后缓存1小时）"
                 >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">导出页面</span>

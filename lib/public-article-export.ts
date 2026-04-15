@@ -2,7 +2,7 @@ import type { Article, User } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { refreshFeedsForUserId } from "@/lib/refresh-user-feeds"
 
-const CACHE_TTL_MS = 4 * 60 * 60 * 1000
+const CACHE_TTL_MS = 60 * 60 * 1000
 const WINDOW_MS = 24 * 60 * 60 * 1000
 const MAX_ARTICLES = 500
 
