@@ -26,7 +26,8 @@ export type PublicArticleExportPayload = {
 function formatZhDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString("zh-CN", { hour12: false })
+  // 强制按 UTC+8（Asia/Shanghai）展示，避免服务器/部署环境时区导致偏移
+  return d.toLocaleString("zh-CN", { hour12: false, timeZone: "Asia/Shanghai" })
 }
 
 function singleLineHeading(text: string): string {

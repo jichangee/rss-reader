@@ -89,7 +89,11 @@ function UserGrowthChart({ data }: { data: Array<{ date: string; count: number }
   // 格式化日期显示
   const formatDateLabel = (dateString: string) => {
     const date = new Date(dateString)
-    return `${date.getMonth() + 1}/${date.getDate()}`
+    return new Intl.DateTimeFormat("zh-CN", {
+      timeZone: "Asia/Shanghai",
+      month: "numeric",
+      day: "numeric",
+    }).format(date)
   }
 
   // Y轴刻度

@@ -510,7 +510,11 @@ export default function SquareView({ onSubscribe }: SquareViewProps) {
                       {article.pubDate && (
                         <>
                           <span>·</span>
-                          <span>{new Date(article.pubDate).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(article.pubDate).toLocaleDateString("zh-CN", {
+                              timeZone: "Asia/Shanghai",
+                            })}
+                          </span>
                         </>
                       )}
                     </div>
