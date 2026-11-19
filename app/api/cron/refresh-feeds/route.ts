@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { articleRetentionCutoff } from "@/lib/article-retention"
 
 // Vercel Cron Job: 定时刷新所有用户的RSS订阅
 export async function GET(req: Request) {
@@ -22,6 +23,7 @@ export async function GET(req: Request) {
 
     console.log("============ Cron Job 开始 ============")
     const startTime = Date.now()
+    const retentionCutoff = articleRetentionCutoff(startTime)
 
     // 获取所有用户及其订阅
     const users = await prisma.user.findMany({
@@ -129,7 +131,7 @@ export async function GET(req: Request) {
                     guid,
                   }
                 })
-                .filter((article: any) => !existingGuidSet.has(article.guid))
+                .filter((article) => article.pubDate >= retentionCutoff && !existingGuidSet.has(article.guid))
                 .filter((article: any) => {
                   // 如果没有设置过滤关键词，则保留所有文章
                   if (filterKeywords.length === 0) return true

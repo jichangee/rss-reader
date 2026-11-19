@@ -1,6 +1,7 @@
 import type { Feed } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { parseRSSWithTimeout } from "@/lib/rss-parser"
+import { articleRetentionCutoff } from "@/lib/article-retention"
 
 type ParsedFeedItem = {
   guid?: string
@@ -30,6 +31,7 @@ export async function refreshFeedsForUserId(
   options: { forceRefresh?: boolean; feedIds?: string[] }
 ): Promise<RefreshFeedsForUserResult> {
   const startTime = Date.now()
+  const retentionCutoff = articleRetentionCutoff(startTime)
   const forceRefresh = options.forceRefresh === true
   const feedIds = options.feedIds
 
@@ -66,7 +68,7 @@ export async function refreshFeedsForUserId(
   )
 
   const refreshResults = await Promise.allSettled(
-    feedsToRefresh.map((feed) => refreshSingleFeed(feed))
+    feedsToRefresh.map((feed) => refreshSingleFeed(feed, retentionCutoff))
   )
 
   const successCount = refreshResults.filter((r) => r.status === "fulfilled").length
@@ -93,7 +95,10 @@ export async function refreshFeedsForUserId(
   }
 }
 
-async function refreshSingleFeed(feed: Feed): Promise<{ success: true; feedId: string; newArticlesCount: number }> {
+async function refreshSingleFeed(
+  feed: Feed,
+  retentionCutoff: Date
+): Promise<{ success: true; feedId: string; newArticlesCount: number }> {
   const parsedFeed = await parseRSSWithTimeout(feed.url, 8000)
 
   const updateData: Record<string, unknown> = {
@@ -155,7 +160,7 @@ async function refreshSingleFeed(feed: Feed): Promise<{ success: true; feedId: s
           guid,
         }
       })
-      .filter((article) => !existingGuidSet.has(article.guid))
+      .filter((article) => article.pubDate >= retentionCutoff && !existingGuidSet.has(article.guid))
       .filter((article) => {
         if (filterKeywords.length === 0) return true
         const titleLower = (article.title || "").toLowerCase()

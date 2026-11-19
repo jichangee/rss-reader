@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { refreshFeedsForUserId } from "@/lib/refresh-user-feeds"
+import { recordFeedRefresh } from "@/lib/article-retention"
 
 // 刷新订阅 - 同步版本
 export async function POST(req: Request) {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     const MIN_REFRESH_INTERVAL = 10 * 60 * 1000 // 10分钟
-    const now = Date.now()
+    const now = new Date()
 
     let feedIds: string[] | undefined
     let forceRefresh = false
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     if (!forceRefresh && user.lastRefreshRequestAt) {
-      const timeSinceLastRefresh = now - new Date(user.lastRefreshRequestAt).getTime()
+      const timeSinceLastRefresh = now.getTime() - user.lastRefreshRequestAt.getTime()
       if (timeSinceLastRefresh < MIN_REFRESH_INTERVAL) {
         const remainingMinutes = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / (60 * 1000))
         return NextResponse.json(
@@ -51,14 +52,7 @@ export async function POST(req: Request) {
       }
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        lastRefreshRequestAt: new Date(),
-        lastActiveAt: new Date(),
-      },
-    })
-
+    await recordFeedRefresh(user, now)
     const result = await refreshFeedsForUserId(user.id, { forceRefresh, feedIds })
 
     const totalTime = Date.now() - startTime
