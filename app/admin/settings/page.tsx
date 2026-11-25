@@ -49,7 +49,6 @@ interface SettingsData {
     nodeEnv: string
     hasAdminEmails: boolean
     hasCronSecret: boolean
-    hasGoogleTranslateKey: boolean
   }
 }
 
@@ -251,14 +250,6 @@ export default function SettingsPage() {
               <CheckCircle2 className="h-5 w-5 text-green-600" />
             ) : (
               <XCircle className="h-5 w-5 text-red-600" />
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600 dark:text-gray-400">翻译 API Key</span>
-            {settings.env.hasGoogleTranslateKey ? (
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-            ) : (
-              <XCircle className="h-5 w-5 text-gray-400" />
             )}
           </div>
         </div>

@@ -10,13 +10,23 @@ import AddFeedModal from "@/app/components/AddFeedModal"
 import EditFeedModal from "@/app/components/EditFeedModal"
 import { Loader2, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { Article } from "@/app/components/ArticleList/types"
+import { translateArticles } from "@/lib/translate"
+
+type DashboardArticle = Article & { feed: Article["feed"] & { id: string } }
+
+interface ArticlePage {
+  articles: DashboardArticle[]
+  nextCursor: string | null
+  hasNextPage: boolean
+}
 
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [feeds, setFeeds] = useState<any[]>([])
-  const [articles, setArticles] = useState<any[]>([])
+  const [articles, setArticles] = useState<DashboardArticle[]>([])
   const [selectedFeed, setSelectedFeed] = useState<string | null>(null)
   const [isReadLaterView, setIsReadLaterView] = useState(false)
   const [isSquareView, setIsSquareView] = useState(false)
@@ -186,6 +196,35 @@ function DashboardContent() {
     }
   }
 
+  const applyArticlePage = (page: ArticlePage, reset: boolean) => {
+    setArticles((current) => reset ? page.articles : [...current, ...page.articles])
+    setNextCursor(page.nextCursor)
+    setHasMore(page.hasNextPage)
+
+    const candidates = page.articles.filter((article) => article.feed.enableTranslation)
+    if (candidates.length === 0) return
+
+    fetch("/api/user/settings").then(async (response) => {
+      if (!response.ok) return
+
+      const { targetLanguage }: { targetLanguage: string } = await response.json()
+      if (!targetLanguage.trim()) return
+
+      const translations = await translateArticles(candidates, targetLanguage)
+      if (translations.size === 0) return
+
+      const originalById = new Map(candidates.map((article) => [article.id, article]))
+      setArticles((current) => current.map((article) => {
+        const original = originalById.get(article.id)
+        const translation = translations.get(article.id)
+        // 已读状态更新会保留 feed 对象，重新加载的文章则使用新的 feed 对象。
+        return translation && original?.feed === article.feed ? { ...article, ...translation } : article
+      }))
+    }).catch((error) => {
+      console.error("加载翻译设置失败:", error)
+    })
+  }
+
   const loadArticles = async (feedId?: string, unread?: boolean, reset = true, silent = false, readLaterOnly = false) => {
     try {
       // 非静默模式下，总是显示 loading 状态
@@ -196,7 +235,6 @@ function DashboardContent() {
           setArticles([])
         }
       }
-      const hasExistingData = articles.length > 0
       const params = new URLSearchParams()
       if (feedId) params.append("feedId", feedId)
       if (unread && !readLaterOnly) params.append("unreadOnly", "true")
@@ -211,9 +249,7 @@ function DashboardContent() {
         
         if (hasArticles) {
           // 如果有文章数据，先返回数据，再静默调用刷新接口
-          setArticles(reset ? data.articles : [...articles, ...data.articles])
-          setNextCursor(data.nextCursor)
-          setHasMore(data.hasNextPage)
+          applyArticlePage(data, reset)
           
           // 静默刷新（不阻塞UI），传入 hasExistingArticles=true 表示当前有文章数据
           refreshFeedsSilently(feedId, true).catch(err => {
@@ -247,27 +283,16 @@ function DashboardContent() {
                 const articlesRes = await fetch(`/api/articles?${params.toString()}`)
                 if (articlesRes.ok) {
                   const articlesData = await articlesRes.json()
-                  setArticles(reset ? articlesData.articles : [...articles, ...articlesData.articles])
-                  setNextCursor(articlesData.nextCursor)
-                  setHasMore(articlesData.hasNextPage)
+                  applyArticlePage(articlesData, reset)
                 }
-              } else if (refreshRes.status === 429) {
-                // 刷新过于频繁，仍然加载现有数据
-                setArticles(reset ? data.articles : [...articles, ...data.articles])
-                setNextCursor(data.nextCursor)
-                setHasMore(data.hasNextPage)
               } else {
                 // 刷新失败，仍然加载现有数据
-                setArticles(reset ? data.articles : [...articles, ...data.articles])
-                setNextCursor(data.nextCursor)
-                setHasMore(data.hasNextPage)
+                applyArticlePage(data, reset)
               }
             } catch (refreshError) {
               console.error("刷新失败:", refreshError)
               // 刷新失败，仍然加载现有数据
-              setArticles(reset ? data.articles : [...articles, ...data.articles])
-              setNextCursor(data.nextCursor)
-              setHasMore(data.hasNextPage)
+              applyArticlePage(data, reset)
             }
           }
         }
@@ -321,9 +346,7 @@ function DashboardContent() {
       const res = await fetch(`/api/articles?${params.toString()}`)
       if (res.ok) {
         const data = await res.json()
-        setArticles([...articles, ...data.articles])
-        setNextCursor(data.nextCursor)
-        setHasMore(data.hasNextPage)
+        applyArticlePage(data, false)
       }
     } catch (error) {
       console.error("加载更多文章失败:", error)

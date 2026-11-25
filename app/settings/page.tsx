@@ -91,7 +91,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = async (language = targetLanguage) => {
     // 清除之前的定时器
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
@@ -106,7 +106,7 @@ export default function SettingsPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
-            targetLanguage, 
+            targetLanguage: language,
             translationProvider,
             googleTranslateApiKey,
             niutransApiKey,
@@ -291,7 +291,7 @@ export default function SettingsPage() {
               </AccordionTrigger>
               <AccordionContent className="px-6 pb-6">
                 <p className="mb-6 text-sm text-gray-600 dark:text-gray-400">
-                  设置默认的翻译目标语言和翻译服务提供商。在添加订阅时，你可以为每个订阅单独选择是否启用翻译。
+                  启用翻译的订阅会在浏览器中调用 Google 翻译，将文章显示为你设置的目标语言。
                 </p>
 
                 <div className="space-y-6">
@@ -306,7 +306,7 @@ export default function SettingsPage() {
                       value={targetLanguage} 
                       onValueChange={(value) => {
                         setTargetLanguage(value)
-                        handleSave()
+                        handleSave(value)
                       }}
                     >
                       <SelectTrigger id="target-language" className="w-full">

@@ -61,8 +61,7 @@ export async function GET(request: Request) {
       env: {
         nodeEnv: process.env.NODE_ENV,
         hasAdminEmails: !!process.env.ADMIN_EMAILS,
-        hasCronSecret: !!process.env.CRON_SECRET,
-        hasGoogleTranslateKey: !!process.env.GOOGLE_TRANSLATE_API_KEY
+        hasCronSecret: !!process.env.CRON_SECRET
       }
     })
   } catch (error: unknown) {
