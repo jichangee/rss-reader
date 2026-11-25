@@ -59,6 +59,7 @@ function DashboardContent() {
   const [autoRefreshOnLoad, setAutoRefreshOnLoad] = useState(true)
   const [isRefreshingAfterMarkAllRead, setIsRefreshingAfterMarkAllRead] = useState(false)
   const [isManualRefreshing, setIsManualRefreshing] = useState(false)
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false)
   const [isCleaningOldArticles, setIsCleaningOldArticles] = useState(false)
   const [sortBy, setSortBy] = useState<'default' | 'oldest'>('default')
   const hasInitialLoadRef = useRef(false)
@@ -135,6 +136,7 @@ function DashboardContent() {
 
           if (isStale || totalUnread === 0) {
             autoRefreshedOnLoadRef.current = true
+            setIsAutoRefreshing(true)
             try {
               const res = await fetch("/api/feeds/refresh", {
                 method: "POST",
@@ -148,6 +150,8 @@ function DashboardContent() {
               }
             } catch (error) {
               console.error("Auto-refresh on load failed:", error)
+            } finally {
+              setIsAutoRefreshing(false)
             }
           }
         }
@@ -825,6 +829,12 @@ function DashboardContent() {
             <span className="font-medium">菜单</span>
           </Button>
         </div>
+        {!isSquareView && !isReadLaterView && (isManualRefreshing || isAutoRefreshing) && (
+          <div role="status" className="flex shrink-0 items-center justify-center gap-2 border-b border-border bg-background px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            <span>正在刷新订阅…</span>
+          </div>
+        )}
         <div className="flex-1 overflow-hidden">
           {isSquareView ? (
             <SquareView onSubscribe={() => {
